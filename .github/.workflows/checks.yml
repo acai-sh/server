@@ -1,0 +1,129 @@
+name: Test & Check Formatting
+
+on:
+    pull_request:
+        types: [opened, synchronize, reopened]
+    push:
+        branches: [main]
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    ELIXIR_VERSION: "1.19.5"
+    OTP_VERSION: "28.3.1"
+
+jobs:
+    format:
+        runs-on: ubuntu-24.04
+        timeout-minutes: 5
+        env:
+            MIX_ENV: dev
+        steps:
+            - uses: actions/checkout@v4
+
+            - id: beam
+              name: Set up Elixir/OTP
+              uses: erlef/setup-beam@v1
+              with:
+                  elixir-version: ${{ env.ELIXIR_VERSION }}
+                  otp-version: ${{ env.OTP_VERSION }}
+                  version-type: strict
+
+            - name: Cache deps
+              uses: actions/cache@v4
+              with:
+                  path: deps
+                  key: ${{ runner.os }}-deps-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('**/mix.lock') }}
+                  restore-keys: ${{ runner.os }}-deps-
+
+            - name: Cache build (dev)
+              uses: actions/cache@v4
+              with:
+                  path: _build
+                  key: ${{ runner.os }}-build-${{ env.MIX_ENV }}-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('**/mix.lock') }}
+                  restore-keys: ${{ runner.os }}-build-${{ env.MIX_ENV }}-
+
+            - name: Install deps (dev only)
+              run: |
+                  mix local.hex --force
+                  mix local.rebar --force
+                  mix deps.get --only dev
+
+            # Warm _build so mix format doesn't compile deps each run
+            - name: Compile deps (dev)
+              run: mix deps.compile
+
+            - name: Check code formatting
+              run: mix format --check-formatted
+
+    test:
+        runs-on: ubuntu-24.04
+        timeout-minutes: 5
+
+        services:
+            postgres:
+                image: postgres:17.6-alpine
+                env:
+                    POSTGRES_USER: postgres
+                    POSTGRES_PASSWORD: postgres
+                    POSTGRES_DB: acai_test
+                    # Speed up initdb; safe for CI-only ephemeral DB
+                    POSTGRES_INITDB_ARGS: "--no-sync --encoding=UTF8 --locale=C"
+                options: >-
+                    --name pg
+                    --tmpfs /var/lib/postgresql/data:rw
+                ports:
+                    - 5432:5432
+
+        env:
+            MIX_ENV: test
+            POSTGRES_HOST: localhost
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: acai_test
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - id: beam
+              name: Set up Elixir/OTP
+              uses: erlef/setup-beam@v1
+              with:
+                  elixir-version: ${{ env.ELIXIR_VERSION }}
+                  otp-version: ${{ env.OTP_VERSION }}
+                  version-type: strict
+
+            - name: Cache deps
+              uses: actions/cache@v4
+              with:
+                  path: deps
+                  key: ${{ runner.os }}-deps-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('**/mix.lock') }}
+                  restore-keys: ${{ runner.os }}-deps-
+
+            - name: Install deps (test only)
+              run: |
+                  mix local.hex --force
+                  mix local.rebar --force
+                  mix deps.get --only test
+
+            - name: Cache build (test)
+              uses: actions/cache@v4
+              with:
+                  path: _build
+                  key: ${{ runner.os }}-build-${{ env.MIX_ENV }}-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('**/mix.lock') }}
+                  restore-keys: ${{ runner.os }}-build-${{ env.MIX_ENV }}-
+
+            - name: Compile (warnings as errors)
+              run: mix compile --warnings-as-errors
+
+            - name: Prepare database
+              run: mix ecto.create --quiet && mix ecto.migrate --quiet
+
+            - name: Run tests
+              run: mix test --color

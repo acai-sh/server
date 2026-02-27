@@ -1,0 +1,14 @@
+# Caddyfile.prod
+# Set with env `CADDYFILE=prod` and restart caddy container
+{
+	admin off
+}
+
+app.acai.sh {
+	# ping _caddy for health check
+	@health path /_caddy
+    respond @health "ok: Caddyfile.prod" 200
+
+	encode gzip
+	reverse_proxy app:4000
+}

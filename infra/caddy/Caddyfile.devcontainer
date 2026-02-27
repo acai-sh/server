@@ -1,0 +1,10 @@
+# Caddyfile.devcontainer
+
+:80 {
+	# ping _caddy for health check
+	@health path /_caddy
+    respond @health "ok: Caddyfile.devcontainer" 200
+
+	encode gzip
+	reverse_proxy devcontainer:4000
+}

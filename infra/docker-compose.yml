@@ -1,0 +1,217 @@
+name: ${INSTANCE_NAME:-infra}
+
+services:
+    caddy:
+        image: caddy:2.11
+        restart: unless-stopped
+        cap_add:
+            - NET_ADMIN
+        ports:
+            # 1. Main App Access (This connects URL_PORT to the internal Caddy)
+            - "127.0.0.1:${URL_PORT:-4000}:80"
+            # 2. Raw Web Ports (Must be offset or the second agent crashes)
+            - "${HTTP_PORT:-80}:80"
+            - "${HTTPS_PORT:-443}:443"
+            - "${HTTPS_PORT:-443}:443/udp"
+        volumes:
+            # Copy Caddyfile to configure reverse proxy
+            - ./caddy/Caddyfile.${CADDYFILE:-prod}:/etc/caddy/Caddyfile:ro
+            # To persist certs and tls state across container rebuilds
+            - caddy_data:/data
+            # In case we use json api to push live-updates and want to persist it
+            - caddy_config:/config
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "3"
+        deploy:
+            resources:
+                limits:
+                    memory: 128M
+                reservations:
+                    memory: 32M
+
+    db:
+        # https://hub.docker.com/_/postgres
+        image: postgres:18.3
+        restart: unless-stopped
+        shm_size: 3gb
+        command:
+            - "postgres"
+            - "-c"
+            - "shared_buffers=2GB"
+            - "-c"
+            - "effective_cache_size=5GB"
+            - "-c"
+            - "work_mem=16MB"
+            - "-c"
+            - "maintenance_work_mem=256MB"
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER:-postgres}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+            POSTGRES_DB: ${POSTGRES_DB:-acai_prod}
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-acai_prod}",
+                ]
+            interval: 5s
+            timeout: 5s
+            retries: 10
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "3"
+        deploy:
+            resources:
+                limits:
+                    memory: 4G
+                reservations:
+                    memory: 1G
+
+    backup:
+        build:
+            context: ./backup
+            dockerfile: Dockerfile
+        restart: unless-stopped
+        depends_on:
+            db:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD-SHELL", "ps | grep '[c]rond' || exit 1"]
+            interval: 60s
+            timeout: 5s
+            retries: 3
+        environment:
+            BACKUP_CRON_SCHEDULE: ${BACKUP_CRON_SCHEDULE:-0 0 * * *}
+            POSTGRES_DB: ${POSTGRES_DB:-acai_prod}
+            POSTGRES_HOST: ${POSTGRES_HOST:-db}
+            # pgsql client expects PGPASSWORD and not POSTGRES_PASSWORD
+            PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+            POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+            POSTGRES_USER: ${POSTGRES_USER:-postgres}
+            RESTIC_CACHE_DIR: ${RESTIC_CACHE_DIR:-/var/backups/restic/cache}
+            RESTIC_LOCAL_REPO: ${RESTIC_LOCAL_REPO:-/var/backups/restic/local}
+            RESTIC_REMOTE_REPO: ${RESTIC_REMOTE_REPO:-s3:nbg1.your-objectstorage.com/acai-prod}
+            RESTIC_PASSWORD: ${RESTIC_PASSWORD:-}
+            AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+            AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-nbg1}
+            AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+            BACKUP_HEARTBEAT_URL: ${BACKUP_HEARTBEAT_URL:-}
+        volumes:
+            - backup_data:/var/backups
+            - ./backup:/opt/backup:ro
+        entrypoint: ["/opt/backup/entrypoint.sh"]
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "3"
+        deploy:
+            resources:
+                limits:
+                    memory: 512M
+                reservations:
+                    memory: 64M
+
+    app:
+        image: ghcr.io/acai-sh/service:${IMAGE_TAG_VERSION:-latest}
+        restart: unless-stopped
+        pull_policy: always
+        build:
+            context: ..
+            dockerfile: infra/app/Dockerfile
+            target: prod
+        depends_on:
+            caddy:
+                condition: service_started
+            db:
+                condition: service_healthy
+        environment:
+            DATABASE_URL: "ecto://${POSTGRES_USER:-}:${POSTGRES_PASSWORD:-}@${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-acai_prod}"
+            MAILGUN_API_KEY: ${MAILGUN_API_KEY:-}
+            MAILGUN_DOMAIN: ${MAILGUN_DOMAIN:-mg.acai.sh}
+            MAILGUN_BASE_URL: ${MAILGUN_BASE_URL:-https://api.mailgun.net/v3}
+            MAIL_FROM_NAME: ${MAIL_FROM_NAME:-acai.sh}
+            MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-noreply@mg.acai.sh}
+            MIX_ENV: prod
+            PHX_PORT: ${PHX_PORT:-4000}
+            # Number of open pg connections that can be reused - monitor and experiment
+            # https://wiki.postgresql.org/wiki/Number_Of_Database_Connections
+            POOL_SIZE: ${POOL_SIZE:-10}
+            POSTGRES_DB: ${POSTGRES_DB:-acai_prod}
+            POSTGRES_HOST: ${POSTGRES_HOST:-db}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+            POSTGRES_USER: ${POSTGRES_USER:-}
+            SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
+            START_SERVER: true
+            URL_HOST: ${URL_HOST:-app.acai.sh}
+            URL_PATH: /
+            URL_PORT: ${URL_PORT:-443}
+            URL_SCHEME: ${URL_SCHEME:-https}
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "3"
+        deploy:
+            resources:
+                limits:
+                    cpus: "3.0"
+                    memory: 2.5G
+                reservations:
+                    memory: 512M
+
+    # We separate this service from `app` because:
+    # - it has a different build stage target (dev)
+    # - it mounts source code
+    # - so we can reference it in devcontainer.json
+    devcontainer:
+        build:
+            context: ..
+            dockerfile: infra/app/Dockerfile
+            target: dev
+        depends_on:
+            caddy:
+                condition: service_started
+            db:
+                condition: service_healthy
+        environment:
+            DATABASE_URL: "ecto://postgres:postgres@db:5432/acai_dev"
+            MAILGUN_API_KEY: none
+            MAILGUN_DOMAIN: none
+            MAILGUN_BASE_URL: none
+            MAIL_FROM_NAME: ${MAIL_FROM_NAME:-acai.sh}
+            MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-noreply@mg.acai.sh}
+            MIX_ENV: dev
+            PHX_PORT: "4000"
+            POOL_SIZE: "10"
+            POSTGRES_DB: acai_dev
+            POSTGRES_HOST: db
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_USER: postgres
+            SECRET_KEY_BASE: UNSAFE_development_/secret_key_base_do_not_use_UNSECURED++UNSAFE
+            START_SERVER: false
+            URL_HOST: localhost
+            URL_PATH: /
+            URL_PORT: ${URL_PORT:-4000}
+            URL_SCHEME: http
+        volumes:
+            - ..:/app
+        # start the mix dev server
+        command: sh -c "mix deps.get && mix compile && mix phx.server"
+        stdin_open: true
+        tty: true
+        user: "vscode"
+        # No explicit network needed here, Compose V2 creates a default one
+
+volumes:
+    postgres_data:
+    caddy_data:
+    caddy_config:
+    backup_data:

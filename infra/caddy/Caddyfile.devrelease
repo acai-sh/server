@@ -1,0 +1,10 @@
+# Caddyfile.devrelease
+# For localhost, but points at app service instead of devcontainer service
+:80 {
+	# ping _caddy for health check
+	@health path /_caddy
+    respond @health "ok: Caddyfile.devrelease" 200
+
+	encode gzip
+	reverse_proxy app:4000
+}

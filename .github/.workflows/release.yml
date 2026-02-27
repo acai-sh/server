@@ -1,0 +1,109 @@
+name: Build release and publish image
+
+on:
+    push:
+        tags:
+            - "v*" # v1.0.1, v1.0.1-canary.0, etc.
+            - "*.*.*" # 1.0.1
+            - "*.*.*-*" # 1.0.1-canary.0, 1.0.1-hotfix.1, etc.
+
+permissions:
+    contents: write # needed for gh release create
+    packages: write # needed to push to GHCR
+
+env:
+    ORG_NAME: acai-sh
+    IMAGE_NAME: ghcr.io/acai-sh/service
+
+jobs:
+    build-and-push:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Ensure tag commit is on main and version matches mix.exs
+              id: validate
+              run: |
+                  set -euo pipefail
+
+                  git fetch origin main --depth=1
+
+                  TAG_NAME="${GITHUB_REF_NAME}"
+                  TAG_COMMIT="$(git rev-list -n 1 "$TAG_NAME")"
+
+                  if ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
+                    echo "Tag $TAG_NAME is not on main; refusing to build."
+                    exit 1
+                  fi
+
+                  VERSION="$(grep -E '^[[:space:]]*version:' mix.exs | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
+                  if [ -z "$VERSION" ]; then
+                    echo "Could not determine version from mix.exs"
+                    exit 1
+                  fi
+
+                  TAG_VERSION_STRIPPED="${TAG_NAME#v}"
+
+                  if [ "$TAG_VERSION_STRIPPED" != "$VERSION" ]; then
+                    echo "Tag version ($TAG_VERSION_STRIPPED) does not match mix.exs version ($VERSION)."
+                    exit 1
+                  fi
+
+                  echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+                  echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
+
+            - name: Login to GitHub Container Registry
+              uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Fail if version tag already exists in GHCR
+              run: |
+                  set -euo pipefail
+
+                  IMAGE_VERSION_TAG="${IMAGE_NAME}:${VERSION}"
+
+                  if docker manifest inspect "$IMAGE_VERSION_TAG" > /dev/null 2>&1; then
+                    echo "Image tag $IMAGE_VERSION_TAG already exists in GHCR."
+                    echo "Refusing to overwrite a published version image."
+                    exit 1
+                  fi
+
+            - name: Build app image with docker compose
+              run: |
+                  set -euo pipefail
+                  docker compose -f infra/docker-compose.yml build app
+
+            - name: Tag image with version and latest
+              run: |
+                  set -euo pipefail
+
+                  # The build tags the image as IMAGE_NAME:latest per docker-compose.yml
+                  # We just need to add the version tag
+                  docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:${VERSION}"
+
+            - name: Push versioned and latest tags to GHCR
+              run: |
+                  set -euo pipefail
+
+                  docker push "${IMAGE_NAME}:${VERSION}"
+                  docker push "${IMAGE_NAME}:latest"
+
+            - name: Create GitHub Release (only if not already present)
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  set -euo pipefail
+
+                  if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+                    echo "GitHub Release for $TAG_NAME already exists; skipping creation."
+                    exit 0
+                  fi
+
+                  gh release create "$TAG_NAME" --generate-notes
