@@ -1,0 +1,3007 @@
+
+19:20:28.802 [info] Application logger started at :nonode@nohost
+
+19:20:28.804 [info] Application xp_mime started at :nonode@nohost
+
+19:20:28.804 [info] Application xp_hpax started at :nonode@nohost
+
+19:20:28.804 [info] Application crypto started at :nonode@nohost
+
+19:20:28.804 [info] Application asn1 started at :nonode@nohost
+
+19:20:28.804 [info] Application public_key started at :nonode@nohost
+
+19:20:28.806 [debug] Child :ssl_handler of Supervisor :logger_sup started
+Pid: #PID<0.105.0>
+Start Call: :logger_olp.start_link(:logger_std_h_ssl_handler, :logger_h_common, %{id: :ssl_handler, module: :logger_std_h, config: %{type: :standard_io, filesync_repeat_interval: :no_repeat}, level: :debug, filter_default: :stop, filters: [], formatter: {:ssl_logger, %{}}}, %{})
+Restart: :temporary
+Shutdown: 2000
+Type: :worker
+
+19:20:28.809 [info] Child :ssl_pem_cache of Supervisor :ssl_admin_sup started
+Pid: #PID<0.109.0>
+Start Call: :ssl_pem_cache.start_link([])
+Restart: :permanent
+Shutdown: 4000
+Type: :worker
+
+19:20:28.812 [info] Child :ssl_manager of Supervisor :ssl_admin_sup started
+Pid: #PID<0.110.0>
+Start Call: :ssl_manager.start_link([])
+Restart: :permanent
+Shutdown: 4000
+Type: :worker
+
+19:20:28.813 [info] Child :tls_client_ticket_store of Supervisor :ssl_admin_sup started
+Pid: #PID<0.111.0>
+Start Call: :tls_client_ticket_store.start_link(1000, 7200)
+Restart: :permanent
+Shutdown: 4000
+Type: :worker
+
+19:20:28.813 [info] Child :ssl_admin_sup of Supervisor :ssl_sup started
+Pid: #PID<0.108.0>
+Start Call: :ssl_admin_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.815 [info] Child :tls_connection_sup of Supervisor :tls_sup started
+Pid: #PID<0.114.0>
+Start Call: :tls_connection_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.817 [info] Child :ssl_listen_tracker_sup of Supervisor :tls_server_sup started
+Pid: #PID<0.116.0>
+Start Call: :ssl_listen_tracker_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.817 [info] Child :tls_server_session_ticket of Supervisor :tls_server_sup started
+Pid: #PID<0.117.0>
+Start Call: :tls_server_session_ticket_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.818 [info] Child :ssl_server_session_cache_sup of Supervisor :tls_server_sup started
+Pid: #PID<0.118.0>
+Start Call: :ssl_server_session_cache_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.819 [info] Child :ssl_upgrade_server_session_cache_sup of Supervisor :tls_server_sup started
+Pid: #PID<0.119.0>
+Start Call: :ssl_upgrade_server_session_cache_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.819 [info] Child :tls_server_sup of Supervisor :tls_sup started
+Pid: #PID<0.115.0>
+Start Call: :tls_server_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.819 [info] Child :tls_sup of Supervisor :ssl_connection_sup started
+Pid: #PID<0.113.0>
+Start Call: :tls_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.821 [info] Child :dtls_connection_sup of Supervisor :dtls_sup started
+Pid: #PID<0.121.0>
+Start Call: :dtls_connection_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.822 [info] Child :dtls_listener_sup of Supervisor :dtls_server_sup started
+Pid: #PID<0.123.0>
+Start Call: :dtls_listener_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.823 [info] Child :dtls_server_session_cache_sup of Supervisor :dtls_server_sup started
+Pid: #PID<0.124.0>
+Start Call: :dtls_server_session_cache_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.823 [info] Child :dtls_server_sup of Supervisor :dtls_sup started
+Pid: #PID<0.122.0>
+Start Call: :dtls_server_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.823 [info] Child :dtls_sup of Supervisor :ssl_connection_sup started
+Pid: #PID<0.120.0>
+Start Call: :dtls_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.823 [info] Child :ssl_connection_sup of Supervisor :ssl_sup started
+Pid: #PID<0.112.0>
+Start Call: :ssl_connection_sup.start_link()
+Restart: :permanent
+Shutdown: 4000
+Type: :supervisor
+
+19:20:28.823 [info] Application ssl started at :nonode@nohost
+
+19:20:28.824 [info] Application xp_mint started at :nonode@nohost
+
+19:20:28.824 [info] Application xp_nimble_options started at :nonode@nohost
+
+19:20:28.828 [info] Child XPNimblePool.TaskSupervisor of Supervisor #PID<0.130.0> (Supervisor.Default) started
+Pid: #PID<0.131.0>
+Start Call: Task.Supervisor.start_link([name: XPNimblePool.TaskSupervisor])
+Restart: :permanent
+Shutdown: :infinity
+Type: :supervisor
+
+19:20:28.828 [info] Application xp_nimble_pool started at :nonode@nohost
+
+19:20:28.830 [info] Child :telemetry_handler_table of Supervisor :telemetry_sup started
+Pid: #PID<0.135.0>
+Start Call: :telemetry_handler_table.start_link()
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:28.830 [info] Application xp_telemetry started at :nonode@nohost
+
+19:20:28.830 [info] Application xp_finch started at :nonode@nohost
+
+19:20:28.846 [info] Child XPReq.Finch.PIDPartition0 of Supervisor XPReq.Finch started
+Pid: #PID<0.141.0>
+Start Call: Registry.Partition.start_link(XPReq.Finch.PIDPartition0, {:duplicate, XPReq.Finch, 0, 1, XPReq.Finch.KeyPartition0, XPReq.Finch.PIDPartition0, [], false})
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:28.847 [info] Child XPReq.Finch of Supervisor XPReq.Finch.Supervisor started
+Pid: #PID<0.140.0>
+Start Call: Registry.start_link([keys: :duplicate, name: XPReq.Finch, meta: [config: %{pools: %{}, registry_name: XPReq.Finch, supervisor_name: XPReq.Finch.PoolSupervisor, manager_name: XPReq.Finch.PoolManager, default_pool_config: %{count: 1, size: 50, mod: XPFinch.HTTP1.Pool, conn_opts: [protocols: [:http1], transport_opts: [keepalive: true, nodelay: true, timeout: 5000], ssl_key_log_file_device: nil], pool_max_idle_time: :infinity, conn_max_idle_time: :infinity, start_pool_metrics?: false}}]])
+Restart: :permanent
+Shutdown: :infinity
+Type: :supervisor
+
+19:20:28.847 [info] Child XPReq.Finch.PoolSupervisor of Supervisor XPReq.Finch.Supervisor started
+Pid: #PID<0.142.0>
+Start Call: DynamicSupervisor.start_link([name: XPReq.Finch.PoolSupervisor, strategy: :one_for_one])
+Restart: :permanent
+Shutdown: :infinity
+Type: :supervisor
+
+19:20:28.847 [info] Child XPFinch.PoolManager of Supervisor XPReq.Finch.Supervisor started
+Pid: #PID<0.143.0>
+Start Call: XPFinch.PoolManager.start_link(%{pools: %{}, registry_name: XPReq.Finch, supervisor_name: XPReq.Finch.PoolSupervisor, manager_name: XPReq.Finch.PoolManager, default_pool_config: %{count: 1, size: 50, mod: XPFinch.HTTP1.Pool, conn_opts: [protocols: [:http1], transport_opts: [keepalive: true, nodelay: true, timeout: 5000], ssl_key_log_file_device: nil], pool_max_idle_time: :infinity, conn_max_idle_time: :infinity, start_pool_metrics?: false}})
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:28.847 [info] Child XPReq.Finch of Supervisor #PID<0.138.0> (Supervisor.Default) started
+Pid: #PID<0.139.0>
+Start Call: XPFinch.start_link([name: XPReq.Finch, pools: %{default: [protocols: [:http1]]}])
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:28.847 [info] Child XPReq.FinchSupervisor of Supervisor #PID<0.138.0> (Supervisor.Default) started
+Pid: #PID<0.144.0>
+Start Call: DynamicSupervisor.start_link([strategy: :one_for_one, name: XPReq.FinchSupervisor])
+Restart: :permanent
+Shutdown: :infinity
+Type: :supervisor
+
+19:20:28.847 [info] Child XPReq.Test.Ownership of Supervisor #PID<0.138.0> (Supervisor.Default) started
+Pid: #PID<0.145.0>
+Start Call: XPReq.Test.Ownership.start_link([name: XPReq.Test.Ownership])
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:28.847 [info] Application xp_req started at :nonode@nohost
+
+19:20:28.847 [info] Application burrito started at :nonode@nohost
+
+19:20:28.850 [info] Child XPBriefly.Entry of Supervisor XPBriefly.Supervisor started
+Pid: #PID<0.149.0>
+Start Call: XPBriefly.Entry.start_link([])
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:28.851 [info] Application xp_briefly started at :nonode@nohost
+
+19:20:28.851 [info] Application xp_schematic started at :nonode@nohost
+
+19:20:28.851 [info] Application xp_typed_struct started at :nonode@nohost
+
+19:20:28.851 [info] Application xp_gen_lsp started at :nonode@nohost
+
+19:20:28.864 [info] Child XPSnowflake.Generator of Supervisor #PID<0.152.0> (Supervisor.Default) started
+Pid: #PID<0.153.0>
+Start Call: XPSnowflake.Generator.start_link(0, 1023)
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:28.865 [info] Application xp_snowflake started at :nonode@nohost
+
+19:20:28.865 [info] Application xp_sourceror started at :nonode@nohost
+
+19:20:28.865 [info] Application xp_spitfire started at :nonode@nohost
+
+19:20:28.865 [info] Application xp_forge started at :nonode@nohost
+
+19:20:28.869 [info] Child :ttb_autostart of Supervisor :runtime_tools_sup started
+Pid: #PID<0.157.0>
+Start Call: :ttb_autostart.start_link()
+Restart: :temporary
+Shutdown: 3000
+Type: :worker
+
+19:20:28.869 [info] Application runtime_tools started at :nonode@nohost
+
+19:20:28.869 [info] Application et started at :nonode@nohost
+
+19:20:28.869 [info] Application observer started at :nonode@nohost
+
+19:20:28.869 [info] Application xp_path_glob started at :nonode@nohost
+
+19:20:28.883 instance_id=19C9D1CAFC6 [info] Starting NodePortMapper on nonode@nohost
+
+19:20:28.884 instance_id=19C9D1CAFC6 [info] Child XPForge.NodePortMapper of Supervisor XPExpert.Supervisor started
+Pid: #PID<0.162.0>
+Start Call: XPForge.NodePortMapper.start_link([])
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:28.885 instance_id=19C9D1CAFC6 [info] Child XPForge.Document.Store of Supervisor XPExpert.Supervisor started
+Pid: #PID<0.163.0>
+Start Call: XPForge.Document.Store.start_link([derive: [analysis: &XPForge.Ast.analyze/1]])
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:28.886 instance_id=19C9D1CAFC6 [info] Child XPExpert.ProjectSupervisor of Supervisor XPExpert.Supervisor started
+Pid: #PID<0.164.0>
+Start Call: DynamicSupervisor.start_link([name: XPExpert.ProjectSupervisor, strategy: :one_for_one])
+Restart: :permanent
+Shutdown: :infinity
+Type: :supervisor
+
+19:20:28.886 instance_id=19C9D1CAFC6 [info] Child XPExpert.DynamicSupervisor of Supervisor XPExpert.Supervisor started
+Pid: #PID<0.165.0>
+Start Call: DynamicSupervisor.start_link([name: XPExpert.DynamicSupervisor])
+Restart: :permanent
+Shutdown: :infinity
+Type: :supervisor
+
+19:20:28.887 instance_id=19C9D1CAFC6 [info] Child XPGenLSP.Assigns of Supervisor XPExpert.Supervisor started
+Pid: #PID<0.166.0>
+Start Call: XPGenLSP.Assigns.start_link([name: XPExpert.Assigns])
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:28.887 instance_id=19C9D1CAFC6 [info] Child :expert_task_queue of Supervisor XPExpert.Supervisor started
+Pid: #PID<0.167.0>
+Start Call: Task.Supervisor.start_link([name: :expert_task_queue])
+Restart: :permanent
+Shutdown: :infinity
+Type: :supervisor
+
+19:20:28.888 instance_id=19C9D1CAFC6 [info] Child XPGenLSP.Buffer of Supervisor XPExpert.Supervisor started
+Pid: #PID<0.168.0>
+Start Call: XPGenLSP.Buffer.start_link([name: XPExpert.Buffer])
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:28.888 instance_id=19C9D1CAFC6 [info] Child XPExpert.ActiveProjects of Supervisor XPExpert.Supervisor started
+Pid: #PID<0.169.0>
+Start Call: XPExpert.ActiveProjects.start_link()
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:28.888 instance_id=19C9D1CAFC6 [debug] [name: XPExpert, buffer: XPExpert.Buffer, task_supervisor: :expert_task_queue, dynamic_supervisor: XPExpert.DynamicSupervisor, assigns: XPExpert.Assigns]
+
+19:20:28.893 instance_id=19C9D1CAFC6 [info] Child XPExpert of Supervisor XPExpert.Supervisor started
+Pid: #PID<0.170.0>
+Start Call: XPExpert.start_link([name: XPExpert, buffer: XPExpert.Buffer, task_supervisor: :expert_task_queue, dynamic_supervisor: XPExpert.DynamicSupervisor, assigns: XPExpert.Assigns])
+Restart: :permanent
+Shutdown: 500
+Type: :worker
+
+19:20:28.893 instance_id=19C9D1CAFC6 [info] Application xp_expert started at :nonode@nohost
+
+19:20:29.009 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.008 instance_id=19C9D1CAFC6 [debug] handled request client -> server initialize in 107ms
+
+19:20:29.014 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.013 instance_id=19C9D1CAFC6 [info] Server initialized, registering capabilities
+
+19:20:29.014 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.014 instance_id=19C9D1CAFC6 [debug] sent request server -> client client/registerCapability
+
+19:20:29.022 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.022 instance_id=19C9D1CAFC6 [debug] handled notification client -> server initialized in 11ms
+
+19:20:29.022 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.022 instance_id=19C9D1CAFC6 [info] Starting project
+
+19:20:29.026 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.026 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeConfiguration in 3ms
+
+19:20:29.028 instance_id=19C9D1CAFC6 [info] Child {XPExpert.EngineSupervisor, "server"} of Supervisor :"server::supervisor" started
+Pid: #PID<0.175.0>
+Start Call: XPExpert.EngineSupervisor.start_link(%XPForge.Project{root_uri: "file:///home/brendanmc6/projects/acai-sh/server", mix_exs_uri: "file:///home/brendanmc6/projects/acai-sh/server/mix.exs", mix_project?: true, mix_env: nil, mix_target: nil, env_variables: %{}, project_module: nil, entropy: 20719})
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:29.029 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.029 instance_id=19C9D1CAFC6 [debug] sent request server -> client window/workDoneProgress/create
+
+19:20:29.031 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.031 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:20:29.033 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.033 instance_id=19C9D1CAFC6 [info] Opened file:///home/brendanmc6/projects/acai-sh/server/lib/acai.ex
+
+19:20:29.033 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.033 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didOpen in 6ms
+
+19:20:29.038 instance_id=19C9D1CAFC6 [info] Child XPForge.EPMD of Supervisor :net_sup started
+Pid: #PID<0.179.0>
+Start Call: XPForge.EPMD.start_link()
+Restart: :permanent
+Shutdown: 2000
+Type: :worker
+
+19:20:29.039 instance_id=19C9D1CAFC6 [info] Child :auth of Supervisor :net_sup started
+Pid: #PID<0.180.0>
+Start Call: :auth.start_link()
+Restart: :permanent
+Shutdown: 2000
+Type: :worker
+
+19:20:29.064 instance_id=19C9D1CAFC6 [info] Child :net_kernel of Supervisor :net_sup started
+Pid: #PID<0.181.0>
+Start Call: :net_kernel.start_link(%{name: :"expert-manager-server-20719@127.0.0.1", supervisor: :net_sup_dynamic, net_tickintensity: 4, net_ticktime: 60, name_domain: :longnames, clean_halt: false})
+Restart: :permanent
+Shutdown: 2000
+Type: :worker
+
+19:20:29.064 instance_id=19C9D1CAFC6 [debug] Child :net_sup_dynamic of Supervisor :kernel_sup started
+Pid: #PID<0.178.0>
+Start Call: :erl_distribution.start_link(%{name: :"expert-manager-server-20719@127.0.0.1", supervisor: :net_sup_dynamic, net_tickintensity: 4, net_ticktime: 60, name_domain: :longnames, clean_halt: false})
+Restart: :permanent
+Shutdown: 1000
+Type: :supervisor
+
+19:20:29.067 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.067 instance_id=19C9D1CAFC6 [debug] sent request server -> client window/workDoneProgress/create
+
+19:20:29.068 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.068 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:20:29.286 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.286 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:20:29.297 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.297 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 26ms
+
+19:20:29.814 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.814 instance_id=19C9D1CAFC6 [info] Using path: /home/brendanmc6/.local/share/.burrito/expert_erts-15.2.7_0.1.0-rc.5/erts-15.2.7/bin:/home/brendanmc6/.local/share/.burrito/expert_erts-15.2.7_0.1.0-rc.5/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/home/brendanmc6/.local/bin:/home/brendanmc6/.local/share/pnpm:/home/brendanmc6/.nvm/versions/node/v22.15.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Users/Brend/AppData/Local/Programs/cursor/resources/app/bin:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files/Tailscale/:/Docker/host/bin:/mnt/c/Program Files/Git/cmd:/mnt/c/Users/Brend/AppData/Local/Microsoft/WindowsApps:/mnt/c/Users/Brend/AppData/Local/Programs/Microsoft VS Code/bin:/mnt/c/Users/Brend/AppData/Local/Programs/cursor/resources/app/bin:/mnt/c/Users/Brend/AppData/Local/Programs/Antigravity/bin:/mnt/c/Users/Brend/AppData/Local/Programs/Zed/bin:/snap/bin:/home/brendanmc6/.foundry/bin
+
+19:20:29.814 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.814 instance_id=19C9D1CAFC6 [info] Found elixir executable at /usr/bin/elixir
+
+19:20:29.814 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.814 instance_id=19C9D1CAFC6 [info] Found erl executable at /usr/bin/erl
+
+19:20:29.814 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:29.814 instance_id=19C9D1CAFC6 [info] Preparing engine
+
+19:20:31.323 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.323 instance_id=19C9D1CAFC6 [debug] Engine build output: * creating /home/brendanmc6/.cache/expert/0.1.0-rc.5/tooling/elixir-1.14.0-erts-13.2.2.5/mix_home/archives/hex-2.3.1
+
+19:20:31.608 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.608 instance_id=19C9D1CAFC6 [debug] Engine build output: ==> mint
+
+19:20:31.608 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.608 instance_id=19C9D1CAFC6 [debug] Engine build output: Compiling 1 file (.erl)
+
+19:20:31.613 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.613 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:37:14: can't find include lib "public_key/include/public_key.hrl"
+
+19:20:31.613 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.613 instance_id=19C9D1CAFC6 [debug] Engine build output: %   37| -include_lib("public_key/include/public_key.hrl").
+
+19:20:31.613 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.613 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |              ^
+
+19:20:31.613 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.613 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.613 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.613 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:64:21: undefined macro 'id-ce-subjectAltName'
+
+19:20:31.613 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.613 instance_id=19C9D1CAFC6 [debug] Engine build output: %   64| 	try lists:keyfind(?'id-ce-subjectAltName',
+
+19:20:31.614 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.613 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | 	                   ^
+
+19:20:31.614 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.614 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.614 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.614 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:39:2: function pkix_verify_hostname/3 undefined
+
+19:20:31.614 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.614 instance_id=19C9D1CAFC6 [debug] Engine build output: %   39| -export([pkix_verify_hostname/2, pkix_verify_hostname/3]).
+
+19:20:31.614 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.614 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |  ^
+
+19:20:31.614 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.614 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:42:36: record 'OTPCertificate' undefined
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] Engine build output: %   42| -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |                                    ^
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:45:2: spec for undefined function pkix_verify_hostname/3
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] Engine build output: %   45| -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |  ^
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.615 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:45:36: record 'OTPCertificate' undefined
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] Engine build output: %   45| -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |                                    ^
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:52:5: function pkix_verify_hostname/3 undefined
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] Engine build output: %   52|     pkix_verify_hostname(Cert, ReferenceIDs, []).
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |     ^
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:114:1: Warning: function verify_hostname_extract_fqdn_default/1 is unused
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] Engine build output: %  114| verify_hostname_extract_fqdn_default({dns_id,S}) ->
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.616 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:122:1: Warning: function verify_hostname_fqnds/2 is unused
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] Engine build output: %  122| verify_hostname_fqnds(L, FqdnFun) ->
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:139:1: Warning: function verify_hostname_match_default/2 is unused
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] Engine build output: %  139| verify_hostname_match_default(Ref, Pres) ->
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:142:1: Warning: function verify_hostname_match_default0/2 is unused
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] Engine build output: %  142| verify_hostname_match_default0(FQDN=[_|_], {cn,FQDN}) ->
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.617 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:182:1: Warning: function ok/1 is unused
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] Engine build output: %  182| ok({ok,X}) -> X.
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:184:1: Warning: function l16_to_tup/1 is unused
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.618 instance_id=19C9D1CAFC6 [debug] Engine build output: %  184| l16_to_tup(L) -> list_to_tuple(l16_to_tup(L, [])).
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:186:1: Warning: function l16_to_tup/2 is unused
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] Engine build output: %  186| l16_to_tup([A,B|T], Acc) -> l16_to_tup(T, [(A bsl 8) bor B | Acc]);
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:189:1: Warning: function match_wild/2 is unused
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.619 instance_id=19C9D1CAFC6 [debug] Engine build output: %  189| match_wild(A,     [$*|B]) -> match_wild_suffixes(A, B);
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:195:1: Warning: function match_wild_suffixes/2 is unused
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] Engine build output: %  195| match_wild_suffixes(A, B) -> match_wild_sfx(lists:reverse(A), lists:reverse(B)).
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:197:1: Warning: function match_wild_sfx/2 is unused
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] Engine build output: %  197| match_wild_sfx([$*|_],      _) -> false; % Bad name (no wildcards allowed)
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.620 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:204:1: Warning: function verify_hostname_match_loop/5 is unused
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] Engine build output: %  204| verify_hostname_match_loop(Refs0, Pres0, undefined, FailCB, Cert) ->
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:227:1: Warning: function to_lower_ascii/1 is unused
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] Engine build output: %  227| to_lower_ascii({ip,_}=X) -> X;
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.621 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.622 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.622 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:234:1: Warning: function to_string/1 is unused
+
+19:20:31.622 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.622 instance_id=19C9D1CAFC6 [debug] Engine build output: %  234| to_string(S) when is_list(S) -> S;
+
+19:20:31.622 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.622 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:31.622 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.622 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:31.623 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.623 instance_id=19C9D1CAFC6 [debug] Engine build output: could not compile dependency :mint, "mix compile" failed. Errors may have been logged above. You can recompile this dependency with "mix deps.compile mint", update it with "mix deps.update mint" or clean it with "mix deps.clean mint"
+
+19:20:31.640 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.639 instance_id=19C9D1CAFC6 [error] Engine build script exited with status: 1
+
+19:20:31.640 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.640 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:20:31.641 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.641 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:20:31.641 instance_id=19C9D1CAFC6 [error] Process #PID<0.176.0> terminating
+** (exit) {:error, "Build script exited with status: 1", "could not compile dependency :mint, \"mix compile\" failed. Errors may have been logged above. You can recompile this dependency with \"mix deps.compile mint\", update it with \"mix deps.update mint\" or clean it with \"mix deps.clean mint\""}
+    (stdlib 6.2.2.1) gen_server.erl:2210: :gen_server.init_it/6
+    (stdlib 6.2.2.1) proc_lib.erl:329: :proc_lib.init_p_do_apply/3
+Initial Call: XPExpert.Project.Node.init/1
+Ancestors: [:"server::supervisor", XPExpert.ProjectSupervisor, XPExpert.Supervisor, #PID<0.159.0>]
+Message Queue Length: 0
+Messages: []
+Links: [#PID<0.174.0>]
+Dictionary: []
+Trapping Exits: false
+Status: :running
+Heap Size: 1598
+Stack Size: 29
+Reductions: 19202
+
+19:20:31.642 instance_id=19C9D1CAFC6 [error] Child {XPExpert.Project.Node, "server"} of Supervisor :"server::supervisor" failed to start
+** (exit) {:error, "Build script exited with status: 1", "could not compile dependency :mint, \"mix compile\" failed. Errors may have been logged above. You can recompile this dependency with \"mix deps.compile mint\", update it with \"mix deps.update mint\" or clean it with \"mix deps.clean mint\""}
+Start Call: XPExpert.Project.Node.start_link(%XPForge.Project{root_uri: "file:///home/brendanmc6/projects/acai-sh/server", mix_exs_uri: "file:///home/brendanmc6/projects/acai-sh/server/mix.exs", mix_project?: true, mix_env: nil, mix_target: nil, env_variables: %{}, project_module: nil, entropy: 20719})
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:31.643 instance_id=19C9D1CAFC6 [info] Child {XPExpert.EngineSupervisor, "server"} of Supervisor :"server::supervisor" started
+Pid: #PID<0.189.0>
+Start Call: XPExpert.EngineSupervisor.start_link(%XPForge.Project{root_uri: "file:///home/brendanmc6/projects/acai-sh/server", mix_exs_uri: "file:///home/brendanmc6/projects/acai-sh/server/mix.exs", mix_project?: true, mix_env: nil, mix_target: nil, env_variables: %{}, project_module: nil, entropy: 20719})
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:31.642 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.643 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.642 instance_id=19C9D1CAFC6 [error] Failed to start project node for server: {:shutdown,
+ {:failed_to_start_child, {XPExpert.Project.Node, "server"},
+  {:error, "Build script exited with status: 1",
+   "could not compile dependency :mint, \"mix compile\" failed. Errors may have been logged above. You can recompile this dependency with \"mix deps.compile mint\", update it with \"mix deps.update mint\" or clean it with \"mix deps.clean mint\""}}}
+
+19:20:31.643 instance_id=19C9D1CAFC6 [debug] sent request server -> client window/workDoneProgress/create
+
+19:20:31.643 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.643 instance_id=19C9D1CAFC6 [error] Failed to start child {XPExpert.Project.Node, "server"}: {:error, "Build script exited with status: 1", "could not compile dependency :mint, \"mix compile\" failed. Errors may have been logged above. You can recompile this dependency with \"mix deps.compile mint\", update it with \"mix deps.update mint\" or clean it with \"mix deps.clean mint\""}
+
+19:20:31.643 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.643 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/showMessage
+
+19:20:31.644 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.644 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:20:31.644 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.644 instance_id=19C9D1CAFC6 [debug] sent request server -> client window/workDoneProgress/create
+
+19:20:31.645 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:31.645 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:20:32.357 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:32.357 instance_id=19C9D1CAFC6 [info] Using path: /home/brendanmc6/.local/share/.burrito/expert_erts-15.2.7_0.1.0-rc.5/erts-15.2.7/bin:/home/brendanmc6/.local/share/.burrito/expert_erts-15.2.7_0.1.0-rc.5/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/home/brendanmc6/.local/bin:/home/brendanmc6/.local/share/pnpm:/home/brendanmc6/.nvm/versions/node/v22.15.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Users/Brend/AppData/Local/Programs/cursor/resources/app/bin:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files/Tailscale/:/Docker/host/bin:/mnt/c/Program Files/Git/cmd:/mnt/c/Users/Brend/AppData/Local/Microsoft/WindowsApps:/mnt/c/Users/Brend/AppData/Local/Programs/Microsoft VS Code/bin:/mnt/c/Users/Brend/AppData/Local/Programs/cursor/resources/app/bin:/mnt/c/Users/Brend/AppData/Local/Programs/Antigravity/bin:/mnt/c/Users/Brend/AppData/Local/Programs/Zed/bin:/snap/bin:/home/brendanmc6/.foundry/bin
+
+19:20:32.357 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:32.357 instance_id=19C9D1CAFC6 [info] Found elixir executable at /usr/bin/elixir
+
+19:20:32.357 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:32.357 instance_id=19C9D1CAFC6 [info] Found erl executable at /usr/bin/erl
+
+19:20:32.357 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:32.357 instance_id=19C9D1CAFC6 [info] Preparing engine
+
+19:20:33.075 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.075 instance_id=19C9D1CAFC6 [info] Opened file:///home/brendanmc6/projects/acai-sh/server/config/config.exs
+
+19:20:33.075 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.075 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didOpen in 1ms
+
+19:20:33.088 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.088 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didClose in 2ms
+
+19:20:33.209 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.209 instance_id=19C9D1CAFC6 [debug] Engine build output: * creating /home/brendanmc6/.cache/expert/0.1.0-rc.5/tooling/elixir-1.14.0-erts-13.2.2.5/mix_home/archives/hex-2.3.1
+
+19:20:33.349 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.349 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:20:33.349 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.349 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 846µs
+
+19:20:33.397 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.397 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeLens before engine for server was initialized. Ignoring.
+
+19:20:33.398 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.398 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeLens in 5ms
+
+19:20:33.430 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.430 instance_id=19C9D1CAFC6 [debug] Engine build output: ==> mint
+
+19:20:33.430 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.430 instance_id=19C9D1CAFC6 [debug] Engine build output: Compiling 1 file (.erl)
+
+19:20:33.434 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.434 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:37:14: can't find include lib "public_key/include/public_key.hrl"
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.434 instance_id=19C9D1CAFC6 [debug] Engine build output: %   37| -include_lib("public_key/include/public_key.hrl").
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |              ^
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:64:21: undefined macro 'id-ce-subjectAltName'
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] Engine build output: %   64| 	try lists:keyfind(?'id-ce-subjectAltName',
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | 	                   ^
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.435 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:39:2: function pkix_verify_hostname/3 undefined
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] Engine build output: %   39| -export([pkix_verify_hostname/2, pkix_verify_hostname/3]).
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |  ^
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:42:36: record 'OTPCertificate' undefined
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] Engine build output: %   42| -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |                                    ^
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.436 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:45:2: spec for undefined function pkix_verify_hostname/3
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] Engine build output: %   45| -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |  ^
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:45:36: record 'OTPCertificate' undefined
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] Engine build output: %   45| -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |                                    ^
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:52:5: function pkix_verify_hostname/3 undefined
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.437 instance_id=19C9D1CAFC6 [debug] Engine build output: %   52|     pkix_verify_hostname(Cert, ReferenceIDs, []).
+
+19:20:33.438 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.438 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |     ^
+
+19:20:33.438 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.438 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:114:1: Warning: function verify_hostname_extract_fqdn_default/1 is unused
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] Engine build output: %  114| verify_hostname_extract_fqdn_default({dns_id,S}) ->
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:122:1: Warning: function verify_hostname_fqnds/2 is unused
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] Engine build output: %  122| verify_hostname_fqnds(L, FqdnFun) ->
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:139:1: Warning: function verify_hostname_match_default/2 is unused
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] Engine build output: %  139| verify_hostname_match_default(Ref, Pres) ->
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.439 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:142:1: Warning: function verify_hostname_match_default0/2 is unused
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: %  142| verify_hostname_match_default0(FQDN=[_|_], {cn,FQDN}) ->
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:182:1: Warning: function ok/1 is unused
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: %  182| ok({ok,X}) -> X.
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:184:1: Warning: function l16_to_tup/1 is unused
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: %  184| l16_to_tup(L) -> list_to_tuple(l16_to_tup(L, [])).
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:186:1: Warning: function l16_to_tup/2 is unused
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.440 instance_id=19C9D1CAFC6 [debug] Engine build output: %  186| l16_to_tup([A,B|T], Acc) -> l16_to_tup(T, [(A bsl 8) bor B | Acc]);
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:189:1: Warning: function match_wild/2 is unused
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] Engine build output: %  189| match_wild(A,     [$*|B]) -> match_wild_suffixes(A, B);
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:195:1: Warning: function match_wild_suffixes/2 is unused
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] Engine build output: %  195| match_wild_suffixes(A, B) -> match_wild_sfx(lists:reverse(A), lists:reverse(B)).
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.441 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:197:1: Warning: function match_wild_sfx/2 is unused
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] Engine build output: %  197| match_wild_sfx([$*|_],      _) -> false; % Bad name (no wildcards allowed)
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:204:1: Warning: function verify_hostname_match_loop/5 is unused
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.442 instance_id=19C9D1CAFC6 [debug] Engine build output: %  204| verify_hostname_match_loop(Refs0, Pres0, undefined, FailCB, Cert) ->
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:227:1: Warning: function to_lower_ascii/1 is unused
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] Engine build output: %  227| to_lower_ascii({ip,_}=X) -> X;
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:234:1: Warning: function to_string/1 is unused
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] Engine build output: %  234| to_string(S) when is_list(S) -> S;
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.443 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:33.444 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.444 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:33.445 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.445 instance_id=19C9D1CAFC6 [debug] Engine build output: could not compile dependency :mint, "mix compile" failed. Errors may have been logged above. You can recompile this dependency with "mix deps.compile mint", update it with "mix deps.update mint" or clean it with "mix deps.clean mint"
+
+19:20:33.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.463 instance_id=19C9D1CAFC6 [error] Engine build script exited with status: 1
+
+19:20:33.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:20:33.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:20:33.464 instance_id=19C9D1CAFC6 [error] Process #PID<0.190.0> terminating
+** (exit) {:error, "Build script exited with status: 1", "could not compile dependency :mint, \"mix compile\" failed. Errors may have been logged above. You can recompile this dependency with \"mix deps.compile mint\", update it with \"mix deps.update mint\" or clean it with \"mix deps.clean mint\""}
+    (stdlib 6.2.2.1) gen_server.erl:2210: :gen_server.init_it/6
+    (stdlib 6.2.2.1) proc_lib.erl:329: :proc_lib.init_p_do_apply/3
+Initial Call: XPExpert.Project.Node.init/1
+Ancestors: [:"server::supervisor", XPExpert.ProjectSupervisor, XPExpert.Supervisor, #PID<0.159.0>]
+Message Queue Length: 0
+Messages: []
+Links: [#PID<0.188.0>]
+Dictionary: []
+Trapping Exits: false
+Status: :running
+Heap Size: 2586
+Stack Size: 29
+Reductions: 16790
+
+19:20:33.464 instance_id=19C9D1CAFC6 [error] Child {XPExpert.Project.Node, "server"} of Supervisor :"server::supervisor" failed to start
+** (exit) {:error, "Build script exited with status: 1", "could not compile dependency :mint, \"mix compile\" failed. Errors may have been logged above. You can recompile this dependency with \"mix deps.compile mint\", update it with \"mix deps.update mint\" or clean it with \"mix deps.clean mint\""}
+Start Call: XPExpert.Project.Node.start_link(%XPForge.Project{root_uri: "file:///home/brendanmc6/projects/acai-sh/server", mix_exs_uri: "file:///home/brendanmc6/projects/acai-sh/server/mix.exs", mix_project?: true, mix_env: nil, mix_target: nil, env_variables: %{}, project_module: nil, entropy: 20719})
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:33.465 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.464 instance_id=19C9D1CAFC6 [error] Failed to start project node for server: {:shutdown,
+ {:failed_to_start_child, {XPExpert.Project.Node, "server"},
+  {:error, "Build script exited with status: 1",
+   "could not compile dependency :mint, \"mix compile\" failed. Errors may have been logged above. You can recompile this dependency with \"mix deps.compile mint\", update it with \"mix deps.update mint\" or clean it with \"mix deps.clean mint\""}}}
+
+19:20:33.465 instance_id=19C9D1CAFC6 [info] Child {XPExpert.EngineSupervisor, "server"} of Supervisor :"server::supervisor" started
+Pid: #PID<0.198.0>
+Start Call: XPExpert.EngineSupervisor.start_link(%XPForge.Project{root_uri: "file:///home/brendanmc6/projects/acai-sh/server", mix_exs_uri: "file:///home/brendanmc6/projects/acai-sh/server/mix.exs", mix_project?: true, mix_env: nil, mix_target: nil, env_variables: %{}, project_module: nil, entropy: 20719})
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:33.465 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.465 instance_id=19C9D1CAFC6 [debug] sent request server -> client window/workDoneProgress/create
+
+19:20:33.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:20:33.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.466 instance_id=19C9D1CAFC6 [debug] sent request server -> client window/workDoneProgress/create
+
+19:20:33.467 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:33.467 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:20:34.218 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:34.218 instance_id=19C9D1CAFC6 [info] Using path: /home/brendanmc6/.local/share/.burrito/expert_erts-15.2.7_0.1.0-rc.5/erts-15.2.7/bin:/home/brendanmc6/.local/share/.burrito/expert_erts-15.2.7_0.1.0-rc.5/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/home/brendanmc6/.local/bin:/home/brendanmc6/.local/share/pnpm:/home/brendanmc6/.nvm/versions/node/v22.15.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Users/Brend/AppData/Local/Programs/cursor/resources/app/bin:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files/Tailscale/:/Docker/host/bin:/mnt/c/Program Files/Git/cmd:/mnt/c/Users/Brend/AppData/Local/Microsoft/WindowsApps:/mnt/c/Users/Brend/AppData/Local/Programs/Microsoft VS Code/bin:/mnt/c/Users/Brend/AppData/Local/Programs/cursor/resources/app/bin:/mnt/c/Users/Brend/AppData/Local/Programs/Antigravity/bin:/mnt/c/Users/Brend/AppData/Local/Programs/Zed/bin:/snap/bin:/home/brendanmc6/.foundry/bin
+
+19:20:34.219 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:34.219 instance_id=19C9D1CAFC6 [info] Found elixir executable at /usr/bin/elixir
+
+19:20:34.219 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:34.219 instance_id=19C9D1CAFC6 [info] Found erl executable at /usr/bin/erl
+
+19:20:34.219 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:34.219 instance_id=19C9D1CAFC6 [info] Preparing engine
+
+19:20:35.196 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.196 instance_id=19C9D1CAFC6 [debug] Engine build output: * creating /home/brendanmc6/.cache/expert/0.1.0-rc.5/tooling/elixir-1.14.0-erts-13.2.2.5/mix_home/archives/hex-2.3.1
+
+19:20:35.397 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.397 instance_id=19C9D1CAFC6 [debug] Engine build output: ==> mint
+
+19:20:35.397 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.397 instance_id=19C9D1CAFC6 [debug] Engine build output: Compiling 1 file (.erl)
+
+19:20:35.402 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.402 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:37:14: can't find include lib "public_key/include/public_key.hrl"
+
+19:20:35.402 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.402 instance_id=19C9D1CAFC6 [debug] Engine build output: %   37| -include_lib("public_key/include/public_key.hrl").
+
+19:20:35.402 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.402 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |              ^
+
+19:20:35.402 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.402 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.402 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.402 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:64:21: undefined macro 'id-ce-subjectAltName'
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] Engine build output: %   64| 	try lists:keyfind(?'id-ce-subjectAltName',
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | 	                   ^
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:39:2: function pkix_verify_hostname/3 undefined
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] Engine build output: %   39| -export([pkix_verify_hostname/2, pkix_verify_hostname/3]).
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |  ^
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.403 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:42:36: record 'OTPCertificate' undefined
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] Engine build output: %   42| -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |                                    ^
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:45:2: spec for undefined function pkix_verify_hostname/3
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] Engine build output: %   45| -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |  ^
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:45:36: record 'OTPCertificate' undefined
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] Engine build output: %   45| -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |                                    ^
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.404 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:52:5: function pkix_verify_hostname/3 undefined
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] Engine build output: %   52|     pkix_verify_hostname(Cert, ReferenceIDs, []).
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |     ^
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:114:1: Warning: function verify_hostname_extract_fqdn_default/1 is unused
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] Engine build output: %  114| verify_hostname_extract_fqdn_default({dns_id,S}) ->
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.405 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:122:1: Warning: function verify_hostname_fqnds/2 is unused
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: %  122| verify_hostname_fqnds(L, FqdnFun) ->
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:139:1: Warning: function verify_hostname_match_default/2 is unused
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: %  139| verify_hostname_match_default(Ref, Pres) ->
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:142:1: Warning: function verify_hostname_match_default0/2 is unused
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: %  142| verify_hostname_match_default0(FQDN=[_|_], {cn,FQDN}) ->
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:182:1: Warning: function ok/1 is unused
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: %  182| ok({ok,X}) -> X.
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.406 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:184:1: Warning: function l16_to_tup/1 is unused
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] Engine build output: %  184| l16_to_tup(L) -> list_to_tuple(l16_to_tup(L, [])).
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:186:1: Warning: function l16_to_tup/2 is unused
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] Engine build output: %  186| l16_to_tup([A,B|T], Acc) -> l16_to_tup(T, [(A bsl 8) bor B | Acc]);
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.407 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:35.408 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.408 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.408 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.408 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:189:1: Warning: function match_wild/2 is unused
+
+19:20:35.408 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.408 instance_id=19C9D1CAFC6 [debug] Engine build output: %  189| match_wild(A,     [$*|B]) -> match_wild_suffixes(A, B);
+
+19:20:35.408 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.408 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:195:1: Warning: function match_wild_suffixes/2 is unused
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] Engine build output: %  195| match_wild_suffixes(A, B) -> match_wild_sfx(lists:reverse(A), lists:reverse(B)).
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:197:1: Warning: function match_wild_sfx/2 is unused
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] Engine build output: %  197| match_wild_sfx([$*|_],      _) -> false; % Bad name (no wildcards allowed)
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.409 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:204:1: Warning: function verify_hostname_match_loop/5 is unused
+
+19:20:35.410 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.410 instance_id=19C9D1CAFC6 [debug] Engine build output: %  204| verify_hostname_match_loop(Refs0, Pres0, undefined, FailCB, Cert) ->
+
+19:20:35.410 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.410 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:35.410 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.410 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.410 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.410 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:227:1: Warning: function to_lower_ascii/1 is unused
+
+19:20:35.410 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.410 instance_id=19C9D1CAFC6 [debug] Engine build output: %  227| to_lower_ascii({ip,_}=X) -> X;
+
+19:20:35.410 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.410 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:35.411 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.411 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.411 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.411 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:234:1: Warning: function to_string/1 is unused
+
+19:20:35.411 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.411 instance_id=19C9D1CAFC6 [debug] Engine build output: %  234| to_string(S) when is_list(S) -> S;
+
+19:20:35.411 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.411 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:20:35.411 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.411 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:20:35.411 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.411 instance_id=19C9D1CAFC6 [debug] Engine build output: could not compile dependency :mint, "mix compile" failed. Errors may have been logged above. You can recompile this dependency with "mix deps.compile mint", update it with "mix deps.update mint" or clean it with "mix deps.clean mint"
+
+19:20:35.428 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.428 instance_id=19C9D1CAFC6 [error] Engine build script exited with status: 1
+
+19:20:35.428 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.428 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:20:35.428 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.428 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:20:35.428 instance_id=19C9D1CAFC6 [error] Process #PID<0.199.0> terminating
+** (exit) {:error, "Build script exited with status: 1", "could not compile dependency :mint, \"mix compile\" failed. Errors may have been logged above. You can recompile this dependency with \"mix deps.compile mint\", update it with \"mix deps.update mint\" or clean it with \"mix deps.clean mint\""}
+    (stdlib 6.2.2.1) gen_server.erl:2210: :gen_server.init_it/6
+    (stdlib 6.2.2.1) proc_lib.erl:329: :proc_lib.init_p_do_apply/3
+Initial Call: XPExpert.Project.Node.init/1
+Ancestors: [:"server::supervisor", XPExpert.ProjectSupervisor, XPExpert.Supervisor, #PID<0.159.0>]
+Message Queue Length: 0
+Messages: []
+Links: [#PID<0.197.0>]
+Dictionary: []
+Trapping Exits: false
+Status: :running
+Heap Size: 610
+Stack Size: 29
+Reductions: 16887
+
+19:20:35.429 instance_id=19C9D1CAFC6 [error] Child {XPExpert.Project.Node, "server"} of Supervisor :"server::supervisor" failed to start
+** (exit) {:error, "Build script exited with status: 1", "could not compile dependency :mint, \"mix compile\" failed. Errors may have been logged above. You can recompile this dependency with \"mix deps.compile mint\", update it with \"mix deps.update mint\" or clean it with \"mix deps.clean mint\""}
+Start Call: XPExpert.Project.Node.start_link(%XPForge.Project{root_uri: "file:///home/brendanmc6/projects/acai-sh/server", mix_exs_uri: "file:///home/brendanmc6/projects/acai-sh/server/mix.exs", mix_project?: true, mix_env: nil, mix_target: nil, env_variables: %{}, project_module: nil, entropy: 20719})
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:20:35.429 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:35.429 instance_id=19C9D1CAFC6 [error] Failed to start project node for server: {:shutdown,
+ {:failed_to_start_child, {XPExpert.Project.Node, "server"},
+  {:error, "Build script exited with status: 1",
+   "could not compile dependency :mint, \"mix compile\" failed. Errors may have been logged above. You can recompile this dependency with \"mix deps.compile mint\", update it with \"mix deps.update mint\" or clean it with \"mix deps.clean mint\""}}}
+
+19:20:51.531 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:51.531 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:20:51.531 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:20:51.531 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 940µs
+
+19:21:34.759 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:34.759 instance_id=19C9D1CAFC6 [info] Received request textDocument/hover before engine for server was initialized. Ignoring.
+
+19:21:34.761 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:34.761 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/hover in 9ms
+
+19:21:38.821 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:38.821 instance_id=19C9D1CAFC6 [info] Received request textDocument/hover before engine for server was initialized. Ignoring.
+
+19:21:38.821 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:38.821 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/hover in 717µs
+
+19:21:42.135 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:42.135 instance_id=19C9D1CAFC6 [info] Received request textDocument/hover before engine for server was initialized. Ignoring.
+
+19:21:42.135 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:42.135 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/hover in 499µs
+
+19:21:42.230 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:42.230 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:21:42.231 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:42.231 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 748µs
+
+19:21:43.078 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.078 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 5ms
+
+19:21:43.082 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.082 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:43.086 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.086 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 7ms
+
+19:21:43.333 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.333 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:21:43.333 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.333 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 930µs
+
+19:21:43.363 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.363 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeLens before engine for server was initialized. Ignoring.
+
+19:21:43.363 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.363 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeLens in 422µs
+
+19:21:43.426 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.426 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 420µs
+
+19:21:43.426 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.426 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:43.426 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.426 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 636µs
+
+19:21:43.575 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.575 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 482µs
+
+19:21:43.576 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.576 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:43.576 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.576 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 629µs
+
+19:21:43.779 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.779 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 689µs
+
+19:21:43.779 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.779 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:43.780 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:43.780 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 774µs
+
+19:21:44.034 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.034 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 718µs
+
+19:21:44.035 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.035 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:44.035 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.035 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 865µs
+
+19:21:44.132 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.132 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 650µs
+
+19:21:44.132 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.132 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:44.133 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.133 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 875µs
+
+19:21:44.266 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.266 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 486µs
+
+19:21:44.267 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.267 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:44.267 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.267 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 941µs
+
+19:21:44.423 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.423 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 557µs
+
+19:21:44.425 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.425 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:44.426 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.426 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 1ms
+
+19:21:44.467 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.467 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 569µs
+
+19:21:44.468 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.468 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:44.468 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.468 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 848µs
+
+19:21:44.504 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.504 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 507µs
+
+19:21:44.504 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.504 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:44.505 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.505 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 623µs
+
+19:21:44.609 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.609 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 508µs
+
+19:21:44.610 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.610 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:44.610 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.610 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 600µs
+
+19:21:44.744 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.744 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 472µs
+
+19:21:44.745 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.745 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:44.745 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.745 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 608µs
+
+19:21:44.825 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.825 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 454µs
+
+19:21:44.825 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.825 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:44.825 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:44.825 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 472µs
+
+19:21:45.083 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.083 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:21:45.083 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.083 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 936µs
+
+19:21:45.114 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.114 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeLens before engine for server was initialized. Ignoring.
+
+19:21:45.114 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.114 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeLens in 341µs
+
+19:21:45.195 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.195 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 468µs
+
+19:21:45.455 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.455 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:21:45.455 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.455 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 895µs
+
+19:21:45.479 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.479 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 451µs
+
+19:21:45.479 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.479 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:45.479 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.479 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 483µs
+
+19:21:45.488 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.488 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeLens before engine for server was initialized. Ignoring.
+
+19:21:45.488 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.488 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeLens in 506µs
+
+19:21:45.629 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.629 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 461µs
+
+19:21:45.630 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.630 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:45.630 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.630 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 616µs
+
+19:21:45.682 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.682 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 462µs
+
+19:21:45.682 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.682 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:45.682 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.682 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 610µs
+
+19:21:45.758 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.758 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 577µs
+
+19:21:45.758 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.758 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:45.758 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.758 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 652µs
+
+19:21:45.974 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.974 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 415µs
+
+19:21:45.975 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.975 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:45.975 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:45.975 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 747µs
+
+19:21:46.057 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:46.057 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 500µs
+
+19:21:46.057 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:46.057 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:46.057 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:46.057 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 507µs
+
+19:21:46.132 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:46.132 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 480µs
+
+19:21:46.132 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:46.132 instance_id=19C9D1CAFC6 [info] Received request textDocument/completion before engine for server was initialized. Ignoring.
+
+19:21:46.133 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:46.133 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/completion in 557µs
+
+19:21:46.391 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:46.391 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:21:46.392 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:46.392 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 1ms
+
+19:21:46.422 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:46.422 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeLens before engine for server was initialized. Ignoring.
+
+19:21:46.422 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:46.422 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeLens in 366µs
+
+19:21:47.480 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:47.480 instance_id=19C9D1CAFC6 [info] Received request textDocument/formatting before engine for server was initialized. Ignoring.
+
+19:21:47.480 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:47.480 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/formatting in 6ms
+
+19:21:47.486 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:47.486 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 3ms
+
+19:21:47.488 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:47.488 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didSave in 1ms
+
+19:21:47.533 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:47.533 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:21:47.533 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:47.533 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 939µs
+
+19:21:48.726 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:48.726 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:21:48.726 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:48.726 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 916µs
+
+19:21:58.090 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:58.090 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:21:58.091 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:21:58.091 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 781µs
+
+19:22:01.075 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:01.075 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:01.075 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:01.075 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 882µs
+
+19:22:01.246 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:01.246 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 369µs
+
+19:22:01.448 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:01.448 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 574µs
+
+19:22:01.705 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:01.705 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:01.705 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:01.705 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 992µs
+
+19:22:01.736 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:01.736 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeLens before engine for server was initialized. Ignoring.
+
+19:22:01.736 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:01.736 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeLens in 416µs
+
+19:22:01.838 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:01.838 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 490µs
+
+19:22:02.096 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:02.096 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:02.096 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:02.096 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 896µs
+
+19:22:02.126 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:02.126 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeLens before engine for server was initialized. Ignoring.
+
+19:22:02.127 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:02.127 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeLens in 479µs
+
+19:22:03.414 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:03.414 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 628µs
+
+19:22:03.555 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:03.555 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 375µs
+
+19:22:03.809 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:03.809 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:03.810 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:03.810 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 989µs
+
+19:22:03.843 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:03.843 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeLens before engine for server was initialized. Ignoring.
+
+19:22:03.843 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:03.843 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeLens in 545µs
+
+19:22:04.324 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.324 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:04.324 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.324 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 1ms
+
+19:22:04.327 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.327 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:04.330 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.330 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 8ms
+
+19:22:04.337 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.337 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.337 instance_id=19C9D1CAFC6 [info] Received request textDocument/formatting before engine for server was initialized. Ignoring.
+
+19:22:04.337 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:04.338 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.338 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.338 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 435µs
+
+19:22:04.338 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/formatting in 532µs
+
+19:22:04.343 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.343 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 125µs
+
+19:22:04.343 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.343 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didSave in 194µs
+
+19:22:04.344 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.344 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:04.344 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.344 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 475µs
+
+19:22:04.420 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.420 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:04.420 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:04.420 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 692µs
+
+19:22:20.457 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:20.457 instance_id=19C9D1CAFC6 [info] Received request textDocument/hover before engine for server was initialized. Ignoring.
+
+19:22:20.457 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:20.457 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/hover in 479µs
+
+19:22:35.211 instance_id=19C9D1CAFC6 [info] Child {XPExpert.EngineSupervisor, "server"} of Supervisor :"server::supervisor" started
+Pid: #PID<0.256.0>
+Start Call: XPExpert.EngineSupervisor.start_link(%XPForge.Project{root_uri: "file:///home/brendanmc6/projects/acai-sh/server", mix_exs_uri: "file:///home/brendanmc6/projects/acai-sh/server/mix.exs", mix_project?: true, mix_env: nil, mix_target: nil, env_variables: %{}, project_module: nil, entropy: 20719})
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:22:35.211 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.211 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.211 instance_id=19C9D1CAFC6 [debug] sent request server -> client window/workDoneProgress/create
+
+19:22:35.211 instance_id=19C9D1CAFC6 [info] Opened file:///home/brendanmc6/projects/acai-sh/server/config/dev.exs
+
+19:22:35.211 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.211 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didOpen in 1ms
+
+19:22:35.212 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.212 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:22:35.212 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.212 instance_id=19C9D1CAFC6 [debug] sent request server -> client window/workDoneProgress/create
+
+19:22:35.214 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.214 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:22:35.494 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.494 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:35.494 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.494 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 779µs
+
+19:22:35.525 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.525 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeLens before engine for server was initialized. Ignoring.
+
+19:22:35.525 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.525 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeLens in 472µs
+
+19:22:35.964 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.964 instance_id=19C9D1CAFC6 [info] Using path: /home/brendanmc6/.local/share/.burrito/expert_erts-15.2.7_0.1.0-rc.5/erts-15.2.7/bin:/home/brendanmc6/.local/share/.burrito/expert_erts-15.2.7_0.1.0-rc.5/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/home/brendanmc6/.local/bin:/home/brendanmc6/.local/share/pnpm:/home/brendanmc6/.nvm/versions/node/v22.15.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Users/Brend/AppData/Local/Programs/cursor/resources/app/bin:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files/Tailscale/:/Docker/host/bin:/mnt/c/Program Files/Git/cmd:/mnt/c/Users/Brend/AppData/Local/Microsoft/WindowsApps:/mnt/c/Users/Brend/AppData/Local/Programs/Microsoft VS Code/bin:/mnt/c/Users/Brend/AppData/Local/Programs/cursor/resources/app/bin:/mnt/c/Users/Brend/AppData/Local/Programs/Antigravity/bin:/mnt/c/Users/Brend/AppData/Local/Programs/Zed/bin:/snap/bin:/home/brendanmc6/.foundry/bin
+
+19:22:35.964 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.964 instance_id=19C9D1CAFC6 [info] Found elixir executable at /usr/bin/elixir
+
+19:22:35.964 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.964 instance_id=19C9D1CAFC6 [info] Found erl executable at /usr/bin/erl
+
+19:22:35.965 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:35.964 instance_id=19C9D1CAFC6 [info] Preparing engine
+
+19:22:37.250 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.250 instance_id=19C9D1CAFC6 [debug] Engine build output: * creating /home/brendanmc6/.cache/expert/0.1.0-rc.5/tooling/elixir-1.14.0-erts-13.2.2.5/mix_home/archives/hex-2.3.1
+
+19:22:37.347 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.347 instance_id=19C9D1CAFC6 [info] Received request textDocument/hover before engine for server was initialized. Ignoring.
+
+19:22:37.347 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.347 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/hover in 569µs
+
+19:22:37.457 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.456 instance_id=19C9D1CAFC6 [debug] Engine build output: ==> mint
+
+19:22:37.457 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.457 instance_id=19C9D1CAFC6 [debug] Engine build output: Compiling 1 file (.erl)
+
+19:22:37.460 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.460 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:37:14: can't find include lib "public_key/include/public_key.hrl"
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] Engine build output: %   37| -include_lib("public_key/include/public_key.hrl").
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |              ^
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:64:21: undefined macro 'id-ce-subjectAltName'
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] Engine build output: %   64| 	try lists:keyfind(?'id-ce-subjectAltName',
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | 	                   ^
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:39:2: function pkix_verify_hostname/3 undefined
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] Engine build output: %   39| -export([pkix_verify_hostname/2, pkix_verify_hostname/3]).
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |  ^
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.461 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:42:36: record 'OTPCertificate' undefined
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] Engine build output: %   42| -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |                                    ^
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:45:2: spec for undefined function pkix_verify_hostname/3
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] Engine build output: %   45| -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |  ^
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:45:36: record 'OTPCertificate' undefined
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] Engine build output: %   45| -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |                                    ^
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.462 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:52:5: function pkix_verify_hostname/3 undefined
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] Engine build output: %   52|     pkix_verify_hostname(Cert, ReferenceIDs, []).
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] Engine build output: %     |     ^
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:114:1: Warning: function verify_hostname_extract_fqdn_default/1 is unused
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] Engine build output: %  114| verify_hostname_extract_fqdn_default({dns_id,S}) ->
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:122:1: Warning: function verify_hostname_fqnds/2 is unused
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] Engine build output: %  122| verify_hostname_fqnds(L, FqdnFun) ->
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.463 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:139:1: Warning: function verify_hostname_match_default/2 is unused
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] Engine build output: %  139| verify_hostname_match_default(Ref, Pres) ->
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:142:1: Warning: function verify_hostname_match_default0/2 is unused
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] Engine build output: %  142| verify_hostname_match_default0(FQDN=[_|_], {cn,FQDN}) ->
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:182:1: Warning: function ok/1 is unused
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] Engine build output: %  182| ok({ok,X}) -> X.
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.464 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:184:1: Warning: function l16_to_tup/1 is unused
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] Engine build output: %  184| l16_to_tup(L) -> list_to_tuple(l16_to_tup(L, [])).
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:186:1: Warning: function l16_to_tup/2 is unused
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] Engine build output: %  186| l16_to_tup([A,B|T], Acc) -> l16_to_tup(T, [(A bsl 8) bor B | Acc]);
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:189:1: Warning: function match_wild/2 is unused
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] Engine build output: %  189| match_wild(A,     [$*|B]) -> match_wild_suffixes(A, B);
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.465 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:195:1: Warning: function match_wild_suffixes/2 is unused
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] Engine build output: %  195| match_wild_suffixes(A, B) -> match_wild_sfx(lists:reverse(A), lists:reverse(B)).
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:197:1: Warning: function match_wild_sfx/2 is unused
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] Engine build output: %  197| match_wild_sfx([$*|_],      _) -> false; % Bad name (no wildcards allowed)
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:204:1: Warning: function verify_hostname_match_loop/5 is unused
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] Engine build output: %  204| verify_hostname_match_loop(Refs0, Pres0, undefined, FailCB, Cert) ->
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.466 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:227:1: Warning: function to_lower_ascii/1 is unused
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] Engine build output: %  227| to_lower_ascii({ip,_}=X) -> X;
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] Engine build output: src/mint_shims.erl:234:1: Warning: function to_string/1 is unused
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] Engine build output: %  234| to_string(S) when is_list(S) -> S;
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] Engine build output: %     | ^
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] Engine build output: 
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.467 instance_id=19C9D1CAFC6 [debug] Engine build output: could not compile dependency :mint, "mix compile" failed. Errors may have been logged above. You can recompile this dependency with "mix deps.compile mint", update it with "mix deps.update mint" or clean it with "mix deps.clean mint"
+
+19:22:37.485 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.485 instance_id=19C9D1CAFC6 [error] Engine build script exited with status: 1
+
+19:22:37.485 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.485 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:22:37.485 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.485 instance_id=19C9D1CAFC6 [debug] sent notification server -> client $/progress
+
+19:22:37.485 instance_id=19C9D1CAFC6 [error] Process #PID<0.257.0> terminating
+** (exit) {:error, "Build script exited with status: 1", "could not compile dependency :mint, \"mix compile\" failed. Errors may have been logged above. You can recompile this dependency with \"mix deps.compile mint\", update it with \"mix deps.update mint\" or clean it with \"mix deps.clean mint\""}
+    (stdlib 6.2.2.1) gen_server.erl:2210: :gen_server.init_it/6
+    (stdlib 6.2.2.1) proc_lib.erl:329: :proc_lib.init_p_do_apply/3
+Initial Call: XPExpert.Project.Node.init/1
+Ancestors: [:"server::supervisor", XPExpert.ProjectSupervisor, XPExpert.Supervisor, #PID<0.159.0>]
+Message Queue Length: 0
+Messages: []
+Links: [#PID<0.255.0>]
+Dictionary: []
+Trapping Exits: false
+Status: :running
+Heap Size: 4185
+Stack Size: 29
+Reductions: 16815
+
+19:22:37.486 instance_id=19C9D1CAFC6 [error] Child {XPExpert.Project.Node, "server"} of Supervisor :"server::supervisor" failed to start
+** (exit) {:error, "Build script exited with status: 1", "could not compile dependency :mint, \"mix compile\" failed. Errors may have been logged above. You can recompile this dependency with \"mix deps.compile mint\", update it with \"mix deps.update mint\" or clean it with \"mix deps.clean mint\""}
+Start Call: XPExpert.Project.Node.start_link(%XPForge.Project{root_uri: "file:///home/brendanmc6/projects/acai-sh/server", mix_exs_uri: "file:///home/brendanmc6/projects/acai-sh/server/mix.exs", mix_project?: true, mix_env: nil, mix_target: nil, env_variables: %{}, project_module: nil, entropy: 20719})
+Restart: :permanent
+Shutdown: 5000
+Type: :worker
+
+19:22:37.486 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:37.486 instance_id=19C9D1CAFC6 [error] Failed to start project node for server: {:shutdown,
+ {:failed_to_start_child, {XPExpert.Project.Node, "server"},
+  {:error, "Build script exited with status: 1",
+   "could not compile dependency :mint, \"mix compile\" failed. Errors may have been logged above. You can recompile this dependency with \"mix deps.compile mint\", update it with \"mix deps.update mint\" or clean it with \"mix deps.clean mint\""}}}
+
+19:22:43.933 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:43.932 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:43.933 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:43.933 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 861µs
+
+19:22:45.375 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:45.375 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 518µs
+
+19:22:45.631 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:45.631 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:45.631 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:45.631 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 738µs
+
+19:22:45.663 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:45.663 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeLens before engine for server was initialized. Ignoring.
+
+19:22:45.663 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:45.663 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeLens in 345µs
+
+19:22:46.446 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:46.446 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 416µs
+
+19:22:46.712 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:46.712 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:46.712 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:46.712 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 782µs
+
+19:22:46.744 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:46.744 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeLens before engine for server was initialized. Ignoring.
+
+19:22:46.744 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:46.744 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeLens in 589µs
+
+19:22:51.538 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:51.538 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:51.538 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:51.538 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 754µs
+
+19:22:52.140 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.140 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 463µs
+
+19:22:52.142 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.142 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 998µs
+
+19:22:52.185 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.185 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:52.186 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.186 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 568µs
+
+19:22:52.195 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.195 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:52.196 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.196 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 573µs
+
+19:22:52.202 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.202 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:52.202 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.202 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 500µs
+
+19:22:52.207 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.207 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:52.208 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.208 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 394µs
+
+19:22:52.215 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.215 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:52.215 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.215 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 370µs
+
+19:22:52.222 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.222 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:52.223 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.223 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 483µs
+
+19:22:52.230 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.230 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:52.231 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.231 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 586µs
+
+19:22:52.238 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.238 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:52.238 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.238 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 487µs
+
+19:22:52.253 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.253 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:52.253 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.253 instance_id=19C9D1CAFC6 [info] Received request textDocument/definition before engine for server was initialized. Ignoring.
+
+19:22:52.253 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.253 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.253 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 480µs
+
+19:22:52.253 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/definition in 664µs
+
+19:22:52.255 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.255 instance_id=19C9D1CAFC6 [debug] handled notification client -> server $/cancelRequest in 2ms
+
+19:22:52.398 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.398 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:52.399 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.399 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 819µs
+
+19:22:52.429 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.429 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeLens before engine for server was initialized. Ignoring.
+
+19:22:52.429 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:52.429 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeLens in 436µs
+
+19:22:53.419 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:53.419 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:53.419 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:53.419 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 751µs
+
+19:22:54.019 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:54.018 instance_id=19C9D1CAFC6 [info] Received request textDocument/hover before engine for server was initialized. Ignoring.
+
+19:22:54.019 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:54.019 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/hover in 692µs
+
+19:22:54.021 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:54.021 instance_id=19C9D1CAFC6 [info] Received request textDocument/formatting before engine for server was initialized. Ignoring.
+
+19:22:54.021 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:54.021 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/formatting in 506µs
+
+19:22:54.024 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:54.024 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 145µs
+
+19:22:54.024 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:54.024 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didSave in 167µs
+
+19:22:54.107 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:54.107 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:54.107 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:54.107 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 833µs
+
+19:22:54.735 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:54.735 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:54.735 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:54.735 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 832µs
+
+19:22:55.160 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:55.160 instance_id=19C9D1CAFC6 [info] Received request textDocument/codeAction before engine for server was initialized. Ignoring.
+
+19:22:55.160 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:55.160 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/codeAction in 868µs
+
+19:22:56.354 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:56.354 instance_id=19C9D1CAFC6 [info] Received request textDocument/formatting before engine for server was initialized. Ignoring.
+
+19:22:56.354 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:22:56.354 instance_id=19C9D1CAFC6 [debug] handled request client -> server textDocument/formatting in 514µs
+
+19:23:49.473 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:23:49.473 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 185µs
+
+19:23:49.479 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:23:49.479 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 1ms
+
+19:23:51.990 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:23:51.990 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 265µs
+
+19:24:01.701 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:24:01.701 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 178µs
+
+19:24:01.704 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:24:01.704 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 1ms
+
+19:24:03.947 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:24:03.947 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 155µs
+
+19:24:03.950 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:24:03.950 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 1ms
+
+19:24:08.377 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:24:08.377 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 138µs
+
+19:24:08.379 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:24:08.378 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 430µs
+
+19:24:49.075 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:24:49.075 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 202µs
+
+19:24:49.083 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:24:49.083 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 966µs
+
+19:25:10.035 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:25:10.035 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 231µs
+
+19:25:10.036 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:25:10.036 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 352µs
+
+19:26:26.729 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:26:26.729 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 261µs
+
+19:30:46.816 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:30:46.816 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 192µs
+
+19:31:00.593 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:31:00.593 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 171µs
+
+19:31:36.494 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:31:36.494 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 158µs
+
+19:32:30.677 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:32:30.677 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 143µs
+
+19:32:35.875 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:32:35.874 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 154µs
+
+19:32:44.476 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:32:44.476 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 141µs
+
+19:33:23.357 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:33:23.357 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 170µs
+
+19:33:27.773 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:33:27.773 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 176µs
+
+19:33:56.333 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:33:56.333 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 149µs
+
+19:34:57.490 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:34:57.490 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 185µs
+
+19:34:57.491 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:34:57.491 instance_id=19C9D1CAFC6 [debug] handled notification client -> server textDocument/didChange in 527µs
+
+19:34:57.885 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:34:57.885 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 200µs
+
+19:35:15.301 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:35:15.301 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 181µs
+
+19:35:22.627 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:35:22.627 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 172µs
+
+19:35:25.756 instance_id=19C9D1CAFC6 [debug] sent notification server -> client window/logMessage
+
+19:35:25.756 instance_id=19C9D1CAFC6 [debug] handled notification client -> server workspace/didChangeWatchedFiles in 150µs

@@ -12,8 +12,9 @@ config :acai,
   generators: [timestamp_type: :utc_datetime]
 
 # Configure the endpoint
+# Here we set defaults and override them in dev.exs, prod.exs, test.exs, runtime.exs
 config :acai, AcaiWeb.Endpoint,
-  url: [host: "localhost"],
+  url: [host: "app.acai.sh"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
     formats: [html: AcaiWeb.ErrorHTML, json: AcaiWeb.ErrorJSON],

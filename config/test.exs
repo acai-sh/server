@@ -1,15 +1,21 @@
 import Config
 
+# Runtime environment flag to run Task.start synchronously in tests
+# This avoids sandbox issues with async database operations
+Application.put_env(:acai, :no_async_tasks, true)
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
-# Run `mix help test` for more information.
+#
+# HAVING PROBLEMS? You probably forgot `MIX_ENV=test mix test`
 config :acai, Acai.Repo,
   username: "postgres",
   password: "postgres",
-  hostname: "localhost",
-  database: "acai_test#{System.get_env("MIX_TEST_PARTITION")}",
+  # Set to `localhost` for ci runners & workflows
+  hostname: System.get_env("POSTGRES_HOST", "db"),
+  database: "acai_test",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 
