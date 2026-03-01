@@ -1,0 +1,121 @@
+feature:
+    name: data-model
+    description: Core RDBMS schema for tracking AI-driven feature specifications and code implementation state.
+    slug: DATA
+    version: 1.0.0
+
+components:
+    TEAMS:
+        name: teams table
+        description: Top-level tenant for RBAC and billing.
+        requirements:
+            1: id field is a UUIDv7 Primary Key.
+            2: name field is a case-insensitive string, not-nullable, and unique within the entire teams table.
+            2-1: name field only supports alphanumeric chars, hyphens, and underscores (safe to use in URL path).
+
+    PATS:
+        name: pats table
+        description: Cryptographically hashed tokens granting scoped API access to specific users.
+        requirements:
+            1: id field is a UUIDv7 Primary Key. Required.
+            2: user_id is a Foreign Key referencing the default Phoenix users table. Required.
+            2-1: Enforces a CASCADE delete if the user is deleted.
+            3: name is a string, used for identifying the token's purpose (e.g., "Agentic CLI V1").
+            4: token_hash is a string storing the SHA-256 hash of the raw token.
+            4-1: token_hash has a UNIQUE constraint.
+            5: token_prefix is a string storing the unhashed prefix (e.g., "pat_").
+            6: scopes is a JSONB array of strings defining the permitted API actions.
+            7: expires_at is a timestamp indicating when the token naturally invalidates.
+            8: revoked_at is a timestamp for manual, soft-delete invalidation.
+            9: last_used_at is a timestamp updated on successful authentication to track stale tokens.
+
+    ROLES:
+        name: user_team_roles table
+        requirements:
+            1: references team_id and user_id
+            2: title field is a non-nullable string
+
+    IMPLS:
+        name: implementations table
+        description: A specific variant of a feature (e.g., Production, Prototype).
+        requirements:
+            1: id field is a UUIDv7 Primary Key.
+            2: spec_id is a Foreign Key referencing the specs table.
+            3: name is a string (e.g., Production).
+            4: Composite Unique Constraint enforces (spec_id, name).
+
+    BRANCHES:
+        name: tracked_branches table
+        description: A join table that links branches to the implementations that track them.
+        requirements:
+            1: id field is a UUIDv7 Primary Key.
+            2: implementation_id is a Foreign Key referencing implementations, non-nullable.
+            3: repo_uri is the normalized URI (e.g., github.com/acai-sh/server or bitbucket.org/acme/api).
+            4: branch_name is a string.
+            5: Composite Unique Constraint enforces (implementation_id, repo_uri) to prevent the same repo being linked to the same implementation twice.
+
+    SPECS:
+        name: specs table
+        description: A feature.yaml file at a specific repo, branch, and path.
+        requirements:
+            1: id field is a UUIDv7 Primary Key. Required.
+            2: repo_uri is the normalized URI (e.g., github.com/acai-sh/server or bitbucket.org/acme/api). Required.
+            3: branch_name is a string. Required.
+            4: path is text starting from the repo root without a leading slash. Required.
+            5: last_seen_commit is a string storing the commit hash from the most recent CLI push. Required.
+            6: parsed_at is a timestamp of the most recent parse. Required.
+            7: team_id is a foreign key to the team that owns it. Required.
+            8: feature_name is the string defined under feature.name. Required.
+            8-1: feature_name field only supports alphanumeric chars, numbers, hyphens, and underscores (safe to use in URL path).
+            9: feature_slug is the string defined under feature.slug. Required.
+            9-1: feature_slug field only supports capitalized alphanumeric chars, numbers, and underscores.
+            10: feature_description is the string defined under feature.description. Optional.
+            11: feature_version is the string defined under feature.version. Optional.
+            12: product is the string defined under feature.product. Required.
+            12-1: product field only supports alphanumeric chars, hyphens, and underscores (safe to use in URL path).
+            7: Composite Unique Constraint enforces (team_id, repo_uri, branch_name, path) to prevent the same spec being inserted twice.
+
+    REQS:
+        name: requirements table
+        description: The stateful criteria bound to a specific Implementation, updated via UPSERT.
+        requirements:
+            1: id field is a UUIDv7 Primary Key.
+            2: implementation_id is a Foreign Key referencing implementations.
+            3: group_key is a string (e.g., FILE, UI).
+            4: group_type is an enum restricted to COMPONENT or CONSTRAINT.
+            5: local_key is a string (e.g., 1, 2-1).
+            6: parent_local_key is an optional string.
+            7: definition is a text field.
+            8: note is an optional text field.
+            9: is_deprecated is a boolean.
+            10: replaced_by is a JSON array of ACID strings.
+            11: status is an enum (e.g., PENDING, IN_PROGRESS, COMPLETE), always set by CLI.
+            12: is_active is a boolean to handle soft-deletes if a requirement is removed from the latest YAML.
+            13: last_seen_commit is a string storing the commit hash from which this requirement was last observed.
+            14: feature_slug is a string
+            15: acid is a generated, indexed column concatenating <feature_slug>.<group_key>.<local_key>.
+            16: Composite Unique Constraint enforces (implementation_id, group_key, local_key).
+
+    REFS:
+        name: code_references table
+        description: Tracks where a requirement is actively referenced in external codebase repositories.
+        requirements:
+            1: id field is a UUIDv7 Primary Key. Required.
+            2: requirement_id is a Foreign Key referencing requirements.
+            3: repo_uri is a text field. Required
+            4: branch_name is a text field. Required
+            5: last_seen_commit is a text field. Required
+            4: acid_string is a text field logging the exact reference found in the code. Required.
+            5: last_seen_at is a timestamp updated on each CLI push where the reference is still present, enabling stale ref detection.
+            6: default created_at/inserted_at timestamps from ecto
+
+constraints:
+    KEYS:
+        name: Global Primary Key Strategy
+        requirements:
+            1:
+                requirement: All entities use `id` primary key with UUIDv7 to ensure chronological sorting and global uniqueness.
+                note: |
+                    Using a surrogate UUIDv7 as the Primary Key optimizes clustered indexing and ORM compatibility.
+                    Some tables rely on composite UNIQUE constraints to strictly enforce domain data integrity without bloating secondary indexes.
+            2: Foreign Key relationships rely on `id` for joining tables.

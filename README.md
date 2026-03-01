@@ -9,13 +9,28 @@ This package, the Acai Server, is a self-hostable monolith intended to be deploy
 
 The project directories follow the conventional Phoenix layout, with the addition of an `infra` folder that contains all docker configurations.
 
+## Product Overview
+
+Acai.sh is an open-source toolkit for spec-driven software development. The toolkit is centered around `feature.yaml` specs docs.
+The toolkit supports a specific software development workflow;
+1. Features are defined in plain language in `feature.yaml`, as simple lists of key requirements.
+2. Requirements each get stable ids like `FEAT.COMPONENT.1-1`.
+3. The Acai CLI parses your `feature.yaml` files and scans your codebase to find id references in comments and in tests.
+4. Data is pushed to the server, so that many collaborators (humans and agents) can share progress, and review/accept/reject implementations.
+
+The server also hosts a dashboard, which presents a simple and intuitive heirarchy;
+- Teams that have many Products
+- Products that have many Features
+- Features that have many Implementations
+- Implementation are linked to a single canonical Spec file, and one or more git branches (where requirements are turned into code!)
+
 ## Quickstart
 
 > 👉 Want to start shipping ASAP? Just trying it out? **Use our [hosted service instead.](https://app.acai.sh)**
 
 Otherwise, choose from one of the deployment options below.
 
-## Devcontainers
+### Devcontainers
 
 This is the easiest way to host a local instance, and also the preferred pathway for contributors.
 
@@ -32,7 +47,7 @@ This is the easiest way to host a local instance, and also the preferred pathway
 2. Open in VSCode / Zed / DevPod 🎉
 3. Access app in `localhost:4000` by default.
 
-### Parallel Devcontainers
+#### Parallel Devcontainers
 
 This is very useful for running multiple agents in parallel. Each container has it's own isolated postgres instance and git history, so that test runs and migrations never clash.
 
