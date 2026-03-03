@@ -1,0 +1,41 @@
+feature:
+    name: team-settings
+    description: The /t/:team_id/settings view where a team owner can rename the team or delete it.
+    key: TEAM_SETTINGS
+    prerequisites:
+        - DATA.TEAMS
+        - DATA.ROLES
+        - ROLES
+        - TEAM
+
+components:
+    MAIN:
+        name: Main requirements for the /t/:team_id/settings view
+        requirements:
+            1: Renders the current team name.
+            2: Renders a 'Rename Team' button that opens the Rename Team modal (TEAM_SETTINGS.RENAME).
+            3: Renders a 'Delete Team' button that opens the Delete Team modal (TEAM_SETTINGS.DELETE).
+
+    RENAME:
+        name: Rename Team modal
+        requirements:
+            1: Renders a text input pre-filled with the current team name.
+            2: Renders Save and Cancel buttons.
+            3: On save, validates and persists the new team name.
+            3-1: Displays inline error messages on validation failure (rules defined in DATA.TEAMS).
+            3-2: On success, closes the modal and reflects the updated name on the page without a full reload.
+
+    DELETE:
+        name: Delete Team modal
+        requirements:
+            1: Educates the user that deleting the team is permanent and will cascade-delete all associated data, including implementations, specs, requirements, members, and access tokens.
+            2: Renders a confirmation text input requiring the user to type the exact team name before deletion is permitted.
+            3: Renders a 'Delete Team' confirm button, disabled until the confirmation input matches the team name exactly.
+            4: Renders a Cancel button that dismisses the modal without taking action.
+            5: On confirmed deletion, deletes the team and redirects the user to /teams.
+
+constraints:
+    AUTH:
+        requirements:
+            1: The /t/:team_id/settings route is only accessible to users with the 'team:admin' scope (owner role).
+            2: Users without 'team:admin' scope must be redirected away from this route.

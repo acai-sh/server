@@ -39,5 +39,8 @@ npm-debug.log
 
 .claude/settings.local.json
 
+# Expert log
+expert.log
+
 # mix repo.dump output
 /priv/repo/structure.sql

@@ -1,0 +1,31 @@
+feature:
+    name: team-list
+    description: This feature describes the /teams list view where a user can view a list of teams and create a new team.
+    key: TEAMS
+    prerequisites:
+        - DATA.TEAMS
+
+components:
+    MAIN:
+        name: The /teams list view.
+        requirements:
+            1: Renders a CREATE TEAM button
+            1-1: On click, opens a Create Team modal
+            2: Renders a list of teams for which the user has a role as cards
+            2-1: Show a call to action placeholder if the user has not yet created their first team
+            2-2: On click of the team card, it navigates to /t/:team_id
+            3: This is the view that a new user sees when they first create an account
+
+    CREATE:
+        name: Create Team Modal
+        requirements:
+            1: Shows error messages if team name is rejected or invalid or fails to create
+            2: Renders an input for the team name
+            3: Renders a submit button
+            3-1: On submit, navigates the user to their newly created team at /t/:team_id
+
+constraints:
+    ENG:
+        requirements:
+            1: The user who creates the team must recieve the owner role for that team by default
+            2: Rely on schema/changesets for validation and error handling (string validation defined in DATA.TEAMS)

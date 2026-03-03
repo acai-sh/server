@@ -1,0 +1,52 @@
+feature:
+    name: team-view
+    description: The /t/:team_id view where a user can invite team members, manage their roles, and see a list of products owned by the team
+    key: TEAM
+    prerequisites:
+        - DATA.TEAMS
+        - DATA.ROLES
+        - ROLES
+
+components:
+    MAIN:
+        name: Main requirements for the /t/:team_id view
+        requirements:
+            1: Renders the team name
+            2: Renders an Access Tokens card that takes the user to `/t/:team_id/tokens` (see TOKENS)
+            3: Renders a Team Settings button that navigates the user to `/t/:team_id/settings`
+
+    MEMBERS:
+        name: A component that lists team members
+        requirements:
+            1: Renders a list of members and their roles
+            2: Renders an 'Invite' button, that triggers the Invite Member Modal
+            2-1: Invite button is disabled if user does not have permission (see ROLES)
+            3: Renders an 'Edit' button, that triggers the Edit role modal
+            3-1: Edit button is disabled if user does not have team admin permissions (see ROLES)
+            3-2: Only an owner may edit their own role, and only if they are not the last owner
+
+    EDIT_ROLE:
+        name: A modal for editing a users role
+        requirements:
+            1: Renders Save and Cancel buttons
+            2: Renders a dropdown to change the users role
+            3: Saves are applied immediately and silently
+
+    DELETE_ROLE:
+        name: A modal for deleting a user from the team
+        requirements:
+            1: Renders Save and Delete buttons
+            2: Educates the user what will happen when they press delete (user access revoked, tokens revoked)
+            3: Revokes all access tokens that user has created for the team
+            4: Prevents the user from deleting the last owner of the team
+
+    INVITE:
+        name: Invite Member Modal
+        requirements:
+            1: Renders an email input
+            2: Renders a dropdown selector for the desired role (default, 'developer')
+            3: Renders a 'Send Invitation' button
+            3-1: Returns an error if the invitee is already a member of the team
+            3-2: Creates a user record for that email if none exists
+            3-3: Sends the invitee an email inviting them to either create an account to be added, or simply notifying them that they were added (if they already have an account).
+            3-4: There is no acceptance state, i.e. if the user has an account already, they are added to the team.

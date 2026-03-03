@@ -1,0 +1,26 @@
+feature:
+    name: team-roles
+    description: Spec defining how team roles should be enforced and managed in code
+    key: ROLES
+    prerequisites:
+        - DATA.ROLES
+
+components:
+    SCOPES:
+        name: Role scopes
+        description: Roles are hardcoded to a set of scopes (entitlements) which we internally reference by <resource>:<action> tags, identical to access_token scopes.
+        requirements:
+            1: Supported roles are 'readonly', 'developer', and 'owner'
+            2: Every team member must have a role
+            3: "Supported scopes are 'specs:read', 'specs: write', 'refs:read', 'refs:write', 'impls:read', 'impls:write' 'team:read', 'team:admin', 'tats:admin'"
+            4: owner role has all scopes
+            5: developer has all scopes, excluding 'team:admin' and 'tats:admin'
+            6: readonly role only has 'specs:read', 'refs:read', 'impls:read', 'team:read'
+            7: An owner can not demote themselves, but can demote any other owner
+
+constraints:
+    MODULE:
+        requirements:
+            1: Permissions logic is always accessed via a Permissions module e.g. `Permissions.has_permission?(role, scope_tag)`
+            2: Mapping of roles to scopes is hardcoded in the Permissions module
+            3: Team must always have one owner, last owner can not demote themselves
