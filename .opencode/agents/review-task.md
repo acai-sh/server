@@ -1,5 +1,5 @@
 ---
-name: review
+name: review-task
 description: "My job is to review and (if accepted) merge the task branch into the feature branch"
 mode: subagent
 model: opencode/claude-sonnet-4-6

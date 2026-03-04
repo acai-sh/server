@@ -81,3 +81,34 @@ Additionally, extend the `Acai.Teams` context to enforce that an owner cannot de
 - The last-owner check in `update_member_role/3` will require a DB query: count `owner` roles for the team before allowing the change. Query through `Acai.Repo` inside the Teams context (keep DB logic out of the Permissions module).
 - `ROLES.SCOPES.7` and `ROLES.MODULE.3` overlap but are distinct guards. Implement both explicitly with clear, separate error returns/tuples (e.g., `{:error, :self_demotion}` vs `{:error, :last_owner}`).
 - No LiveView or UI work is in scope for this task — purely the context and module layer.
+
+---
+
+## Review — ACCEPTED
+
+**Reviewer:** Senior Engineer
+**Date:** 2026-03-04
+**Outcome:** ✅ ACCEPTED
+
+### Summary
+
+All 10 ACIDs from the spec are implemented and annotated correctly. The implementation is clean, idiomatic Elixir, and all 208 tests pass with zero failures.
+
+### Findings
+
+**Correctness — all ACIDs satisfied:**
+- `ROLES.SCOPES.1–6`, `ROLES.MODULE.1–2`: `Acai.Teams.Permissions` is a pure compile-time module with hardcoded `@role_scopes` map and correct scope sets for all three roles.
+- `ROLES.SCOPES.2`: `UserTeamRole.changeset/2` validates `title` via `validate_inclusion/3` against `Permissions.valid_roles()`.
+- `ROLES.SCOPES.7` and `ROLES.MODULE.3`: Both guards are present in `update_member_role/3` as separate, clearly-named error tuples (`:self_demotion` and `:last_owner`).
+
+**Code quality — no issues:**
+- `Permissions` module is pure Elixir with no side effects. Scope subtraction for `developer` via `@all_scopes -- ~w(team:admin tats:admin)` is clean and self-documenting.
+- `update_member_role/3` correctly handles the no-primary-key constraint on `UserTeamRole` by using `Repo.update_all/2` with a `(team_id, user_id)` filter, then returning a manually updated struct.
+- ACID comments are present on all relevant lines without duplicating spec text.
+
+**Tests — thorough:**
+- All three roles are tested in both `scopes_for/1` and `has_permission?/2` with positive and negative assertions.
+- `teams_test.exs` covers all guard paths and happy paths for `update_member_role/3`.
+- Fixture default `"member"` was correctly updated to `"readonly"` to keep the shared fixture consistent with the new validation.
+
+**No issues found.**

@@ -23,7 +23,7 @@ You will prepare the git environment as well.
 * [ ] Create a complete task following the instructions in the skill
 * [ ] Prepare task files:
     1. Come up with a task id
-    2. Create `/docs/specifications/{feature_name}/tasks/{task_id}.md`
+    2. Create `{task_id}.md` colocated with the feature.yaml
 * [ ] Checkout a new working task branch `task/{task_id}`
 * [ ] Report back to the supervisor: "I have prepared task id: <path to file>, updated the progress tracker, and checked us out to a working task branch. Feel free to proceed with assignment."
 
