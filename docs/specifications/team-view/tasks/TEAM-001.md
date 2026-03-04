@@ -158,3 +158,25 @@ Implement the `/t/:team_id` LiveView page where authenticated team members can s
 - When editing a member's own role (owner self-edit), disable the Edit button unless they are not the last owner — this is enforced at context level too, but the UI should reflect it preemptively (`TEAM.MEMBERS.3-2`).
 - ACID comments in code must be the identifier **only** — no appended description text (e.g., `# TEAM.INVITE.3-1` not `# TEAM.INVITE.3-1 — already a member check`).
 - Run `mix precommit` after completing all changes and fix any issues before submitting.
+
+---
+
+## Review — Round 1
+
+**Status: REJECTED**
+
+All 23 acceptance criteria are implemented and the 270-test suite is green. Architecture, LiveView patterns, stream usage, permission gating, and transaction safety are all solid. However two issues must be fixed before acceptance:
+
+### Issues
+
+- [x] **`deliver_team_invite_instructions` is dead code.** The function is defined in `user_notifier.ex` but is never called. In `invite_member/4`, the code correctly calls `Accounts.deliver_login_instructions/2` (which routes to `deliver_confirmation_instructions` for unconfirmed users), which is the right behavior. `deliver_team_invite_instructions` should be removed from `user_notifier.ex`.
+
+- [x] **`TEAM.INVITE.3-3` has no test.** Per the implement-spec skill, every ACID must have at least one test. `TEAM.INVITE.3-3` (sending the invitee an email) is not annotated or tested anywhere in `teams_test.exs` or `team_live_test.exs`. Add a context-level test that asserts an email is sent during `invite_member/4` — for both the new-user path (unconfirmed, receives login/confirmation instructions) and the existing-user path (confirmed, receives the added notification). Use the `extract_user_token` fixture pattern to intercept emails in the test.
+
+---
+
+## Review — Round 2
+
+**Status: ACCEPTED**
+
+Both Round 1 findings are fully resolved. `deliver_team_invite_instructions` has been removed — `user_notifier.ex` is clean. Two `TEAM.INVITE.3-3` tests have been added using `assert_received {:email, _}` against Swoosh's test adapter: one asserting confirmation instructions are dispatched for a new unconfirmed user, and one asserting the team-added notification is dispatched for an existing confirmed user (with a correct `flush_emails/0` helper to drain fixture-setup emails from the mailbox first). All 23 ACIDs are annotated in both production code and tests. 272 tests pass, precommit clean.
