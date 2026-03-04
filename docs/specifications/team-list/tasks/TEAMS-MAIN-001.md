@@ -106,3 +106,28 @@ Implement the `/teams` LiveView page where authenticated users can view their te
 - Team names are stored lowercased and must be URL-safe (enforced by changeset) — make sure the UI reflects any relevant label/hint.
 - Do **not** use LiveComponents for the modal — keep it inline in the LiveView.
 - Keep streams for the team list; track `teams_empty?` as a separate assign since streams are not enumerable.
+
+---
+
+## Review — Round 1
+
+**Status: REJECTED**
+
+All 12 acceptance criteria are implemented and tested. The architecture, LiveView patterns, stream usage, form handling, on_mount hooks, and test coverage are all solid. However the implementation violates the ACID comment convention from the `implement-spec` skill, which is non-negotiable.
+
+### Issues
+
+- [x] **ACID comments must not include spec description text.** The rule is: write the ACID identifier only. The following lines have free-text appended and must be fixed:
+  - `lib/acai_web/live/teams_live.ex:82` — `<%!-- TEAMS.MAIN.2-1 — empty state --%>` → must be `<%!-- TEAMS.MAIN.2-1 --%>`
+  - `lib/acai_web/live/teams_live.ex:103` — `<%!-- TEAMS.MAIN.2 — team cards --%>` → must be `<%!-- TEAMS.MAIN.2 --%>`
+  - `lib/acai_web/live/teams_live.ex:135` — `<%!-- TEAMS.MAIN.1-1 / TEAMS.CREATE — Create Team modal --%>` → must be `<%!-- TEAMS.MAIN.1-1 / TEAMS.CREATE --%>`
+  - `test/acai_web/live/teams_live_test.exs:172` — `# TEAMS.CREATE.3-1 — assert navigate to /t/:team_id` → must be `# TEAMS.CREATE.3-1`
+  - `test/acai_web/live/teams_live_test.exs:182` — `# TEAMS.ENG.1 — owner role assigned to creating user` → must be `# TEAMS.ENG.1`
+
+---
+
+## Review — Round 2
+
+**Status: ACCEPTED**
+
+All Round 1 findings resolved. All 12 ACIDs implemented, annotated correctly (ACID-only comments, no duplicated spec text), and covered by at least one test each. 225 tests pass, precommit clean.
