@@ -24,7 +24,7 @@ defmodule Acai.DataModelFixtures do
   def user_team_role_fixture(team, user, attrs \\ %{}) do
     {:ok, role} =
       attrs
-      |> Enum.into(%{title: "member"})
+      |> Enum.into(%{title: "readonly"})
       |> then(&UserTeamRole.changeset(%UserTeamRole{}, &1))
       |> Ecto.Changeset.put_change(:team_id, team.id)
       |> Ecto.Changeset.put_change(:user_id, user.id)

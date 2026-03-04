@@ -2,6 +2,8 @@ defmodule Acai.Teams.UserTeamRole do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Acai.Teams.Permissions
+
   # DATA.ROLES
   @primary_key false
   @foreign_key_type Acai.UUIDv7
@@ -23,6 +25,11 @@ defmodule Acai.Teams.UserTeamRole do
     role
     |> cast(attrs, [:title])
     |> validate_required([:title])
+    # ROLES.SCOPES.1
+    # ROLES.SCOPES.2
+    |> validate_inclusion(:title, Permissions.valid_roles(),
+      message: "must be one of: #{Enum.join(Permissions.valid_roles(), ", ")}"
+    )
     |> unique_constraint([:team_id, :user_id])
   end
 end

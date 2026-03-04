@@ -51,6 +51,43 @@ defmodule Acai.Teams do
     |> Repo.insert()
   end
 
+  @doc """
+  Updates the role title for a team member.
+
+  Guards:
+  - An owner may not demote themselves.
+  - The last owner on a team may not be demoted.
+  """
+  def update_member_role(current_scope, %UserTeamRole{} = role, new_title) do
+    acting_user_id = current_scope.user.id
+
+    # ROLES.SCOPES.7
+    if role.title == "owner" && role.user_id == acting_user_id do
+      {:error, :self_demotion}
+    else
+      # ROLES.MODULE.3
+      if role.title == "owner" && owner_count(role.team_id) <= 1 do
+        {:error, :last_owner}
+      else
+        changeset = UserTeamRole.changeset(role, %{title: new_title})
+
+        if changeset.valid? do
+          {1, _} =
+            Repo.update_all(
+              from(r in UserTeamRole,
+                where: r.team_id == ^role.team_id and r.user_id == ^role.user_id
+              ),
+              set: [title: new_title]
+            )
+
+          {:ok, %{role | title: new_title}}
+        else
+          {:error, changeset}
+        end
+      end
+    end
+  end
+
   # --- Access Tokens ---
 
   def list_access_tokens(current_scope, %Team{} = team) do
@@ -78,5 +115,14 @@ defmodule Acai.Teams do
 
   defp team_ids_for_user(user_id) do
     from r in UserTeamRole, where: r.user_id == ^user_id, select: r.team_id
+  end
+
+  # ROLES.MODULE.3
+  defp owner_count(team_id) do
+    Repo.one(
+      from r in UserTeamRole,
+        where: r.team_id == ^team_id and r.title == "owner",
+        select: count(r.user_id)
+    )
   end
 end
