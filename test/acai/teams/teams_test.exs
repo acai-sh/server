@@ -6,7 +6,9 @@ defmodule Acai.TeamsTest do
   import Acai.DataModelFixtures
 
   alias Acai.Teams
+  alias Acai.Teams.AccessToken
   alias Acai.Accounts.Scope
+  alias Acai.Repo
 
   describe "update_member_role/3" do
     setup do
@@ -94,6 +96,175 @@ defmodule Acai.TeamsTest do
     } do
       assert {:error, changeset} = Teams.update_member_role(scope, developer_role, "superadmin")
       assert %{title: [_ | _]} = errors_on(changeset)
+    end
+  end
+
+  describe "list_team_members/1" do
+    setup do
+      owner = user_fixture()
+      developer_user = user_fixture()
+      team = team_fixture()
+
+      owner_role = user_team_role_fixture(team, owner, %{title: "owner"})
+      dev_role = user_team_role_fixture(team, developer_user, %{title: "developer"})
+
+      %{
+        team: team,
+        owner: owner,
+        developer_user: developer_user,
+        owner_role: owner_role,
+        dev_role: dev_role
+      }
+    end
+
+    # TEAM.MEMBERS.1
+    test "returns all members for the team", %{
+      team: team,
+      owner: owner,
+      developer_user: developer_user
+    } do
+      members = Teams.list_team_members(team)
+      user_ids = Enum.map(members, & &1.user_id)
+
+      assert owner.id in user_ids
+      assert developer_user.id in user_ids
+    end
+
+    # TEAM.MEMBERS.1
+    test "preloads the user association", %{team: team} do
+      members = Teams.list_team_members(team)
+      assert Enum.all?(members, fn r -> not is_nil(r.user) and r.user.email end)
+    end
+
+    test "does not return members from other teams", %{team: team} do
+      other_team = team_fixture()
+      other_user = user_fixture()
+      user_team_role_fixture(other_team, other_user, %{title: "owner"})
+
+      members = Teams.list_team_members(team)
+      user_ids = Enum.map(members, & &1.user_id)
+      refute other_user.id in user_ids
+    end
+  end
+
+  describe "invite_member/4" do
+    setup do
+      team = team_fixture()
+      %{team: team}
+    end
+
+    # TEAM.INVITE.3-2
+    test "creates a new user record when the email doesn't exist yet", %{team: team} do
+      email = unique_user_email()
+
+      assert {:ok, member} =
+               Teams.invite_member(team, email, "developer", &"http://example.com/#{&1}")
+
+      assert member.title == "developer"
+      assert member.user.email == email
+    end
+
+    # TEAM.INVITE.3-4
+    test "adds an existing user to the team immediately", %{team: team} do
+      existing_user = user_fixture()
+
+      assert {:ok, member} =
+               Teams.invite_member(
+                 team,
+                 existing_user.email,
+                 "developer",
+                 &"http://example.com/#{&1}"
+               )
+
+      assert member.user_id == existing_user.id
+    end
+
+    # TEAM.INVITE.3-1
+    test "returns :already_member when the user is already on the team", %{team: team} do
+      existing_user = user_fixture()
+      user_team_role_fixture(team, existing_user, %{title: "developer"})
+
+      assert {:error, :already_member} =
+               Teams.invite_member(
+                 team,
+                 existing_user.email,
+                 "developer",
+                 &"http://example.com/#{&1}"
+               )
+    end
+
+    # TEAM.INVITE.2
+    test "assigns the specified role to the invited member", %{team: team} do
+      email = unique_user_email()
+
+      assert {:ok, member} =
+               Teams.invite_member(team, email, "readonly", &"http://example.com/#{&1}")
+
+      assert member.title == "readonly"
+    end
+  end
+
+  describe "remove_member/2" do
+    setup do
+      owner = user_fixture()
+      other_user = user_fixture()
+      team = team_fixture()
+
+      owner_role = user_team_role_fixture(team, owner, %{title: "owner"})
+      other_role = user_team_role_fixture(team, other_user, %{title: "developer"})
+
+      token = access_token_fixture(team, other_user)
+
+      %{
+        team: team,
+        owner: owner,
+        owner_role: owner_role,
+        other_user: other_user,
+        other_role: other_role,
+        token: token
+      }
+    end
+
+    # TEAM.DELETE_ROLE.3
+    test "revokes all access tokens for the removed user on that team", %{
+      team: team,
+      other_user: other_user,
+      token: token
+    } do
+      assert {:ok, :removed} = Teams.remove_member(team, other_user.id)
+      updated_token = Repo.get!(AccessToken, token.id)
+      assert not is_nil(updated_token.revoked_at)
+    end
+
+    test "removes the user's team role", %{team: team, other_user: other_user} do
+      assert {:ok, :removed} = Teams.remove_member(team, other_user.id)
+      members = Teams.list_team_members(team)
+      user_ids = Enum.map(members, & &1.user_id)
+      refute other_user.id in user_ids
+    end
+
+    # TEAM.DELETE_ROLE.4
+    test "returns :last_owner when trying to remove the sole owner", %{
+      team: team,
+      owner: owner
+    } do
+      assert {:error, :last_owner} = Teams.remove_member(team, owner.id)
+    end
+
+    test "can remove an owner when another owner exists", %{
+      team: team,
+      other_user: other_user
+    } do
+      # Promote other_user to owner
+      Repo.update_all(
+        from(r in Acai.Teams.UserTeamRole,
+          where: r.team_id == ^team.id and r.user_id == ^other_user.id
+        ),
+        set: [title: "owner"]
+      )
+
+      # Now we can remove either owner since there are two
+      assert {:ok, :removed} = Teams.remove_member(team, other_user.id)
     end
   end
 end

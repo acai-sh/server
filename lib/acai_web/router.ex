@@ -61,6 +61,8 @@ defmodule AcaiWeb.Router do
     live_session :require_authenticated_user,
       on_mount: [{AcaiWeb.UserAuth, :ensure_authenticated}] do
       live "/teams", TeamsLive
+      # TEAM.MAIN.1
+      live "/t/:team_id", TeamLive
     end
 
     get "/users/settings", UserSettingsController, :edit

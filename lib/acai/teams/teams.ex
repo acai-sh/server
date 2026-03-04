@@ -6,6 +6,8 @@ defmodule Acai.Teams do
   import Ecto.Query
   alias Acai.Repo
   alias Acai.Teams.{Team, UserTeamRole, AccessToken}
+  alias Acai.Accounts
+  alias Acai.Accounts.{User, UserNotifier}
 
   # --- Teams ---
 
@@ -43,12 +45,126 @@ defmodule Acai.Teams do
     )
   end
 
+  # TEAM.MEMBERS.1
+  def list_team_members(%Team{} = team) do
+    Repo.all(
+      from r in UserTeamRole,
+        where: r.team_id == ^team.id,
+        preload: [:user]
+    )
+  end
+
   def create_user_team_role(current_scope, %Team{} = team, attrs) do
     %UserTeamRole{}
     |> UserTeamRole.changeset(attrs)
     |> Ecto.Changeset.put_change(:team_id, team.id)
     |> Ecto.Changeset.put_change(:user_id, current_scope.user.id)
     |> Repo.insert()
+  end
+
+  @doc """
+  Invites a user to the team by email.
+
+  Finds or creates the user, adds them with the given role, and sends
+  an appropriate email. Returns an error if they are already a member.
+  """
+  # TEAM.INVITE.3-1
+  # TEAM.INVITE.3-2
+  # TEAM.INVITE.3-3
+  # TEAM.INVITE.3-4
+  def invite_member(%Team{} = team, email, role, login_url_fn) do
+    Repo.transact(fn ->
+      already_member? =
+        Repo.exists?(
+          from r in UserTeamRole,
+            where: r.team_id == ^team.id,
+            join: u in User,
+            on: u.id == r.user_id,
+            where: u.email == ^email
+        )
+
+      if already_member? do
+        # TEAM.INVITE.3-1
+        {:error, :already_member}
+      else
+        # TEAM.INVITE.3-2
+        user =
+          case Accounts.get_user_by_email(email) do
+            nil ->
+              {:ok, new_user} = Accounts.register_user(%{email: email})
+              new_user
+
+            existing ->
+              existing
+          end
+
+        result =
+          %UserTeamRole{}
+          |> UserTeamRole.changeset(%{title: role})
+          |> Ecto.Changeset.put_change(:team_id, team.id)
+          |> Ecto.Changeset.put_change(:user_id, user.id)
+          |> Repo.insert()
+
+        case result do
+          {:ok, role} ->
+            # TEAM.INVITE.3-3
+            if is_nil(user.confirmed_at) do
+              Accounts.deliver_login_instructions(user, login_url_fn)
+            else
+              UserNotifier.deliver_team_added_notification(user, team.name)
+            end
+
+            {:ok, %{role | user: user}}
+
+          {:error, changeset} ->
+            {:error, changeset}
+        end
+      end
+    end)
+  end
+
+  @doc """
+  Removes a member from the team and revokes all their access tokens for that team.
+
+  Guards against removing the last owner.
+  """
+  # TEAM.DELETE_ROLE.3
+  # TEAM.DELETE_ROLE.4
+  def remove_member(%Team{} = team, user_id) do
+    role =
+      Repo.one(
+        from r in UserTeamRole,
+          where: r.team_id == ^team.id and r.user_id == ^user_id
+      )
+
+    cond do
+      is_nil(role) ->
+        {:error, :not_found}
+
+      # TEAM.DELETE_ROLE.4
+      role.title == "owner" && owner_count(team.id) <= 1 ->
+        {:error, :last_owner}
+
+      true ->
+        Repo.transact(fn ->
+          now = DateTime.utc_now(:second)
+
+          # TEAM.DELETE_ROLE.3
+          Repo.update_all(
+            from(t in AccessToken,
+              where: t.team_id == ^team.id and t.user_id == ^user_id and is_nil(t.revoked_at)
+            ),
+            set: [revoked_at: now]
+          )
+
+          Repo.delete_all(
+            from r in UserTeamRole,
+              where: r.team_id == ^team.id and r.user_id == ^user_id
+          )
+
+          {:ok, :removed}
+        end)
+    end
   end
 
   @doc """
