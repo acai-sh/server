@@ -125,6 +125,7 @@ Controllers automatically have the `current_scope` available if they use the `:b
 ## Test guidelines
 
 - **Always use `start_supervised!/1`** to start processes in tests as it guarantees cleanup between tests
+- **ALWAYS - VERY IMPORTANT, NON-NEGOTIABLE:** Write unit tests for every component, and every context method, every file, and every module-- 100% test coverage mirroring the file structure of `lib`
 - **Avoid** `Process.sleep/1` and `Process.alive?/1` in tests
   - Instead of sleeping to wait for a process to finish, **always** use `Process.monitor/1` and assert on the DOWN message:
 

@@ -70,4 +70,25 @@ defmodule Acai.Events.ActivityEventTest do
       refute Map.has_key?(event, :updated_at)
     end
   end
+
+  describe "database - DATA.EVENTS.3 actor_token_id nilify on delete" do
+    test "deleting the actor token nullifies actor_token_id rather than deleting the event" do
+      import Acai.AccountsFixtures
+
+      team = team_fixture()
+      user = user_fixture()
+      token = access_token_fixture(team, user)
+
+      {:ok, event} =
+        ActivityEvent.changeset(%ActivityEvent{}, @valid_attrs)
+        |> Ecto.Changeset.put_change(:team_id, team.id)
+        |> Ecto.Changeset.put_change(:actor_token_id, token.id)
+        |> Acai.Repo.insert()
+
+      Acai.Repo.delete!(token)
+
+      reloaded = Acai.Repo.get!(ActivityEvent, event.id)
+      assert reloaded.actor_token_id == nil
+    end
+  end
 end

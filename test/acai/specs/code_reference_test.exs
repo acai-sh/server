@@ -41,6 +41,22 @@ defmodule Acai.Specs.CodeReferenceTest do
     end
   end
 
+  describe "database - unique constraint on (requirement_id, repo_uri, branch_name)" do
+    test "cannot insert two refs with the same requirement, repo_uri and branch_name" do
+      team = team_fixture()
+      spec = spec_fixture(team)
+      req = requirement_fixture(spec)
+      _first = code_reference_fixture(req)
+
+      {:error, cs} =
+        CodeReference.changeset(%CodeReference{}, @valid_attrs)
+        |> Ecto.Changeset.put_change(:requirement_id, req.id)
+        |> Acai.Repo.insert()
+
+      assert %{requirement_id: [_ | _]} = errors_on(cs)
+    end
+  end
+
   describe "database - DATA.REFS.2 on_delete: nothing" do
     test "deleting a requirement with code_references raises a foreign key constraint error" do
       team = team_fixture()

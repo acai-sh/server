@@ -33,5 +33,7 @@ defmodule Acai.Specs.CodeReference do
     code_reference
     |> cast(attrs, @required_fields ++ @optional_fields)
     |> validate_required(@required_fields)
+    # REFS unique constraint (requirement_id, repo_uri, branch_name)
+    |> unique_constraint([:requirement_id, :repo_uri, :branch_name])
   end
 end

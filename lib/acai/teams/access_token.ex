@@ -20,7 +20,17 @@ defmodule Acai.Teams.AccessToken do
     # DATA.TOKENS.5
     field :token_prefix, :string
     # DATA.TOKENS.6
-    field :scopes, {:array, :string}
+    # DATA.TOKENS.6-1
+    field :scopes, {:array, :string},
+      default: [
+        "specs:read",
+        "specs:write",
+        "refs:read",
+        "refs:write",
+        "impls:read",
+        "impls:write",
+        "team:read"
+      ]
 
     # DATA.TOKENS.7
     field :expires_at, :utc_datetime

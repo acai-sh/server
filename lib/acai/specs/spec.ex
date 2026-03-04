@@ -60,10 +60,13 @@ defmodule Acai.Specs.Spec do
     |> validate_required(@required_fields)
     # DATA.SPECS.8-1
     |> validate_url_safe(:feature_name)
+    |> check_constraint(:feature_name, name: :feature_name_url_safe)
     # DATA.FIELDS.2
     |> validate_uppercase_key(:feature_key)
+    |> check_constraint(:feature_key, name: :feature_key_uppercase)
     # DATA.SPECS.12-1
     |> validate_url_safe(:feature_product)
+    |> check_constraint(:feature_product, name: :feature_product_url_safe)
     # DATA.SPECS.13
     |> unique_constraint([:team_id, :repo_uri, :branch_name, :path])
   end

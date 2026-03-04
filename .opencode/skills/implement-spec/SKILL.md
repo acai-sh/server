@@ -21,7 +21,7 @@ components:
 
 Key conventions and requirements for you;
 * [ ] You MUST leave code comments with the ACID to assist code review. These comments help us understand "why" that code was written.
-* [ ] You MUST NEVER write the actual requirement text, only it's ACID (devs will look them up).
+* [ ] You MUST NEVER write the requirement text, only comment the ID on it's own. If you don't you create drift between spec and code.
 * [ ] You MUST write at least one unit test for every ACID, or a dummy test if not testable.
 * [ ] You must NEVER change the spec unless explicitly asked to change it.
 

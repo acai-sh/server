@@ -21,6 +21,8 @@ defmodule Acai.Teams.Team do
     team
     |> cast(attrs, [:name])
     |> validate_required([:name])
+    # DATA.TEAMS.2
+    |> update_change(:name, &String.downcase/1)
     # DATA.TEAMS.2-1
     |> validate_url_safe(:name)
     |> unique_constraint(:name)

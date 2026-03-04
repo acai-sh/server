@@ -93,5 +93,44 @@ defmodule Acai.Specs.SpecTest do
 
       assert %{team_id: [_ | _]} = errors_on(cs)
     end
+
+    # DATA.SPECS.8-1
+    test "feature_name_url_safe check constraint fires for invalid chars bypassing changeset" do
+      team = team_fixture()
+
+      {:error, cs} =
+        Spec.changeset(%Spec{}, @valid_attrs)
+        |> Ecto.Changeset.put_change(:team_id, team.id)
+        |> Ecto.Changeset.put_change(:feature_name, "invalid name!")
+        |> Acai.Repo.insert()
+
+      assert cs.errors[:feature_name] != nil
+    end
+
+    # DATA.FIELDS.2
+    test "feature_key_uppercase check constraint fires for lowercase keys bypassing changeset" do
+      team = team_fixture()
+
+      {:error, cs} =
+        Spec.changeset(%Spec{}, @valid_attrs)
+        |> Ecto.Changeset.put_change(:team_id, team.id)
+        |> Ecto.Changeset.put_change(:feature_key, "lowercase")
+        |> Acai.Repo.insert()
+
+      assert cs.errors[:feature_key] != nil
+    end
+
+    # DATA.SPECS.12-1
+    test "feature_product_url_safe check constraint fires for invalid chars bypassing changeset" do
+      team = team_fixture()
+
+      {:error, cs} =
+        Spec.changeset(%Spec{}, @valid_attrs)
+        |> Ecto.Changeset.put_change(:team_id, team.id)
+        |> Ecto.Changeset.put_change(:feature_product, "invalid product!")
+        |> Acai.Repo.insert()
+
+      assert cs.errors[:feature_product] != nil
+    end
   end
 end

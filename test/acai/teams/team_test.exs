@@ -10,6 +10,13 @@ defmodule Acai.Teams.TeamTest do
       assert cs.valid?
     end
 
+    # DATA.TEAMS.2
+    test "normalizes name to lowercase" do
+      cs = Team.changeset(%Team{}, %{name: "MY-Team"})
+      assert cs.valid?
+      assert Ecto.Changeset.get_change(cs, :name) == "my-team"
+    end
+
     test "invalid without a name" do
       cs = Team.changeset(%Team{}, %{})
       refute cs.valid?

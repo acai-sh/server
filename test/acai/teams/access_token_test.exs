@@ -30,7 +30,30 @@ defmodule Acai.Teams.AccessTokenTest do
       assert errors[:name]
       assert errors[:token_hash]
       assert errors[:token_prefix]
-      assert errors[:scopes]
+    end
+
+    # DATA.TOKENS.6-1
+    test "scopes defaults to the standard set when not provided" do
+      assert %AccessToken{}.scopes == [
+               "specs:read",
+               "specs:write",
+               "refs:read",
+               "refs:write",
+               "impls:read",
+               "impls:write",
+               "team:read"
+             ]
+    end
+
+    # DATA.TOKENS.6-2
+    test "scopes field accepts custom scope values" do
+      cs =
+        AccessToken.changeset(%AccessToken{}, %{
+          @valid_attrs
+          | scopes: ["specs:read", "team:read"]
+        })
+
+      assert cs.valid?
     end
 
     # DATA.TOKENS.7
