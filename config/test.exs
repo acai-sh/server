@@ -1,5 +1,8 @@
 import Config
 
+# Only in tests, remove the complexity from the password hashing algorithm
+config :argon2_elixir, t_cost: 1, m_cost: 8
+
 # Runtime environment flag to run Task.start synchronously in tests
 # This avoids sandbox issues with async database operations
 Application.put_env(:acai, :no_async_tasks, true)

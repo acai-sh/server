@@ -1,0 +1,5 @@
+defmodule AcaiWeb.UserRegistrationHTML do
+  use AcaiWeb, :html
+
+  embed_templates "user_registration_html/*"
+end

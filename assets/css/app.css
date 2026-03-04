@@ -23,8 +23,8 @@
     color-scheme: "dark";
     /* Acai.sh Dark Theme */
     --color-base-100: oklch(8.29% 0.015 330); /* #140411 - Background Dark */
-    --color-base-200: oklch(6.4% 0.008 321); /* #0e0a0d - Gray 950 */
-    --color-base-300: oklch(14.6% 0.011 328); /* #1b171a - Gray 900 */
+    --color-base-200: oklch(18% 0.02 334); /* elevated surface (purple tint) */
+    --color-base-300: oklch(24% 0.025 334); /* hover surface (purple tint) */
     --color-base-content: oklch(83.9% 0.004 316); /* #d2ced1 - Gray 300 */
     --color-primary: oklch(33.15% 0.17 334.6); /* #930d7a - Primary */
     --color-primary-content: oklch(98% 0.01 334.6);
@@ -38,8 +38,8 @@
     --color-info-content: oklch(97% 0.013 236.62);
     --color-success: oklch(60% 0.118 184.704);
     --color-success-content: oklch(98% 0.014 180.72);
-    --color-warning: oklch(66% 0.179 58.318);
-    --color-warning-content: oklch(98% 0.022 95.277);
+    --color-warning: oklch(75% 0.15 75); /* warm gold - complements purple */
+    --color-warning-content: oklch(20% 0.02 75);
     --color-error: oklch(58% 0.253 17.585);
     --color-error-content: oklch(96% 0.015 12.422);
     --radius-selector: 0.25rem;
@@ -76,8 +76,8 @@
     --color-info-content: oklch(97% 0.014 254.604);
     --color-success: oklch(70% 0.14 182.503);
     --color-success-content: oklch(98% 0.014 180.72);
-    --color-warning: oklch(66% 0.179 58.318);
-    --color-warning-content: oklch(98% 0.022 95.277);
+    --color-warning: oklch(75% 0.15 75); /* warm gold - complements purple */
+    --color-warning-content: oklch(20% 0.02 75);
     --color-error: oklch(58% 0.253 17.585);
     --color-error-content: oklch(96% 0.015 12.422);
     --radius-selector: 0.25rem;
