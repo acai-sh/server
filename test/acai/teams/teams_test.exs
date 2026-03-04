@@ -244,6 +244,33 @@ defmodule Acai.TeamsTest do
     end
   end
 
+  describe "delete_team/1" do
+    setup do
+      team = team_fixture()
+      %{team: team}
+    end
+
+    # TEAM_SETTINGS.DELETE.5
+    test "deletes the team and returns {:ok, team}", %{team: team} do
+      assert {:ok, deleted} = Teams.delete_team(team)
+      assert deleted.id == team.id
+      assert is_nil(Acai.Repo.get(Acai.Teams.Team, team.id))
+    end
+
+    # TEAM_SETTINGS.DELETE.5
+    test "cascade-deletes associated member roles", %{team: team} do
+      user = user_fixture()
+      user_team_role_fixture(team, user, %{title: "owner"})
+
+      assert {:ok, _} = Teams.delete_team(team)
+
+      roles =
+        Acai.Repo.all(from r in Acai.Teams.UserTeamRole, where: r.team_id == ^team.id)
+
+      assert roles == []
+    end
+  end
+
   describe "remove_member/2" do
     setup do
       owner = user_fixture()

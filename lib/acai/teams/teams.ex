@@ -32,6 +32,11 @@ defmodule Acai.Teams do
     |> Repo.update()
   end
 
+  # TEAM_SETTINGS.DELETE.5
+  def delete_team(%Team{} = team) do
+    Repo.delete(team)
+  end
+
   def change_team(%Team{} = team, attrs \\ %{}) do
     Team.changeset(team, attrs)
   end

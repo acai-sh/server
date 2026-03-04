@@ -63,6 +63,8 @@ defmodule AcaiWeb.Router do
       live "/teams", TeamsLive
       # TEAM.MAIN.1
       live "/t/:team_id", TeamLive
+      # TEAM_SETTINGS.AUTH.1
+      live "/t/:team_id/settings", TeamSettingsLive
     end
 
     get "/users/settings", UserSettingsController, :edit
