@@ -4,15 +4,15 @@ defmodule Acai.Teams.PermissionsTest do
   alias Acai.Teams.Permissions
 
   describe "valid_roles/0" do
-    # ROLES.SCOPES.1
+    # team-roles.SCOPES.1
     test "returns the three supported roles" do
       assert Permissions.valid_roles() == ~w(readonly developer owner)
     end
   end
 
   describe "scopes_for/1" do
-    # ROLES.SCOPES.3
-    # ROLES.SCOPES.4
+    # team-roles.SCOPES.3
+    # team-roles.SCOPES.4
     test "owner has all scopes" do
       scopes = Permissions.scopes_for("owner")
 
@@ -27,7 +27,7 @@ defmodule Acai.Teams.PermissionsTest do
       assert "tats:admin" in scopes
     end
 
-    # ROLES.SCOPES.5
+    # team-roles.SCOPES.5
     test "developer has all scopes except team:admin and tats:admin" do
       scopes = Permissions.scopes_for("developer")
 
@@ -42,7 +42,7 @@ defmodule Acai.Teams.PermissionsTest do
       refute "tats:admin" in scopes
     end
 
-    # ROLES.SCOPES.6
+    # team-roles.SCOPES.6
     test "readonly only has read scopes" do
       scopes = Permissions.scopes_for("readonly")
 
@@ -60,8 +60,8 @@ defmodule Acai.Teams.PermissionsTest do
   end
 
   describe "has_permission?/2" do
-    # ROLES.MODULE.1
-    # ROLES.SCOPES.4
+    # team-roles.MODULE.1
+    # team-roles.SCOPES.4
     test "owner has permission for every scope" do
       all_scopes =
         ~w(specs:read specs:write refs:read refs:write impls:read impls:write team:read team:admin tats:admin)
@@ -72,7 +72,7 @@ defmodule Acai.Teams.PermissionsTest do
       end
     end
 
-    # ROLES.SCOPES.5
+    # team-roles.SCOPES.5
     test "developer does not have team:admin" do
       refute Permissions.has_permission?("developer", "team:admin")
     end
@@ -85,7 +85,7 @@ defmodule Acai.Teams.PermissionsTest do
       assert Permissions.has_permission?("developer", "specs:write")
     end
 
-    # ROLES.SCOPES.6
+    # team-roles.SCOPES.6
     test "readonly has specs:read" do
       assert Permissions.has_permission?("readonly", "specs:read")
     end

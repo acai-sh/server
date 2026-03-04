@@ -1,20 +1,19 @@
 feature:
     name: team-settings
     description: The /t/:team_id/settings view where a team owner can rename the team or delete it.
-    key: TEAM_SETTINGS
     prerequisites:
-        - DATA.TEAMS
-        - DATA.ROLES
-        - ROLES
-        - TEAM
+        - data-model.TEAMS
+        - data-model.ROLES
+        - team-roles
+        - team-view
 
 components:
     MAIN:
         name: Main requirements for the /t/:team_id/settings view
         requirements:
             1: Renders the current team name.
-            2: Renders a 'Rename Team' button that opens the Rename Team modal (TEAM_SETTINGS.RENAME).
-            3: Renders a 'Delete Team' button that opens the Delete Team modal (TEAM_SETTINGS.DELETE).
+            2: Renders a 'Rename Team' button that opens the Rename Team modal (team-settings.RENAME).
+            3: Renders a 'Delete Team' button that opens the Delete Team modal (team-settings.DELETE).
 
     RENAME:
         name: Rename Team modal
@@ -22,7 +21,7 @@ components:
             1: Renders a text input pre-filled with the current team name.
             2: Renders Save and Cancel buttons.
             3: On save, validates and persists the new team name.
-            3-1: Displays inline error messages on validation failure (rules defined in DATA.TEAMS).
+            3-1: Displays inline error messages on validation failure (rules defined in data-model.TEAMS).
             3-2: On success, closes the modal and reflects the updated name on the page without a full reload.
 
     DELETE:

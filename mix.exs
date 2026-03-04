@@ -67,7 +67,7 @@ defmodule Acai.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
-      # DATA.FIELDS.3 - UUIDv7 primary keys for all entities
+      # data-model.FIELDS.3 - UUIDv7 primary keys for all entities
       {:uuidv7, "~> 0.2"}
     ]
   end

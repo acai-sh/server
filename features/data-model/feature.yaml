@@ -4,7 +4,6 @@ feature:
         Core RDBMS schema for tracking AI-driven feature specifications and code implementation state.
         Fields are default required / non-null unless flagged as Optional.
         Foreign keys are default ON DELETE CASCADE unless flagged otherwise.
-    key: DATA
     prerequisites:
         - Default elixir/phoenix app already has Users table, session tokens, and mailer logic completed.
 
@@ -68,7 +67,7 @@ components:
 
     SPECS:
         name: specs table
-        description: A feature.yaml file at a specific repo, branch, and path.
+        description: A stored reference to a feature.yaml file at a specific repo, branch, and path.
         requirements:
             1: id field is a UUIDv7 Primary Key.
             2: repo_uri is the normalized URI (e.g., github.com/acai-sh/server or bitbucket.org/acme/api).
@@ -79,8 +78,7 @@ components:
             7: team_id is a Foreign Key to teams table.
             8: feature_name is the string defined under feature.name.
             8-1: feature_name field only supports alphanumeric chars, hyphens, and underscores (safe to use in URL path).
-            9: feature_key is the string defined under feature.key
-            10: feature_description is the string defined under feature.description. Optional.
+            9: feature_description is the string defined under feature.description. Optional.
             11: feature_version is the string defined under feature.version. Optional.
             12: feature_product is the string defined under feature.product.
             12-1: feature_product field is url-safe (alphanumeric chars, hyphens, and underscores)
@@ -121,6 +119,7 @@ components:
             5: is_active is a boolean to handle soft-deletes if a requirement is removed from the latest YAML push for this implementation.
             6: last_seen_commit is a string storing the commit hash from which this requirement was last observed for this implementation.
             7: Composite Unique Constraint enforces (implementation_id, requirement_id).
+            8: note is a string. Optional.
 
     REFS:
         name: code_references table
@@ -153,7 +152,7 @@ constraints:
     FIELDS:
         requirements:
             1: All tables include created_at and updated_at timestamps managed by Ecto, except activity_events which is append-only and omits updated_at.
-            2: Any field in any table that ends with _key must only support uppercase alphanumeric chars and underscores. This is to ensure that refs in code are reliably greppable e.g. 'FEAT1.COMP_2.1-1'
+            2: Any field in any table that ends with _key must only support url-safe alphanumeric chars, hyphens and underscores. This is to ensure that refs in code are reliably greppable e.g. 'data-model.COMP_2.1-1'
             3: All entities, except for roles, use `id` primary key as UUIDv7
 
     EVENTS_IDX:

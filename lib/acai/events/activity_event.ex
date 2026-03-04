@@ -2,32 +2,32 @@ defmodule Acai.Events.ActivityEvent do
   use Ecto.Schema
   import Ecto.Changeset
 
-  # DATA.EVENTS.1
-  # DATA.FIELDS.3
+  # data-model.EVENTS.1
+  # data-model.FIELDS.3
   @primary_key {:id, Acai.UUIDv7, autogenerate: true}
   @foreign_key_type Acai.UUIDv7
 
-  # DATA.EVENTS.9 — append-only, no updated_at
+  # data-model.EVENTS.9 — append-only, no updated_at
   @timestamps_opts [type: :utc_datetime, inserted_at: :created_at, updated_at: false]
 
   schema "activity_events" do
-    # DATA.EVENTS.2
+    # data-model.EVENTS.2
     belongs_to :team, Acai.Teams.Team
-    # DATA.EVENTS.3
+    # data-model.EVENTS.3
     belongs_to :actor_token, Acai.Teams.AccessToken, foreign_key: :actor_token_id
 
-    # DATA.EVENTS.4
+    # data-model.EVENTS.4
     field :event_type, :string
-    # DATA.EVENTS.5
+    # data-model.EVENTS.5
     field :subject_type, :string
-    # DATA.EVENTS.6
+    # data-model.EVENTS.6
     field :subject_id, Acai.UUIDv7
-    # DATA.EVENTS.7
+    # data-model.EVENTS.7
     field :batch_id, Acai.UUIDv7
-    # DATA.EVENTS.8
+    # data-model.EVENTS.8
     field :payload, :map, default: %{}
 
-    # DATA.EVENTS.9
+    # data-model.EVENTS.9
     timestamps(type: :utc_datetime, inserted_at: :created_at, updated_at: false)
   end
 

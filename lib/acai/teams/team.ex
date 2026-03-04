@@ -3,17 +3,17 @@ defmodule Acai.Teams.Team do
   import Ecto.Changeset
   import Acai.Core.Validations
 
-  # DATA.TEAMS.1
-  # DATA.FIELDS.3
+  # data-model.TEAMS.1
+  # data-model.FIELDS.3
   @primary_key {:id, Acai.UUIDv7, autogenerate: true}
   @foreign_key_type Acai.UUIDv7
 
   schema "teams" do
-    # DATA.TEAMS.2
-    # DATA.TEAMS.2-1
+    # data-model.TEAMS.2
+    # data-model.TEAMS.2-1
     field :name, :string
 
-    # TEAMS.ENG.1
+    # team-list.ENG.1
     has_many :user_team_roles, Acai.Teams.UserTeamRole
 
     timestamps(type: :utc_datetime)
@@ -24,9 +24,9 @@ defmodule Acai.Teams.Team do
     team
     |> cast(attrs, [:name])
     |> validate_required([:name])
-    # DATA.TEAMS.2
+    # data-model.TEAMS.2
     |> update_change(:name, &String.downcase/1)
-    # DATA.TEAMS.2-1
+    # data-model.TEAMS.2-1
     |> validate_url_safe(:name)
     |> unique_constraint(:name)
     |> check_constraint(:name, name: :name_url_safe)

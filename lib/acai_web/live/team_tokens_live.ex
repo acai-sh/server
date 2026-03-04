@@ -16,11 +16,11 @@ defmodule AcaiWeb.TeamTokensLive do
 
     current_role_title = if current_role, do: current_role.title, else: nil
 
-    # TATS.TATSEC.4
-    # TATS.TATSEC.5
+    # team-tokens.TATSEC.4
+    # team-tokens.TATSEC.5
     can_manage_tokens? = Permissions.has_permission?(current_role_title, "tats:admin")
 
-    # TATS.MAIN.1
+    # team-tokens.MAIN.1
     tokens = Teams.list_team_tokens(team)
 
     socket =
@@ -28,14 +28,14 @@ defmodule AcaiWeb.TeamTokensLive do
       |> assign(:team, team)
       |> assign(:can_manage_tokens?, can_manage_tokens?)
       |> assign(:tokens_empty?, tokens == [])
-      # TATS.MAIN.1
+      # team-tokens.MAIN.1
       |> stream(:tokens, tokens)
-      # TATS.MAIN.3
+      # team-tokens.MAIN.3
       |> assign(:show_create_modal, false)
       |> assign(:create_form, to_form(Teams.change_access_token(%AccessToken{}), as: :token))
-      # TATS.MAIN.4
+      # team-tokens.MAIN.4
       |> assign(:created_token, nil)
-      # TATS.MAIN.5
+      # team-tokens.MAIN.5
       |> assign(:show_revoke_modal, false)
       |> assign(:revoking_token, nil)
 
@@ -46,7 +46,7 @@ defmodule AcaiWeb.TeamTokensLive do
 
   @impl true
   def handle_event("open_create_modal", _params, socket) do
-    # TATS.TATSEC.4
+    # team-tokens.TATSEC.4
     if socket.assigns.can_manage_tokens? do
       socket =
         socket
@@ -78,13 +78,13 @@ defmodule AcaiWeb.TeamTokensLive do
   end
 
   def handle_event("create_token", %{"token" => params}, socket) do
-    # TATS.TATSEC.4
+    # team-tokens.TATSEC.4
     if socket.assigns.can_manage_tokens? do
       attrs = build_token_attrs(params)
 
       case Teams.generate_token(socket.assigns.current_scope, socket.assigns.team, attrs) do
         {:ok, token} ->
-          # TATS.MAIN.4
+          # team-tokens.MAIN.4
           socket =
             socket
             |> stream_insert(:tokens, token)
@@ -117,7 +117,7 @@ defmodule AcaiWeb.TeamTokensLive do
   # --- Revoke token modal ---
 
   def handle_event("open_revoke_modal", %{"token_id" => token_id}, socket) do
-    # TATS.TATSEC.4
+    # team-tokens.TATSEC.4
     if socket.assigns.can_manage_tokens? do
       token = Teams.get_access_token!(token_id)
 
@@ -196,7 +196,7 @@ defmodule AcaiWeb.TeamTokensLive do
           {@team.name} — Access Tokens
           <:subtitle>Manage API access tokens for this team</:subtitle>
           <:actions>
-            <%!-- TATS.TATSEC.4 --%>
+            <%!-- team-tokens.TATSEC.4 --%>
             <.button
               id="create-token-btn"
               phx-click="open_create_modal"
@@ -208,7 +208,7 @@ defmodule AcaiWeb.TeamTokensLive do
           </:actions>
         </.header>
 
-        <%!-- TATS.MAIN.2 --%>
+        <%!-- team-tokens.MAIN.2 --%>
         <div
           id="token-education"
           class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
@@ -218,26 +218,25 @@ defmodule AcaiWeb.TeamTokensLive do
             <div class="space-y-1">
               <p class="font-semibold">About Team Access Tokens</p>
               <p>
-                Team Access Tokens grant full read and write access to your team's resources —
+                Tokens grant full read and write access to your team's resources —
                 including specs, implementations, references, and team metadata.
               </p>
               <p>
-                Tokens do <strong>not</strong>
-                grant <code class="font-mono bg-amber-100 px-1 rounded">tats:admin</code>
-                (create/revoke tokens) or
-                <code class="font-mono bg-amber-100 px-1 rounded">team:admin</code>
-                (manage members/roles). Those operations require a user with the appropriate role.
+                They can not be used to manage users or other access tokens.
+              </p>
+              <p>
+                When a user is removed from the team, any tokens they created are revoked.
               </p>
             </div>
           </div>
         </div>
 
-        <%!-- TATS.MAIN.1 --%>
+        <%!-- team-tokens.MAIN.1 --%>
         <div class="space-y-4">
           <h2 class="text-base font-semibold">Tokens</h2>
 
           <div id="tokens-list" phx-update="stream" class="space-y-2">
-            <%!-- TATS.MAIN.1-1 --%>
+            <%!-- team-tokens.MAIN.1-1 --%>
             <div
               :for={{id, token} <- @streams.tokens}
               id={id}
@@ -273,8 +272,8 @@ defmodule AcaiWeb.TeamTokensLive do
                   <% end %>
                 </div>
               </div>
-              <%!-- TATS.MAIN.5 --%>
-              <%!-- TATS.TATSEC.4 --%>
+              <%!-- team-tokens.MAIN.5 --%>
+              <%!-- team-tokens.TATSEC.4 --%>
               <.button
                 id={"revoke-btn-#{token.id}"}
                 phx-click="open_revoke_modal"
@@ -293,7 +292,7 @@ defmodule AcaiWeb.TeamTokensLive do
           <% end %>
         </div>
 
-        <%!-- TATS.USAGE.1 --%>
+        <%!-- team-tokens.USAGE.1 --%>
         <div id="usage-section" class="space-y-4">
           <h2 class="text-base font-semibold">Usage</h2>
           <div class="rounded-xl border border-base-300 bg-base-100 p-8 text-center space-y-2">
@@ -306,7 +305,7 @@ defmodule AcaiWeb.TeamTokensLive do
         </div>
       </div>
 
-      <%!-- TATS.MAIN.3 / TATS.MAIN.4 --%>
+      <%!-- team-tokens.MAIN.3 / team-tokens.MAIN.4 --%>
       <%= if @show_create_modal do %>
         <div
           id="create-token-modal-backdrop"
@@ -334,7 +333,7 @@ defmodule AcaiWeb.TeamTokensLive do
             </div>
 
             <%= if @created_token do %>
-              <%!-- TATS.MAIN.4 --%>
+              <%!-- team-tokens.MAIN.4 --%>
               <div id="token-reveal" class="space-y-4">
                 <div class="rounded-lg border border-warning/40 bg-warning/10 p-3 flex gap-2 text-sm text-warning-content">
                   <.icon name="hero-exclamation-triangle" class="size-5 shrink-0 text-warning mt-0.5" />
@@ -343,7 +342,7 @@ defmodule AcaiWeb.TeamTokensLive do
                     <strong>You won't be able to see it again.</strong>
                   </p>
                 </div>
-                <%!-- TATS.MAIN.4-1 --%>
+                <%!-- team-tokens.MAIN.4-1 --%>
                 <div class="relative">
                   <pre
                     id="raw-token-display"
@@ -385,8 +384,8 @@ defmodule AcaiWeb.TeamTokensLive do
                 </div>
               </div>
             <% else %>
-              <%!-- TATS.MAIN.3 --%>
-              <%!-- TATS.MAIN.3-1 --%>
+              <%!-- team-tokens.MAIN.3 --%>
+              <%!-- team-tokens.MAIN.3-1 --%>
               <.form
                 for={@create_form}
                 id="create-token-form"
@@ -423,7 +422,7 @@ defmodule AcaiWeb.TeamTokensLive do
         </div>
       <% end %>
 
-      <%!-- TATS.MAIN.5-1 --%>
+      <%!-- team-tokens.MAIN.5-1 --%>
       <%= if @show_revoke_modal do %>
         <div
           id="revoke-token-modal-backdrop"

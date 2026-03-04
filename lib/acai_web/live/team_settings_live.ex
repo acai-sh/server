@@ -16,19 +16,19 @@ defmodule AcaiWeb.TeamSettingsLive do
 
     current_role_title = if current_role, do: current_role.title, else: nil
 
-    # TEAM_SETTINGS.AUTH.1
-    # TEAM_SETTINGS.AUTH.2
+    # team-settings.AUTH.1
+    # team-settings.AUTH.2
     if Permissions.has_permission?(current_role_title, "team:admin") do
       socket =
         socket
-        # TEAM_SETTINGS.MAIN.1
+        # team-settings.MAIN.1
         |> assign(:team, team)
-        # TEAM_SETTINGS.MAIN.2
+        # team-settings.MAIN.2
         |> assign(:show_rename_modal, false)
         |> assign(:rename_form, to_form(Teams.change_team(team)))
-        # TEAM_SETTINGS.MAIN.3
+        # team-settings.MAIN.3
         |> assign(:show_delete_modal, false)
-        # TEAM_SETTINGS.DELETE.2
+        # team-settings.DELETE.2
         |> assign(:confirm_name, "")
 
       {:ok, socket}
@@ -41,7 +41,7 @@ defmodule AcaiWeb.TeamSettingsLive do
 
   @impl true
   def handle_event("open_rename_modal", _params, socket) do
-    # TEAM_SETTINGS.MAIN.2
+    # team-settings.MAIN.2
     socket =
       socket
       |> assign(:show_rename_modal, true)
@@ -55,10 +55,10 @@ defmodule AcaiWeb.TeamSettingsLive do
   end
 
   def handle_event("rename_team", %{"team" => params}, socket) do
-    # TEAM_SETTINGS.RENAME.3
+    # team-settings.RENAME.3
     case Teams.update_team(socket.assigns.team, params) do
       {:ok, updated_team} ->
-        # TEAM_SETTINGS.RENAME.3-2
+        # team-settings.RENAME.3-2
         socket =
           socket
           |> assign(:team, updated_team)
@@ -68,7 +68,7 @@ defmodule AcaiWeb.TeamSettingsLive do
         {:noreply, socket}
 
       {:error, changeset} ->
-        # TEAM_SETTINGS.RENAME.3-1
+        # team-settings.RENAME.3-1
         {:noreply, assign(socket, :rename_form, to_form(changeset))}
     end
   end
@@ -76,7 +76,7 @@ defmodule AcaiWeb.TeamSettingsLive do
   # --- Delete modal ---
 
   def handle_event("open_delete_modal", _params, socket) do
-    # TEAM_SETTINGS.MAIN.3
+    # team-settings.MAIN.3
     socket =
       socket
       |> assign(:show_delete_modal, true)
@@ -90,7 +90,7 @@ defmodule AcaiWeb.TeamSettingsLive do
   end
 
   def handle_event("update_confirm_name", %{"confirm_name" => name}, socket) do
-    # TEAM_SETTINGS.DELETE.3
+    # team-settings.DELETE.3
     {:noreply, assign(socket, :confirm_name, name)}
   end
 
@@ -98,7 +98,7 @@ defmodule AcaiWeb.TeamSettingsLive do
     team = socket.assigns.team
 
     if socket.assigns.confirm_name == team.name do
-      # TEAM_SETTINGS.DELETE.5
+      # team-settings.DELETE.5
       case Teams.delete_team(team) do
         {:ok, _} ->
           {:noreply, push_navigate(socket, to: "/teams")}
@@ -116,7 +116,7 @@ defmodule AcaiWeb.TeamSettingsLive do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="space-y-8 max-w-2xl mx-auto">
-        <%!-- TEAM_SETTINGS.MAIN.1 --%>
+        <%!-- team-settings.MAIN.1 --%>
         <.header>
           {@team.name}
           <:subtitle>Team settings</:subtitle>
@@ -132,7 +132,7 @@ defmodule AcaiWeb.TeamSettingsLive do
                   Change the name of your team.
                 </p>
               </div>
-              <%!-- TEAM_SETTINGS.MAIN.2 --%>
+              <%!-- team-settings.MAIN.2 --%>
               <.button id="rename-team-btn" phx-click="open_rename_modal">
                 <.icon name="hero-pencil-square" class="size-4 mr-1" /> Rename Team
               </.button>
@@ -148,7 +148,7 @@ defmodule AcaiWeb.TeamSettingsLive do
                   Permanently delete this team and all its data.
                 </p>
               </div>
-              <%!-- TEAM_SETTINGS.MAIN.3 --%>
+              <%!-- team-settings.MAIN.3 --%>
               <.button
                 id="delete-team-btn"
                 phx-click="open_delete_modal"
@@ -161,7 +161,7 @@ defmodule AcaiWeb.TeamSettingsLive do
         </div>
       </div>
 
-      <%!-- TEAM_SETTINGS.RENAME --%>
+      <%!-- team-settings.RENAME --%>
       <%= if @show_rename_modal do %>
         <div
           id="rename-modal-backdrop"
@@ -192,7 +192,7 @@ defmodule AcaiWeb.TeamSettingsLive do
               phx-submit="rename_team"
               class="space-y-4"
             >
-              <%!-- TEAM_SETTINGS.RENAME.1 --%>
+              <%!-- team-settings.RENAME.1 --%>
               <.input
                 field={@rename_form[:name]}
                 type="text"
@@ -203,7 +203,7 @@ defmodule AcaiWeb.TeamSettingsLive do
                 Lowercase letters, numbers, and hyphens only.
               </p>
 
-              <%!-- TEAM_SETTINGS.RENAME.2 --%>
+              <%!-- team-settings.RENAME.2 --%>
               <div class="flex gap-3 justify-end pt-1">
                 <.button type="button" phx-click="close_rename_modal" id="cancel-rename-btn">
                   Cancel
@@ -217,7 +217,7 @@ defmodule AcaiWeb.TeamSettingsLive do
         </div>
       <% end %>
 
-      <%!-- TEAM_SETTINGS.DELETE --%>
+      <%!-- team-settings.DELETE --%>
       <%= if @show_delete_modal do %>
         <div
           id="delete-modal-backdrop"
@@ -242,7 +242,7 @@ defmodule AcaiWeb.TeamSettingsLive do
               </button>
             </div>
 
-            <%!-- TEAM_SETTINGS.DELETE.1 --%>
+            <%!-- team-settings.DELETE.1 --%>
             <div class="alert alert-error text-sm">
               <.icon name="hero-exclamation-triangle" class="size-5 shrink-0" />
               <div>
@@ -259,7 +259,7 @@ defmodule AcaiWeb.TeamSettingsLive do
               </div>
             </div>
 
-            <%!-- TEAM_SETTINGS.DELETE.2 --%>
+            <%!-- team-settings.DELETE.2 --%>
             <div class="space-y-2">
               <p class="text-sm">
                 To confirm, type <span class="font-mono font-semibold">{@team.name}</span> below:
@@ -278,11 +278,11 @@ defmodule AcaiWeb.TeamSettingsLive do
             </div>
 
             <div class="flex gap-3 justify-end pt-1">
-              <%!-- TEAM_SETTINGS.DELETE.4 --%>
+              <%!-- team-settings.DELETE.4 --%>
               <.button type="button" phx-click="close_delete_modal" id="cancel-delete-btn">
                 Cancel
               </.button>
-              <%!-- TEAM_SETTINGS.DELETE.3 --%>
+              <%!-- team-settings.DELETE.3 --%>
               <.button
                 id="confirm-delete-team-btn"
                 phx-click="confirm_delete"

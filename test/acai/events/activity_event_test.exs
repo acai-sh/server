@@ -23,26 +23,26 @@ defmodule Acai.Events.ActivityEventTest do
       refute cs.valid?
     end
 
-    # DATA.EVENTS.4
+    # data-model.EVENTS.4
     test "invalid without event_type" do
       cs = ActivityEvent.changeset(%ActivityEvent{}, Map.delete(@valid_attrs, :event_type))
       refute cs.valid?
       assert %{event_type: [_ | _]} = errors_on(cs)
     end
 
-    # DATA.EVENTS.5
+    # data-model.EVENTS.5
     test "invalid without subject_type" do
       cs = ActivityEvent.changeset(%ActivityEvent{}, Map.delete(@valid_attrs, :subject_type))
       refute cs.valid?
     end
 
-    # DATA.EVENTS.6
+    # data-model.EVENTS.6
     test "invalid without subject_id" do
       cs = ActivityEvent.changeset(%ActivityEvent{}, Map.delete(@valid_attrs, :subject_id))
       refute cs.valid?
     end
 
-    # DATA.EVENTS.7
+    # data-model.EVENTS.7
     test "accepts optional batch_id" do
       cs =
         ActivityEvent.changeset(
@@ -53,7 +53,7 @@ defmodule Acai.Events.ActivityEventTest do
       assert cs.valid?
     end
 
-    # DATA.EVENTS.1
+    # data-model.EVENTS.1
     test "uses UUIDv7 primary key" do
       assert ActivityEvent.__schema__(:primary_key) == [:id]
       assert ActivityEvent.__schema__(:type, :id) == Acai.UUIDv7
@@ -61,7 +61,7 @@ defmodule Acai.Events.ActivityEventTest do
   end
 
   describe "database - append-only" do
-    # DATA.EVENTS.9
+    # data-model.EVENTS.9
     test "created_at is set on insert and updated_at does not exist" do
       team = team_fixture()
       event = activity_event_fixture(team)
@@ -71,7 +71,7 @@ defmodule Acai.Events.ActivityEventTest do
     end
   end
 
-  describe "database - DATA.EVENTS.3 actor_token_id nilify on delete" do
+  describe "database - data-model.EVENTS.3 actor_token_id nilify on delete" do
     test "deleting the actor token nullifies actor_token_id rather than deleting the event" do
       import Acai.AccountsFixtures
 

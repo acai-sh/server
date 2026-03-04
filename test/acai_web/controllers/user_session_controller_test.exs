@@ -83,7 +83,7 @@ defmodule AcaiWeb.UserSessionControllerTest do
         })
 
       assert get_session(conn, :user_token)
-      # TEAMS.MAIN.3
+      # team-list.MAIN.3
       assert redirected_to(conn) == ~p"/teams"
 
       # Now do a logged in request and assert on the menu
@@ -107,7 +107,7 @@ defmodule AcaiWeb.UserSessionControllerTest do
         })
 
       assert conn.resp_cookies["_acai_web_user_remember_me"]
-      # TEAMS.MAIN.3
+      # team-list.MAIN.3
       assert redirected_to(conn) == ~p"/teams"
     end
 
@@ -160,7 +160,7 @@ defmodule AcaiWeb.UserSessionControllerTest do
         })
 
       assert get_session(conn, :user_token)
-      # TEAMS.MAIN.3
+      # team-list.MAIN.3
       assert redirected_to(conn) == ~p"/teams"
 
       # Now do a logged in request and assert on the menu
@@ -182,7 +182,7 @@ defmodule AcaiWeb.UserSessionControllerTest do
         })
 
       assert get_session(conn, :user_token)
-      # TEAMS.MAIN.3
+      # team-list.MAIN.3
       assert redirected_to(conn) == ~p"/teams"
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "User confirmed successfully."
 

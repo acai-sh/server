@@ -1,9 +1,8 @@
 feature:
     name: team-list
     description: This feature describes the /teams list view where a user can view a list of teams and create a new team.
-    key: TEAMS
     prerequisites:
-        - DATA.TEAMS
+        - data-model.TEAMS
 
 components:
     MAIN:
@@ -28,4 +27,4 @@ constraints:
     ENG:
         requirements:
             1: The user who creates the team must recieve the owner role for that team by default
-            2: Rely on schema/changesets for validation and error handling (string validation defined in DATA.TEAMS)
+            2: Rely on schema/changesets for validation and error handling (string validation defined in data-model.TEAMS)

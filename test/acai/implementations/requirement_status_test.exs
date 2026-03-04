@@ -13,14 +13,14 @@ defmodule Acai.Implementations.RequirementStatusTest do
       assert cs.valid?
     end
 
-    # DATA.REQ_STATUSES.6
+    # data-model.REQ_STATUSES.6
     test "invalid without last_seen_commit" do
       cs = RequirementStatus.changeset(%RequirementStatus{}, %{is_active: true})
       refute cs.valid?
       assert %{last_seen_commit: [_ | _]} = errors_on(cs)
     end
 
-    # DATA.REQ_STATUSES.4
+    # data-model.REQ_STATUSES.4
     test "accepts optional status" do
       cs =
         RequirementStatus.changeset(
@@ -31,7 +31,7 @@ defmodule Acai.Implementations.RequirementStatusTest do
       assert cs.valid?
     end
 
-    # DATA.REQ_STATUSES.1
+    # data-model.REQ_STATUSES.1
     test "uses UUIDv7 primary key" do
       assert RequirementStatus.__schema__(:primary_key) == [:id]
       assert RequirementStatus.__schema__(:type, :id) == Acai.UUIDv7
@@ -39,7 +39,7 @@ defmodule Acai.Implementations.RequirementStatusTest do
   end
 
   describe "database constraints" do
-    # DATA.REQ_STATUSES.7
+    # data-model.REQ_STATUSES.7
     test "composite unique constraint on (implementation_id, requirement_id)" do
       team = team_fixture()
       spec = spec_fixture(team)

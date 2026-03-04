@@ -1,9 +1,8 @@
 feature:
     name: team-roles
     description: Spec defining how team roles should be enforced and managed in code
-    key: ROLES
     prerequisites:
-        - DATA.ROLES
+        - data-model.ROLES
 
 components:
     SCOPES:

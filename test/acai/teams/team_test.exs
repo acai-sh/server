@@ -4,13 +4,13 @@ defmodule Acai.Teams.TeamTest do
   alias Acai.Teams.Team
 
   describe "changeset/2" do
-    # DATA.TEAMS.2
+    # data-model.TEAMS.2
     test "valid with a URL-safe name" do
       cs = Team.changeset(%Team{}, %{name: "my-team_1"})
       assert cs.valid?
     end
 
-    # DATA.TEAMS.2
+    # data-model.TEAMS.2
     test "normalizes name to lowercase" do
       cs = Team.changeset(%Team{}, %{name: "MY-Team"})
       assert cs.valid?
@@ -23,7 +23,7 @@ defmodule Acai.Teams.TeamTest do
       assert %{name: [_ | _]} = errors_on(cs)
     end
 
-    # DATA.TEAMS.2-1
+    # data-model.TEAMS.2-1
     test "invalid when name contains spaces" do
       cs = Team.changeset(%Team{}, %{name: "my team"})
       refute cs.valid?
@@ -34,7 +34,7 @@ defmodule Acai.Teams.TeamTest do
       refute cs.valid?
     end
 
-    # DATA.TEAMS.1
+    # data-model.TEAMS.1
     test "uses UUIDv7 primary key" do
       assert Team.__schema__(:primary_key) == [:id]
       assert Team.__schema__(:type, :id) == Acai.UUIDv7
@@ -42,7 +42,7 @@ defmodule Acai.Teams.TeamTest do
   end
 
   describe "database constraints" do
-    # DATA.TEAMS.2
+    # data-model.TEAMS.2
     test "name must be unique (case-insensitive)" do
       import Acai.DataModelFixtures
       _team = team_fixture(%{name: "unique-team"})
@@ -54,7 +54,7 @@ defmodule Acai.Teams.TeamTest do
       assert %{name: [_ | _]} = errors_on(cs)
     end
 
-    # DATA.TEAMS.2-1
+    # data-model.TEAMS.2-1
     test "name_url_safe check constraint fires for invalid chars" do
       {:error, cs} =
         %Team{}

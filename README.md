@@ -14,7 +14,7 @@ The project directories follow the conventional Phoenix layout, with the additio
 Acai.sh is an open-source toolkit for spec-driven software development. The toolkit is centered around `feature.yaml` specs docs.
 The toolkit supports a specific software development workflow;
 1. Features are defined in plain language in `feature.yaml`, as simple lists of key requirements.
-2. Requirements each get stable ids like `FEAT.COMPONENT.1-1`.
+2. Requirements each get stable ids like `data-model.TEAMS.1`.
 3. The Acai CLI parses your `feature.yaml` files and scans your codebase to find id references in comments and in tests.
 4. Data is pushed to the server, so that many collaborators (humans and agents) can share progress, and review/accept/reject implementations.
 

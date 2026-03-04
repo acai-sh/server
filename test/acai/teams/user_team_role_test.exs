@@ -7,13 +7,13 @@ defmodule Acai.Teams.UserTeamRoleTest do
   alias Acai.Teams.UserTeamRole
 
   describe "changeset/2" do
-    # DATA.ROLES.3
+    # data-model.team-roles.3
     test "valid with title owner" do
       cs = UserTeamRole.changeset(%UserTeamRole{}, %{title: "owner"})
       assert cs.valid?
     end
 
-    # ROLES.SCOPES.1
+    # team-roles.SCOPES.1
     test "valid with title developer" do
       cs = UserTeamRole.changeset(%UserTeamRole{}, %{title: "developer"})
       assert cs.valid?
@@ -30,7 +30,7 @@ defmodule Acai.Teams.UserTeamRoleTest do
       assert %{title: [_ | _]} = errors_on(cs)
     end
 
-    # ROLES.SCOPES.2
+    # team-roles.SCOPES.2
     test "invalid with an unrecognised role title" do
       cs = UserTeamRole.changeset(%UserTeamRole{}, %{title: "superadmin"})
       refute cs.valid?
@@ -45,7 +45,7 @@ defmodule Acai.Teams.UserTeamRoleTest do
   end
 
   describe "database constraints" do
-    # DATA.ROLES - unique (team_id, user_id)
+    # data-model.ROLES - unique (team_id, user_id)
     test "prevents duplicate role assignments for the same user and team" do
       user = user_fixture()
       team = team_fixture()
@@ -60,7 +60,7 @@ defmodule Acai.Teams.UserTeamRoleTest do
       assert %{team_id: [_ | _]} = errors_on(cs)
     end
 
-    # DATA.ROLES - no primary key
+    # data-model.ROLES - no primary key
     test "schema has no primary key" do
       assert UserTeamRole.__schema__(:primary_key) == []
     end

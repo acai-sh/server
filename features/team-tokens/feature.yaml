@@ -1,12 +1,11 @@
 feature:
     name: team-tokens
     description: Create and manage team access tokens, which can then be used for permissioned API ops.
-    key: TATS
     prerequisites:
         - Data model and team views must be completed and tested;
-        - DATA.TOKENS
-        - TEAMS
-        - TEAM
+        - data-model.TOKENS
+        - team-list
+        - team-view
 
 components:
     MAIN:

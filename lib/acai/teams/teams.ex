@@ -32,7 +32,7 @@ defmodule Acai.Teams do
     |> Repo.update()
   end
 
-  # TEAM_SETTINGS.DELETE.5
+  # team-settings.DELETE.5
   def delete_team(%Team{} = team) do
     Repo.delete(team)
   end
@@ -50,7 +50,7 @@ defmodule Acai.Teams do
     )
   end
 
-  # TEAM.MEMBERS.1
+  # team-view.MEMBERS.1
   def list_team_members(%Team{} = team) do
     Repo.all(
       from r in UserTeamRole,
@@ -73,10 +73,10 @@ defmodule Acai.Teams do
   Finds or creates the user, adds them with the given role, and sends
   an appropriate email. Returns an error if they are already a member.
   """
-  # TEAM.INVITE.3-1
-  # TEAM.INVITE.3-2
-  # TEAM.INVITE.3-3
-  # TEAM.INVITE.3-4
+  # team-view.INVITE.3-1
+  # team-view.INVITE.3-2
+  # team-view.INVITE.3-3
+  # team-view.INVITE.3-4
   def invite_member(%Team{} = team, email, role, login_url_fn) do
     Repo.transact(fn ->
       already_member? =
@@ -89,10 +89,10 @@ defmodule Acai.Teams do
         )
 
       if already_member? do
-        # TEAM.INVITE.3-1
+        # team-view.INVITE.3-1
         {:error, :already_member}
       else
-        # TEAM.INVITE.3-2
+        # team-view.INVITE.3-2
         user =
           case Accounts.get_user_by_email(email) do
             nil ->
@@ -112,7 +112,7 @@ defmodule Acai.Teams do
 
         case result do
           {:ok, role} ->
-            # TEAM.INVITE.3-3
+            # team-view.INVITE.3-3
             if is_nil(user.confirmed_at) do
               Accounts.deliver_login_instructions(user, login_url_fn)
             else
@@ -133,8 +133,8 @@ defmodule Acai.Teams do
 
   Guards against removing the last owner.
   """
-  # TEAM.DELETE_ROLE.3
-  # TEAM.DELETE_ROLE.4
+  # team-view.DELETE_ROLE.3
+  # team-view.DELETE_ROLE.4
   def remove_member(%Team{} = team, user_id) do
     role =
       Repo.one(
@@ -146,7 +146,7 @@ defmodule Acai.Teams do
       is_nil(role) ->
         {:error, :not_found}
 
-      # TEAM.DELETE_ROLE.4
+      # team-view.DELETE_ROLE.4
       role.title == "owner" && owner_count(team.id) <= 1 ->
         {:error, :last_owner}
 
@@ -154,7 +154,7 @@ defmodule Acai.Teams do
         Repo.transact(fn ->
           now = DateTime.utc_now(:second)
 
-          # TEAM.DELETE_ROLE.3
+          # team-view.DELETE_ROLE.3
           Repo.update_all(
             from(t in AccessToken,
               where: t.team_id == ^team.id and t.user_id == ^user_id and is_nil(t.revoked_at)
@@ -182,11 +182,11 @@ defmodule Acai.Teams do
   def update_member_role(current_scope, %UserTeamRole{} = role, new_title) do
     acting_user_id = current_scope.user.id
 
-    # ROLES.SCOPES.7
+    # team-roles.SCOPES.7
     if role.title == "owner" && role.user_id == acting_user_id do
       {:error, :self_demotion}
     else
-      # ROLES.MODULE.3
+      # team-roles.MODULE.3
       if role.title == "owner" && owner_count(role.team_id) <= 1 do
         {:error, :last_owner}
       else
@@ -218,8 +218,8 @@ defmodule Acai.Teams do
     )
   end
 
-  # TATS.MAIN.1
-  # TATS.TATSEC.5
+  # team-tokens.MAIN.1
+  # team-tokens.TATSEC.5
   def list_team_tokens(%Team{} = team) do
     Repo.all(
       from t in AccessToken,
@@ -244,14 +244,14 @@ defmodule Acai.Teams do
   only the hash and prefix. Returns {:ok, token} with the raw_token virtual field
   populated for one-time display, or {:error, changeset}.
   """
-  # TATS.MAIN.3
-  # TATS.TATSEC.1
-  # TATS.TATSEC.2
+  # team-tokens.MAIN.3
+  # team-tokens.TATSEC.1
+  # team-tokens.TATSEC.2
   def generate_token(current_scope, %Team{} = team, attrs) do
     raw_bytes = :crypto.strong_rand_bytes(32)
     encoded = Base.url_encode64(raw_bytes, padding: false)
     raw_token = "at_" <> encoded
-    # TATS.TATSEC.1
+    # team-tokens.TATSEC.1
     token_prefix = "at_" <> String.slice(encoded, 0, 6)
     token_hash = :crypto.hash(:sha256, raw_token) |> Base.encode16(case: :lower)
 
@@ -273,8 +273,8 @@ defmodule Acai.Teams do
   @doc """
   Revokes a token by setting revoked_at to the current UTC time.
   """
-  # TATS.MAIN.5
-  # TATS.TATSEC.4
+  # team-tokens.MAIN.5
+  # team-tokens.TATSEC.4
   def revoke_token(%AccessToken{} = token) do
     now = DateTime.utc_now(:second)
 
@@ -286,7 +286,7 @@ defmodule Acai.Teams do
   @doc """
   Returns true if the token is currently valid (not revoked, not expired).
   """
-  # TATS.TATSEC.3
+  # team-tokens.TATSEC.3
   def valid_token?(%AccessToken{} = token) do
     not_revoked = is_nil(token.revoked_at)
 
@@ -309,7 +309,7 @@ defmodule Acai.Teams do
     from r in UserTeamRole, where: r.user_id == ^user_id, select: r.team_id
   end
 
-  # ROLES.MODULE.3
+  # team-roles.MODULE.3
   defp owner_count(team_id) do
     Repo.one(
       from r in UserTeamRole,

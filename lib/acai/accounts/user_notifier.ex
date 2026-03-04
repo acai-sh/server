@@ -41,7 +41,7 @@ defmodule Acai.Accounts.UserNotifier do
   @doc """
   Deliver a simple notification to an existing user that they were added to a team.
   """
-  # TEAM.INVITE.3-3
+  # team-view.INVITE.3-3
   def deliver_team_added_notification(user, team_name) do
     deliver(user.email, "You've been added to #{team_name}", """
 

@@ -1,7 +1,7 @@
 defmodule Acai.UUIDv7Test do
   use ExUnit.Case, async: true
 
-  # DATA.FIELDS.3
+  # data-model.FIELDS.3
   describe "Acai.UUIDv7" do
     test "type/0 returns :uuid" do
       assert Acai.UUIDv7.type() == :uuid

@@ -2,22 +2,22 @@ defmodule Acai.Implementations.RequirementStatus do
   use Ecto.Schema
   import Ecto.Changeset
 
-  # DATA.REQ_STATUSES.1
-  # DATA.FIELDS.3
+  # data-model.REQ_STATUSES.1
+  # data-model.FIELDS.3
   @primary_key {:id, Acai.UUIDv7, autogenerate: true}
   @foreign_key_type Acai.UUIDv7
 
   schema "requirement_statuses" do
-    # DATA.REQ_STATUSES.2
+    # data-model.REQ_STATUSES.2
     belongs_to :requirement, Acai.Specs.Requirement
-    # DATA.REQ_STATUSES.3
+    # data-model.REQ_STATUSES.3
     belongs_to :implementation, Acai.Implementations.Implementation
 
-    # DATA.REQ_STATUSES.4
+    # data-model.REQ_STATUSES.4
     field :status, :string
-    # DATA.REQ_STATUSES.5
+    # data-model.REQ_STATUSES.5
     field :is_active, :boolean, default: true
-    # DATA.REQ_STATUSES.6
+    # data-model.REQ_STATUSES.6
     field :last_seen_commit, :string
 
     timestamps(type: :utc_datetime)
@@ -31,7 +31,7 @@ defmodule Acai.Implementations.RequirementStatus do
     requirement_status
     |> cast(attrs, @required_fields ++ @optional_fields)
     |> validate_required(@required_fields)
-    # DATA.REQ_STATUSES.7
+    # data-model.REQ_STATUSES.7
     |> unique_constraint([:implementation_id, :requirement_id])
   end
 end

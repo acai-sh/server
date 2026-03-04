@@ -17,13 +17,13 @@ defmodule AcaiWeb.TeamsLiveTest do
   describe "mount / empty state" do
     setup :register_and_log_in_user
 
-    # TEAMS.MAIN.2-1
+    # team-list.MAIN.2-1
     test "shows empty state placeholder when user has no teams", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/teams")
       assert has_element?(view, "#teams-empty-state")
     end
 
-    # TEAMS.MAIN.1
+    # team-list.MAIN.1
     test "renders the CREATE TEAM button in the header", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/teams")
       assert has_element?(view, "#open-create-team-modal")
@@ -38,7 +38,7 @@ defmodule AcaiWeb.TeamsLiveTest do
   describe "team list" do
     setup :register_and_log_in_user
 
-    # TEAMS.MAIN.2
+    # team-list.MAIN.2
     test "shows teams the user belongs to as cards", %{conn: conn, user: user} do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "owner"})
@@ -49,7 +49,7 @@ defmodule AcaiWeb.TeamsLiveTest do
       assert has_element?(view, "[id^='teams-']", team.name)
     end
 
-    # TEAMS.MAIN.2-1
+    # team-list.MAIN.2-1
     test "does not show empty state when user has teams", %{conn: conn, user: user} do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "owner"})
@@ -59,7 +59,7 @@ defmodule AcaiWeb.TeamsLiveTest do
       refute has_element?(view, "#teams-empty-state")
     end
 
-    # TEAMS.MAIN.2-2
+    # team-list.MAIN.2-2
     test "team card links to /t/:team_id", %{conn: conn, user: user} do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "owner"})
@@ -81,7 +81,7 @@ defmodule AcaiWeb.TeamsLiveTest do
   describe "modal" do
     setup :register_and_log_in_user
 
-    # TEAMS.MAIN.1-1
+    # team-list.MAIN.1-1
     test "clicking CREATE TEAM opens the modal", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/teams")
 
@@ -102,7 +102,7 @@ defmodule AcaiWeb.TeamsLiveTest do
       refute has_element?(view, "#create-team-modal")
     end
 
-    # TEAMS.CREATE.2
+    # team-list.CREATE.2
     test "modal renders the team name input", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/teams")
       view |> element("#open-create-team-modal") |> render_click()
@@ -110,7 +110,7 @@ defmodule AcaiWeb.TeamsLiveTest do
       assert has_element?(view, "#create-team-form input[name='team[name]']")
     end
 
-    # TEAMS.CREATE.3
+    # team-list.CREATE.3
     test "modal renders a submit button", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/teams")
       view |> element("#open-create-team-modal") |> render_click()
@@ -122,7 +122,7 @@ defmodule AcaiWeb.TeamsLiveTest do
   describe "create team" do
     setup :register_and_log_in_user
 
-    # TEAMS.CREATE.1
+    # team-list.CREATE.1
     test "shows validation errors for an empty name", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/teams")
       view |> element("#open-create-team-modal") |> render_click()
@@ -134,7 +134,7 @@ defmodule AcaiWeb.TeamsLiveTest do
       assert has_element?(view, "#create-team-form", "can't be blank")
     end
 
-    # TEAMS.CREATE.1 / TEAMS.ENG.2
+    # team-list.CREATE.1 / team-list.ENG.2
     test "shows validation errors for a name that is not url-safe", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/teams")
       view |> element("#open-create-team-modal") |> render_click()
@@ -146,7 +146,7 @@ defmodule AcaiWeb.TeamsLiveTest do
       assert has_element?(view, "#create-team-form .text-error")
     end
 
-    # TEAMS.CREATE.1
+    # team-list.CREATE.1
     test "shows error when team name is already taken", %{conn: conn} do
       existing = team_fixture(%{name: "taken-team"})
 
@@ -160,7 +160,7 @@ defmodule AcaiWeb.TeamsLiveTest do
       assert has_element?(view, "#create-team-form", "has already been taken")
     end
 
-    # TEAMS.CREATE.3-1 / TEAMS.ENG.1
+    # team-list.CREATE.3-1 / team-list.ENG.1
     test "successful submission navigates to /t/:team_id and assigns owner role", %{
       conn: conn,
       user: user,
@@ -169,7 +169,7 @@ defmodule AcaiWeb.TeamsLiveTest do
       {:ok, view, _html} = live(conn, ~p"/teams")
       view |> element("#open-create-team-modal") |> render_click()
 
-      # TEAMS.CREATE.3-1
+      # team-list.CREATE.3-1
       assert {:error, {:live_redirect, %{to: redirect_path}}} =
                view
                |> form("#create-team-form", %{"team" => %{"name" => "my-new-team"}})
@@ -179,7 +179,7 @@ defmodule AcaiWeb.TeamsLiveTest do
       assert team.name == "my-new-team"
       assert redirect_path == "/t/#{team.id}"
 
-      # TEAMS.ENG.1
+      # team-list.ENG.1
       [role] = Teams.list_user_team_roles(scope, team)
       assert role.title == "owner"
       assert role.user_id == user.id
@@ -187,7 +187,7 @@ defmodule AcaiWeb.TeamsLiveTest do
   end
 
   describe "signed_in_path redirect" do
-    # TEAMS.MAIN.3
+    # team-list.MAIN.3
     test "new user is redirected to /teams after registration (signed_in_path is /teams)", %{
       conn: conn
     } do

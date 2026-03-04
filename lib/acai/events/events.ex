@@ -11,7 +11,7 @@ defmodule Acai.Events do
   # --- Activity Events ---
 
   def list_team_events(_current_scope, %Team{} = team) do
-    # DATA.EVENTS_IDX.1
+    # data-model.EVENTS_IDX.1
     Repo.all(
       from e in ActivityEvent,
         where: e.team_id == ^team.id,
@@ -20,7 +20,7 @@ defmodule Acai.Events do
   end
 
   def list_subject_events(subject_type, subject_id) do
-    # DATA.EVENTS_IDX.2
+    # data-model.EVENTS_IDX.2
     Repo.all(
       from e in ActivityEvent,
         where: e.subject_type == ^subject_type and e.subject_id == ^subject_id,
@@ -29,7 +29,7 @@ defmodule Acai.Events do
   end
 
   def list_batch_events(batch_id) do
-    # DATA.EVENTS_IDX.3
+    # data-model.EVENTS_IDX.3
     Repo.all(from e in ActivityEvent, where: e.batch_id == ^batch_id)
   end
 

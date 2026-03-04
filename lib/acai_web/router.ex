@@ -57,15 +57,15 @@ defmodule AcaiWeb.Router do
   scope "/", AcaiWeb do
     pipe_through [:browser, :require_authenticated_user]
 
-    # TEAMS.MAIN.2, TEAMS.MAIN.3
+    # team-list.MAIN.2, team-list.MAIN.3
     live_session :require_authenticated_user,
       on_mount: [{AcaiWeb.UserAuth, :ensure_authenticated}] do
       live "/teams", TeamsLive
-      # TEAM.MAIN.1
+      # team-view.MAIN.1
       live "/t/:team_id", TeamLive
-      # TEAM_SETTINGS.AUTH.1
+      # team-settings.AUTH.1
       live "/t/:team_id/settings", TeamSettingsLive
-      # TATS.MAIN.1
+      # team-tokens.MAIN.1
       live "/t/:team_id/tokens", TeamTokensLive
     end
 

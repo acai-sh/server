@@ -11,14 +11,14 @@ defmodule Acai.Implementations.ImplementationTest do
       assert cs.valid?
     end
 
-    # DATA.IMPLS.3
+    # data-model.IMPLS.3
     test "invalid without name" do
       cs = Implementation.changeset(%Implementation{}, %{is_active: true})
       refute cs.valid?
       assert %{name: [_ | _]} = errors_on(cs)
     end
 
-    # DATA.IMPLS.4
+    # data-model.IMPLS.4
     test "accepts optional description" do
       cs =
         Implementation.changeset(%Implementation{}, %{
@@ -30,12 +30,12 @@ defmodule Acai.Implementations.ImplementationTest do
       assert cs.valid?
     end
 
-    # DATA.IMPLS.5
+    # data-model.IMPLS.5
     test "is_active defaults to true" do
       assert %Implementation{}.is_active == true
     end
 
-    # DATA.IMPLS.1
+    # data-model.IMPLS.1
     test "uses UUIDv7 primary key" do
       assert Implementation.__schema__(:primary_key) == [:id]
       assert Implementation.__schema__(:type, :id) == Acai.UUIDv7
@@ -43,7 +43,7 @@ defmodule Acai.Implementations.ImplementationTest do
   end
 
   describe "database constraints" do
-    # DATA.IMPLS.7
+    # data-model.IMPLS.7
     test "composite unique constraint on (spec_id, name)" do
       team = team_fixture()
       spec = spec_fixture(team)

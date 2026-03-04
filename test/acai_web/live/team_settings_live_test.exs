@@ -23,7 +23,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
   describe "authorization" do
     setup :register_and_log_in_user
 
-    # TEAM_SETTINGS.AUTH.2
+    # team-settings.AUTH.2
     test "redirects developer away from settings", %{conn: conn, user: user} do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "developer"})
@@ -32,7 +32,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       assert path == "/t/#{team.id}"
     end
 
-    # TEAM_SETTINGS.AUTH.2
+    # team-settings.AUTH.2
     test "redirects readonly user away from settings", %{conn: conn, user: user} do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "readonly"})
@@ -41,14 +41,14 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       assert path == "/t/#{team.id}"
     end
 
-    # TEAM_SETTINGS.AUTH.2
+    # team-settings.AUTH.2
     test "redirects a user with no role away from settings", %{conn: conn} do
       team = team_fixture()
       {:error, {:live_redirect, %{to: path}}} = live(conn, ~p"/t/#{team.id}/settings")
       assert path == "/t/#{team.id}"
     end
 
-    # TEAM_SETTINGS.AUTH.1
+    # team-settings.AUTH.1
     test "owner can access the settings page", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       {:ok, _view, _html} = live(conn, ~p"/t/#{team.id}/settings")
@@ -58,21 +58,21 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
   describe "main page" do
     setup :register_and_log_in_user
 
-    # TEAM_SETTINGS.MAIN.1
+    # team-settings.MAIN.1
     test "renders the current team name", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
       assert has_element?(view, "h1", team.name)
     end
 
-    # TEAM_SETTINGS.MAIN.2
+    # team-settings.MAIN.2
     test "renders the Rename Team button", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
       assert has_element?(view, "#rename-team-btn")
     end
 
-    # TEAM_SETTINGS.MAIN.3
+    # team-settings.MAIN.3
     test "renders the Delete Team button", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
@@ -83,7 +83,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
   describe "rename modal" do
     setup :register_and_log_in_user
 
-    # TEAM_SETTINGS.MAIN.2
+    # team-settings.MAIN.2
     test "clicking Rename Team button opens the rename modal", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
@@ -113,7 +113,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       refute has_element?(view, "#rename-modal")
     end
 
-    # TEAM_SETTINGS.RENAME.1
+    # team-settings.RENAME.1
     test "rename modal renders a text input pre-filled with the current team name", %{
       conn: conn,
       user: user
@@ -127,7 +127,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       assert has_element?(view, "#rename-team-form input[value='#{team.name}']")
     end
 
-    # TEAM_SETTINGS.RENAME.2
+    # team-settings.RENAME.2
     test "rename modal renders Save and Cancel buttons", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
@@ -138,8 +138,8 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       assert has_element?(view, "#cancel-rename-btn")
     end
 
-    # TEAM_SETTINGS.RENAME.3
-    # TEAM_SETTINGS.RENAME.3-2
+    # team-settings.RENAME.3
+    # team-settings.RENAME.3-2
     test "valid rename persists and reflects the updated name without a full reload", %{
       conn: conn,
       user: user
@@ -157,7 +157,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       assert has_element?(view, "h1", "new-team-name")
     end
 
-    # TEAM_SETTINGS.RENAME.3-1
+    # team-settings.RENAME.3-1
     test "shows inline error when name contains invalid characters", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
@@ -172,7 +172,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       assert has_element?(view, "#rename-team-form", "only")
     end
 
-    # TEAM_SETTINGS.RENAME.3-1
+    # team-settings.RENAME.3-1
     test "shows inline error when name is blank", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
@@ -187,7 +187,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       assert has_element?(view, "#rename-team-form", "can't be blank")
     end
 
-    # TEAM_SETTINGS.RENAME.3-1
+    # team-settings.RENAME.3-1
     test "shows inline error when name is already taken", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       other_team = team_fixture()
@@ -207,7 +207,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
   describe "delete modal" do
     setup :register_and_log_in_user
 
-    # TEAM_SETTINGS.MAIN.3
+    # team-settings.MAIN.3
     test "clicking Delete Team button opens the delete modal", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
@@ -228,7 +228,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       refute has_element?(view, "#delete-modal")
     end
 
-    # TEAM_SETTINGS.DELETE.4
+    # team-settings.DELETE.4
     test "cancel button dismisses the delete modal without deleting", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
@@ -240,7 +240,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       assert Acai.Repo.get(Acai.Teams.Team, team.id)
     end
 
-    # TEAM_SETTINGS.DELETE.1
+    # team-settings.DELETE.1
     test "delete modal educates user about permanent cascade-deletion", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
@@ -254,7 +254,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       assert has_element?(view, "#delete-modal", "Access tokens")
     end
 
-    # TEAM_SETTINGS.DELETE.2
+    # team-settings.DELETE.2
     test "delete modal renders a confirmation text input", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
@@ -263,7 +263,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       assert has_element?(view, "#confirm-team-name-input")
     end
 
-    # TEAM_SETTINGS.DELETE.3
+    # team-settings.DELETE.3
     test "confirm delete button is disabled when confirmation input is empty", %{
       conn: conn,
       user: user
@@ -275,7 +275,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       assert has_element?(view, "#confirm-delete-team-btn[disabled]")
     end
 
-    # TEAM_SETTINGS.DELETE.3
+    # team-settings.DELETE.3
     test "confirm delete button is disabled when confirmation input does not match team name", %{
       conn: conn,
       user: user
@@ -292,7 +292,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       assert has_element?(view, "#confirm-delete-team-btn[disabled]")
     end
 
-    # TEAM_SETTINGS.DELETE.3
+    # team-settings.DELETE.3
     test "confirm delete button is enabled when confirmation input matches team name exactly", %{
       conn: conn,
       user: user
@@ -309,7 +309,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       refute has_element?(view, "#confirm-delete-team-btn[disabled]")
     end
 
-    # TEAM_SETTINGS.DELETE.5
+    # team-settings.DELETE.5
     test "on confirmed deletion, deletes the team and redirects to /teams", %{
       conn: conn,
       user: user

@@ -46,7 +46,7 @@ defmodule Acai.TeamsTest do
       }
     end
 
-    # ROLES.SCOPES.7
+    # team-roles.SCOPES.7
     test "returns :self_demotion when an owner attempts to change their own role", %{
       scope: scope,
       owner_role: owner_role
@@ -54,7 +54,7 @@ defmodule Acai.TeamsTest do
       assert {:error, :self_demotion} = Teams.update_member_role(scope, owner_role, "developer")
     end
 
-    # ROLES.MODULE.3
+    # team-roles.MODULE.3
     test "returns :last_owner when acting user tries to demote the sole remaining owner", %{
       scope: scope,
       other_owner_role: other_owner_role,
@@ -71,7 +71,7 @@ defmodule Acai.TeamsTest do
                Teams.update_member_role(scope, other_owner_role, "developer")
     end
 
-    # ROLES.SCOPES.7 — owner CAN demote another owner when multiple owners exist
+    # team-roles.SCOPES.7 — owner CAN demote another owner when multiple owners exist
     test "successfully demotes another owner to developer when multiple owners exist", %{
       scope: scope,
       other_owner_role: other_owner_role
@@ -126,7 +126,7 @@ defmodule Acai.TeamsTest do
       }
     end
 
-    # TEAM.MEMBERS.1
+    # team-view.MEMBERS.1
     test "returns all members for the team", %{
       team: team,
       owner: owner,
@@ -139,7 +139,7 @@ defmodule Acai.TeamsTest do
       assert developer_user.id in user_ids
     end
 
-    # TEAM.MEMBERS.1
+    # team-view.MEMBERS.1
     test "preloads the user association", %{team: team} do
       members = Teams.list_team_members(team)
       assert Enum.all?(members, fn r -> not is_nil(r.user) and r.user.email end)
@@ -162,7 +162,7 @@ defmodule Acai.TeamsTest do
       %{team: team}
     end
 
-    # TEAM.INVITE.3-2
+    # team-view.INVITE.3-2
     test "creates a new user record when the email doesn't exist yet", %{team: team} do
       email = unique_user_email()
 
@@ -173,7 +173,7 @@ defmodule Acai.TeamsTest do
       assert member.user.email == email
     end
 
-    # TEAM.INVITE.3-4
+    # team-view.INVITE.3-4
     test "adds an existing user to the team immediately", %{team: team} do
       existing_user = user_fixture()
 
@@ -188,7 +188,7 @@ defmodule Acai.TeamsTest do
       assert member.user_id == existing_user.id
     end
 
-    # TEAM.INVITE.3-1
+    # team-view.INVITE.3-1
     test "returns :already_member when the user is already on the team", %{team: team} do
       existing_user = user_fixture()
       user_team_role_fixture(team, existing_user, %{title: "developer"})
@@ -202,7 +202,7 @@ defmodule Acai.TeamsTest do
                )
     end
 
-    # TEAM.INVITE.2
+    # team-view.INVITE.2
     test "assigns the specified role to the invited member", %{team: team} do
       email = unique_user_email()
 
@@ -212,7 +212,7 @@ defmodule Acai.TeamsTest do
       assert member.title == "readonly"
     end
 
-    # TEAM.INVITE.3-3
+    # team-view.INVITE.3-3
     test "sends a magic-link confirmation email to a new (unconfirmed) user", %{team: team} do
       email = unique_user_email()
 
@@ -224,7 +224,7 @@ defmodule Acai.TeamsTest do
       assert sent_email.to == [{email, email}] or match?([{_, ^email}], sent_email.to)
     end
 
-    # TEAM.INVITE.3-3
+    # team-view.INVITE.3-3
     test "sends a notification email to an existing confirmed user", %{team: team} do
       existing_user = user_fixture()
 
@@ -250,14 +250,14 @@ defmodule Acai.TeamsTest do
       %{team: team}
     end
 
-    # TEAM_SETTINGS.DELETE.5
+    # team-settings.DELETE.5
     test "deletes the team and returns {:ok, team}", %{team: team} do
       assert {:ok, deleted} = Teams.delete_team(team)
       assert deleted.id == team.id
       assert is_nil(Acai.Repo.get(Acai.Teams.Team, team.id))
     end
 
-    # TEAM_SETTINGS.DELETE.5
+    # team-settings.DELETE.5
     test "cascade-deletes associated member roles", %{team: team} do
       user = user_fixture()
       user_team_role_fixture(team, user, %{title: "owner"})
@@ -285,7 +285,7 @@ defmodule Acai.TeamsTest do
       %{team: team, owner: owner, other_user: other_user, token1: token1, token2: token2}
     end
 
-    # TATS.MAIN.1
+    # team-tokens.MAIN.1
     test "returns all tokens for the team regardless of user", %{
       team: team,
       token1: token1,
@@ -297,7 +297,7 @@ defmodule Acai.TeamsTest do
       assert token2.id in token_ids
     end
 
-    # TATS.MAIN.1-1
+    # team-tokens.MAIN.1-1
     test "preloads the user association on each token", %{team: team} do
       tokens = Teams.list_team_tokens(team)
       assert Enum.all?(tokens, fn t -> not is_nil(t.user) and is_binary(t.user.email) end)
@@ -344,9 +344,9 @@ defmodule Acai.TeamsTest do
       %{scope: scope, team: team, user: user}
     end
 
-    # TATS.MAIN.3
-    # TATS.TATSEC.1
-    # TATS.TATSEC.2
+    # team-tokens.MAIN.3
+    # team-tokens.TATSEC.1
+    # team-tokens.TATSEC.2
     test "returns ok with a token and raw_token virtual field populated", %{
       scope: scope,
       team: team
@@ -356,7 +356,7 @@ defmodule Acai.TeamsTest do
       assert String.starts_with?(token.raw_token, "at_")
     end
 
-    # TATS.TATSEC.1
+    # team-tokens.TATSEC.1
     test "stores only the hash, not the raw token", %{scope: scope, team: team} do
       assert {:ok, token} = Teams.generate_token(scope, team, %{name: "Secure Token"})
       persisted = Repo.get!(AccessToken, token.id)
@@ -364,7 +364,7 @@ defmodule Acai.TeamsTest do
       refute persisted.token_hash == token.raw_token
     end
 
-    # TATS.TATSEC.2
+    # team-tokens.TATSEC.2
     test "token_hash is the SHA-256 hex of the raw token", %{scope: scope, team: team} do
       assert {:ok, token} = Teams.generate_token(scope, team, %{name: "Hash Check"})
       expected_hash = :crypto.hash(:sha256, token.raw_token) |> Base.encode16(case: :lower)
@@ -380,7 +380,7 @@ defmodule Acai.TeamsTest do
       assert String.starts_with?(token.raw_token, token.token_prefix)
     end
 
-    # TATS.MAIN.3
+    # team-tokens.MAIN.3
     test "sets expires_at when provided", %{scope: scope, team: team} do
       future = DateTime.utc_now(:second) |> DateTime.add(3600, :second)
 
@@ -395,7 +395,7 @@ defmodule Acai.TeamsTest do
       assert %{name: [_ | _]} = errors_on(changeset)
     end
 
-    # TATS.MAIN.1-1
+    # team-tokens.MAIN.1-1
     test "preloads user on returned token", %{scope: scope, team: team, user: user} do
       assert {:ok, token} = Teams.generate_token(scope, team, %{name: "With User"})
       assert token.user.id == user.id
@@ -410,7 +410,7 @@ defmodule Acai.TeamsTest do
       %{token: token}
     end
 
-    # TATS.MAIN.5
+    # team-tokens.MAIN.5
     test "sets revoked_at on the token", %{token: token} do
       assert {:ok, revoked} = Teams.revoke_token(token)
       assert not is_nil(revoked.revoked_at)
@@ -431,32 +431,32 @@ defmodule Acai.TeamsTest do
       %{token: token}
     end
 
-    # TATS.TATSEC.3
+    # team-tokens.TATSEC.3
     test "returns true for a fresh token", %{token: token} do
       assert Teams.valid_token?(token)
     end
 
-    # TATS.TATSEC.3
+    # team-tokens.TATSEC.3
     test "returns false when revoked_at is set", %{token: token} do
       {:ok, revoked} = Teams.revoke_token(token)
       refute Teams.valid_token?(revoked)
     end
 
-    # TATS.TATSEC.3
+    # team-tokens.TATSEC.3
     test "returns false when expires_at is in the past", %{token: token} do
       past = DateTime.utc_now(:second) |> DateTime.add(-3600, :second)
       expired = %{token | expires_at: past}
       refute Teams.valid_token?(expired)
     end
 
-    # TATS.TATSEC.3
+    # team-tokens.TATSEC.3
     test "returns true when expires_at is in the future", %{token: token} do
       future = DateTime.utc_now(:second) |> DateTime.add(3600, :second)
       future_token = %{token | expires_at: future}
       assert Teams.valid_token?(future_token)
     end
 
-    # TATS.TATSEC.3
+    # team-tokens.TATSEC.3
     test "returns true when expires_at is nil", %{token: token} do
       no_expiry = %{token | expires_at: nil}
       assert Teams.valid_token?(no_expiry)
@@ -484,7 +484,7 @@ defmodule Acai.TeamsTest do
       }
     end
 
-    # TEAM.DELETE_ROLE.3
+    # team-view.DELETE_ROLE.3
     test "revokes all access tokens for the removed user on that team", %{
       team: team,
       other_user: other_user,
@@ -502,7 +502,7 @@ defmodule Acai.TeamsTest do
       refute other_user.id in user_ids
     end
 
-    # TEAM.DELETE_ROLE.4
+    # team-view.DELETE_ROLE.4
     test "returns :last_owner when trying to remove the sole owner", %{
       team: team,
       owner: owner

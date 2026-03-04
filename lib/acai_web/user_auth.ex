@@ -236,7 +236,7 @@ defmodule AcaiWeb.UserAuth do
     end
   end
 
-  # TEAMS.MAIN.3
+  # team-list.MAIN.3
   defp signed_in_path(_conn), do: ~p"/teams"
 
   @doc """

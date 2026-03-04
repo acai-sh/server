@@ -10,12 +10,12 @@ defmodule AcaiWeb.TeamsLive do
 
     socket =
       socket
-      # TEAMS.MAIN.2
+      # team-list.MAIN.2
       |> stream(:teams, teams)
       |> assign(:teams_empty?, teams == [])
-      # TEAMS.CREATE.2
+      # team-list.CREATE.2
       |> assign(:form, to_form(Teams.change_team(%Team{})))
-      # TEAMS.MAIN.1-1
+      # team-list.MAIN.1-1
       |> assign(:show_modal, false)
 
     {:ok, socket}
@@ -23,7 +23,7 @@ defmodule AcaiWeb.TeamsLive do
 
   @impl true
   def handle_event("open_modal", _params, socket) do
-    # TEAMS.MAIN.1-1
+    # team-list.MAIN.1-1
     socket =
       socket
       |> assign(:show_modal, true)
@@ -37,7 +37,7 @@ defmodule AcaiWeb.TeamsLive do
   end
 
   def handle_event("validate", %{"team" => params}, socket) do
-    # TEAMS.ENG.2
+    # team-list.ENG.2
     changeset =
       %Team{}
       |> Teams.change_team(params)
@@ -49,11 +49,11 @@ defmodule AcaiWeb.TeamsLive do
   def handle_event("create_team", %{"team" => params}, socket) do
     case Teams.create_team(socket.assigns.current_scope, params) do
       {:ok, team} ->
-        # TEAMS.CREATE.3-1
+        # team-list.CREATE.3-1
         {:noreply, push_navigate(socket, to: "/t/#{team.id}")}
 
       {:error, changeset} ->
-        # TEAMS.CREATE.1
+        # team-list.CREATE.1
         {:noreply, assign(socket, :form, to_form(changeset))}
     end
   end
@@ -68,7 +68,7 @@ defmodule AcaiWeb.TeamsLive do
           My Teams
           <:subtitle>Manage your teams and create new ones.</:subtitle>
           <:actions>
-            <%!-- TEAMS.MAIN.1 --%>
+            <%!-- team-list.MAIN.1 --%>
             <.button
               id="open-create-team-modal"
               phx-click="open_modal"
@@ -79,7 +79,7 @@ defmodule AcaiWeb.TeamsLive do
           </:actions>
         </.header>
 
-        <%!-- TEAMS.MAIN.2-1 --%>
+        <%!-- team-list.MAIN.2-1 --%>
         <%= if @teams_empty? do %>
           <div
             id="teams-empty-state"
@@ -100,14 +100,14 @@ defmodule AcaiWeb.TeamsLive do
           </div>
         <% end %>
 
-        <%!-- TEAMS.MAIN.2 --%>
+        <%!-- team-list.MAIN.2 --%>
         <div
           id="teams-list"
           phx-update="stream"
           class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
         >
           <div :for={{id, team} <- @streams.teams} id={id}>
-            <%!-- TEAMS.MAIN.2-2 --%>
+            <%!-- team-list.MAIN.2-2 --%>
             <.link navigate={"/t/#{team.id}"} class="block group">
               <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer">
                 <div class="card-body gap-3">
@@ -132,7 +132,7 @@ defmodule AcaiWeb.TeamsLive do
         </div>
       </div>
 
-      <%!-- TEAMS.MAIN.1-1 / TEAMS.CREATE --%>
+      <%!-- team-list.MAIN.1-1 / team-list.CREATE --%>
       <%= if @show_modal do %>
         <div
           id="create-team-modal-backdrop"
@@ -164,7 +164,7 @@ defmodule AcaiWeb.TeamsLive do
               phx-submit="create_team"
               class="space-y-4"
             >
-              <%!-- TEAMS.CREATE.2 --%>
+              <%!-- team-list.CREATE.2 --%>
               <.input
                 field={@form[:name]}
                 type="text"
@@ -180,7 +180,7 @@ defmodule AcaiWeb.TeamsLive do
                 <.button type="button" phx-click="close_modal">
                   Cancel
                 </.button>
-                <%!-- TEAMS.CREATE.3 --%>
+                <%!-- team-list.CREATE.3 --%>
                 <.button type="submit" variant="primary" id="create-team-submit">
                   Create Team
                 </.button>

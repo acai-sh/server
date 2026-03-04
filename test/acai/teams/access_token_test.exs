@@ -14,10 +14,10 @@ defmodule Acai.Teams.AccessTokenTest do
   }
 
   describe "changeset/2" do
-    # DATA.TOKENS.3
-    # DATA.TOKENS.4
-    # DATA.TOKENS.5
-    # DATA.TOKENS.6
+    # data-model.TOKENS.3
+    # data-model.TOKENS.4
+    # data-model.TOKENS.5
+    # data-model.TOKENS.6
     test "valid with required fields" do
       cs = AccessToken.changeset(%AccessToken{}, @valid_attrs)
       assert cs.valid?
@@ -32,7 +32,7 @@ defmodule Acai.Teams.AccessTokenTest do
       assert errors[:token_prefix]
     end
 
-    # DATA.TOKENS.6-1
+    # data-model.TOKENS.6-1
     test "scopes defaults to the standard set when not provided" do
       assert %AccessToken{}.scopes == [
                "specs:read",
@@ -45,7 +45,7 @@ defmodule Acai.Teams.AccessTokenTest do
              ]
     end
 
-    # DATA.TOKENS.6-2
+    # data-model.TOKENS.6-2
     test "scopes field accepts custom scope values" do
       cs =
         AccessToken.changeset(%AccessToken{}, %{
@@ -56,9 +56,9 @@ defmodule Acai.Teams.AccessTokenTest do
       assert cs.valid?
     end
 
-    # DATA.TOKENS.7
-    # DATA.TOKENS.8
-    # DATA.TOKENS.9
+    # data-model.TOKENS.7
+    # data-model.TOKENS.8
+    # data-model.TOKENS.9
     test "accepts optional timestamp fields" do
       now = DateTime.utc_now(:second)
 
@@ -75,7 +75,7 @@ defmodule Acai.Teams.AccessTokenTest do
       assert cs.valid?
     end
 
-    # DATA.TOKENS.1
+    # data-model.TOKENS.1
     test "uses UUIDv7 primary key" do
       assert AccessToken.__schema__(:primary_key) == [:id]
       assert AccessToken.__schema__(:type, :id) == Acai.UUIDv7
@@ -83,7 +83,7 @@ defmodule Acai.Teams.AccessTokenTest do
   end
 
   describe "database constraints" do
-    # DATA.TOKENS.4-1
+    # data-model.TOKENS.4-1
     test "token_hash must be unique" do
       user = user_fixture()
       team = team_fixture()

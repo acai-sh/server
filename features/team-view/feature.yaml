@@ -1,11 +1,10 @@
 feature:
     name: team-view
     description: The /t/:team_id view where a user can invite team members, manage their roles, and see a list of products owned by the team
-    key: TEAM
     prerequisites:
-        - DATA.TEAMS
-        - DATA.ROLES
-        - ROLES
+        - data-model.TEAMS
+        - data-model.ROLES
+        - team-roles
 
 components:
     MAIN:

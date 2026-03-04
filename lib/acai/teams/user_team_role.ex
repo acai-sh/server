@@ -4,17 +4,17 @@ defmodule Acai.Teams.UserTeamRole do
 
   alias Acai.Teams.Permissions
 
-  # DATA.ROLES
+  # data-model.ROLES
   @primary_key false
   @foreign_key_type Acai.UUIDv7
 
   schema "user_team_roles" do
-    # DATA.ROLES.1
+    # data-model.ROLES.1
     belongs_to :team, Acai.Teams.Team
-    # DATA.ROLES.2
+    # data-model.ROLES.2
     belongs_to :user, Acai.Accounts.User, type: :id
 
-    # DATA.ROLES.3
+    # data-model.ROLES.3
     field :title, :string
 
     timestamps(type: :utc_datetime)
@@ -25,8 +25,8 @@ defmodule Acai.Teams.UserTeamRole do
     role
     |> cast(attrs, [:title])
     |> validate_required([:title])
-    # ROLES.SCOPES.1
-    # ROLES.SCOPES.2
+    # team-roles.SCOPES.1
+    # team-roles.SCOPES.2
     |> validate_inclusion(:title, Permissions.valid_roles(),
       message: "must be one of: #{Enum.join(Permissions.valid_roles(), ", ")}"
     )

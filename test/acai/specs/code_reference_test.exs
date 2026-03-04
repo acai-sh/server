@@ -23,7 +23,7 @@ defmodule Acai.Specs.CodeReferenceTest do
       refute cs.valid?
     end
 
-    # DATA.REFS.7
+    # data-model.REFS.7
     test "accepts optional last_seen_at" do
       cs =
         CodeReference.changeset(
@@ -34,7 +34,7 @@ defmodule Acai.Specs.CodeReferenceTest do
       assert cs.valid?
     end
 
-    # DATA.REFS.1
+    # data-model.REFS.1
     test "uses UUIDv7 primary key" do
       assert CodeReference.__schema__(:primary_key) == [:id]
       assert CodeReference.__schema__(:type, :id) == Acai.UUIDv7
@@ -57,14 +57,14 @@ defmodule Acai.Specs.CodeReferenceTest do
     end
   end
 
-  describe "database - DATA.REFS.2 on_delete: nothing" do
+  describe "database - data-model.REFS.2 on_delete: nothing" do
     test "deleting a requirement with code_references raises a foreign key constraint error" do
       team = team_fixture()
       spec = spec_fixture(team)
       req = requirement_fixture(spec)
       _ref = code_reference_fixture(req)
 
-      # DATA.REFS.2 — FK is on_delete: :nothing, so deleting the requirement
+      # data-model.REFS.2 — FK is on_delete: :nothing, so deleting the requirement
       # while code_references reference it must raise a constraint error
       assert_raise Ecto.ConstraintError, fn ->
         Acai.Repo.delete!(req)
@@ -77,7 +77,7 @@ defmodule Acai.Specs.CodeReferenceTest do
       req = requirement_fixture(spec)
       ref = code_reference_fixture(req)
 
-      # DATA.REFS.2 — row is still present while the requirement exists
+      # data-model.REFS.2 — row is still present while the requirement exists
       assert Acai.Repo.get(CodeReference, ref.id) != nil
     end
   end

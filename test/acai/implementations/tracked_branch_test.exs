@@ -16,14 +16,14 @@ defmodule Acai.Implementations.TrackedBranchTest do
       assert cs.valid?
     end
 
-    # DATA.BRANCHES.3
-    # DATA.BRANCHES.4
+    # data-model.BRANCHES.3
+    # data-model.BRANCHES.4
     test "invalid without required fields" do
       cs = TrackedBranch.changeset(%TrackedBranch{}, %{})
       refute cs.valid?
     end
 
-    # DATA.BRANCHES.1
+    # data-model.BRANCHES.1
     test "uses UUIDv7 primary key" do
       assert TrackedBranch.__schema__(:primary_key) == [:id]
       assert TrackedBranch.__schema__(:type, :id) == Acai.UUIDv7
@@ -31,7 +31,7 @@ defmodule Acai.Implementations.TrackedBranchTest do
   end
 
   describe "database constraints" do
-    # DATA.BRANCHES.5
+    # data-model.BRANCHES.5
     test "composite unique constraint on (implementation_id, repo_uri)" do
       team = team_fixture()
       spec = spec_fixture(team)

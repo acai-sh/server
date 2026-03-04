@@ -23,23 +23,23 @@ defmodule AcaiWeb.TeamLive do
 
     socket =
       socket
-      # TEAM.MAIN.1
+      # team-view.MAIN.1
       |> assign(:team, team)
       |> assign(:current_role_title, current_role_title)
       |> assign(:can_admin?, can_admin?)
       |> assign(:owner_count, owner_count)
-      # TEAM.MEMBERS.1
+      # team-view.MEMBERS.1
       |> stream(:members, members, dom_id: fn r -> "member-#{r.user_id}" end)
-      # TEAM.MEMBERS.2
+      # team-view.MEMBERS.2
       |> assign(:show_invite_modal, false)
       |> assign(:invite_form, to_form(%{"email" => "", "role" => "developer"}, as: :invite))
       |> assign(:invite_error, nil)
-      # TEAM.EDIT_ROLE.1
+      # team-view.EDIT_ROLE.1
       |> assign(:show_edit_modal, false)
       |> assign(:editing_member, nil)
       |> assign(:edit_form, to_form(%{"role" => "developer"}, as: :edit))
       |> assign(:edit_error, nil)
-      # TEAM.DELETE_ROLE.1
+      # team-view.DELETE_ROLE.1
       |> assign(:show_delete_modal, false)
       |> assign(:deleting_member, nil)
       |> assign(:delete_error, nil)
@@ -51,7 +51,7 @@ defmodule AcaiWeb.TeamLive do
 
   @impl true
   def handle_event("open_invite_modal", _params, socket) do
-    # TEAM.MEMBERS.2
+    # team-view.MEMBERS.2
     socket =
       socket
       |> assign(:show_invite_modal, true)
@@ -76,7 +76,7 @@ defmodule AcaiWeb.TeamLive do
 
     case Teams.invite_member(team, email, role, login_url_fn) do
       {:ok, new_member} ->
-        # TEAM.INVITE.3-4
+        # team-view.INVITE.3-4
         owner_count =
           if new_member.title == "owner",
             do: socket.assigns.owner_count + 1,
@@ -93,7 +93,7 @@ defmodule AcaiWeb.TeamLive do
         {:noreply, socket}
 
       {:error, :already_member} ->
-        # TEAM.INVITE.3-1
+        # team-view.INVITE.3-1
         {:noreply, assign(socket, :invite_error, "This person is already a member of the team.")}
 
       {:error, _} ->
@@ -104,7 +104,7 @@ defmodule AcaiWeb.TeamLive do
   # --- Edit role modal ---
 
   def handle_event("open_edit_modal", %{"user_id" => user_id}, socket) do
-    # TEAM.MEMBERS.3
+    # team-view.MEMBERS.3
     members_list = get_members_list(socket)
 
     editing_member = Enum.find(members_list, fn r -> to_string(r.user_id) == user_id end)
@@ -124,7 +124,7 @@ defmodule AcaiWeb.TeamLive do
   end
 
   def handle_event("save_role", %{"edit" => %{"role" => new_role}}, socket) do
-    # TEAM.EDIT_ROLE.3
+    # team-view.EDIT_ROLE.3
     editing_member = socket.assigns.editing_member
 
     case Teams.update_member_role(socket.assigns.current_scope, editing_member, new_role) do
@@ -170,7 +170,7 @@ defmodule AcaiWeb.TeamLive do
   # --- Delete member modal ---
 
   def handle_event("open_delete_modal", %{"user_id" => user_id}, socket) do
-    # TEAM.DELETE_ROLE.1
+    # team-view.DELETE_ROLE.1
     members_list = get_members_list(socket)
     deleting_member = Enum.find(members_list, fn r -> to_string(r.user_id) == user_id end)
 
@@ -209,7 +209,7 @@ defmodule AcaiWeb.TeamLive do
         {:noreply, socket}
 
       {:error, :last_owner} ->
-        # TEAM.DELETE_ROLE.4
+        # team-view.DELETE_ROLE.4
         {:noreply, assign(socket, :delete_error, "Cannot remove the last owner of the team.")}
 
       {:error, :not_found} ->
@@ -242,19 +242,19 @@ defmodule AcaiWeb.TeamLive do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="space-y-8">
-        <%!-- TEAM.MAIN.1 --%>
+        <%!-- team-view.MAIN.1 --%>
         <.header>
           {@team.name}
           <:subtitle>Team dashboard</:subtitle>
           <:actions>
-            <%!-- TEAM.MAIN.3 --%>
+            <%!-- team-view.MAIN.3 --%>
             <.button id="team-settings-btn" navigate={"/t/#{@team.id}/settings"}>
               <.icon name="hero-cog-6-tooth" class="size-4 mr-1" /> Settings
             </.button>
           </:actions>
         </.header>
 
-        <%!-- TEAM.MAIN.2 --%>
+        <%!-- team-view.MAIN.2 --%>
         <.link navigate={"/t/#{@team.id}/tokens"} class="block group" id="access-tokens-card">
           <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer">
             <div class="card-body flex-row items-center gap-4">
@@ -275,15 +275,15 @@ defmodule AcaiWeb.TeamLive do
           </div>
         </.link>
 
-        <%!-- TEAM.MEMBERS.1 --%>
+        <%!-- team-view.MEMBERS.1 --%>
         <div class="space-y-4">
           <div class="flex items-center justify-between">
             <div>
               <h2 class="text-base font-semibold">Members</h2>
               <p class="text-sm text-base-content/60">People with access to this team</p>
             </div>
-            <%!-- TEAM.MEMBERS.2 --%>
-            <%!-- TEAM.MEMBERS.2-1 --%>
+            <%!-- team-view.MEMBERS.2 --%>
+            <%!-- team-view.MEMBERS.2-1 --%>
             <.button
               id="invite-member-btn"
               phx-click="open_invite_modal"
@@ -309,9 +309,9 @@ defmodule AcaiWeb.TeamLive do
                 <p class="text-sm text-base-content/60 capitalize">{member.title}</p>
               </div>
               <div class="flex items-center gap-2">
-                <%!-- TEAM.MEMBERS.3 --%>
-                <%!-- TEAM.MEMBERS.3-1 --%>
-                <%!-- TEAM.MEMBERS.3-2 --%>
+                <%!-- team-view.MEMBERS.3 --%>
+                <%!-- team-view.MEMBERS.3-1 --%>
+                <%!-- team-view.MEMBERS.3-2 --%>
                 <.button
                   id={"edit-btn-#{member.user_id}"}
                   phx-click="open_edit_modal"
@@ -338,7 +338,7 @@ defmodule AcaiWeb.TeamLive do
         </div>
       </div>
 
-      <%!-- TEAM.INVITE.1 / TEAM.INVITE.2 / TEAM.INVITE.3 --%>
+      <%!-- team-view.INVITE.1 / team-view.INVITE.2 / team-view.INVITE.3 --%>
       <%= if @show_invite_modal do %>
         <div
           id="invite-modal-backdrop"
@@ -376,7 +376,7 @@ defmodule AcaiWeb.TeamLive do
               phx-submit="invite_member"
               class="space-y-4"
             >
-              <%!-- TEAM.INVITE.1 --%>
+              <%!-- team-view.INVITE.1 --%>
               <.input
                 field={@invite_form[:email]}
                 type="email"
@@ -384,7 +384,7 @@ defmodule AcaiWeb.TeamLive do
                 placeholder="member@example.com"
                 autocomplete="off"
               />
-              <%!-- TEAM.INVITE.2 --%>
+              <%!-- team-view.INVITE.2 --%>
               <.input
                 field={@invite_form[:role]}
                 type="select"
@@ -396,7 +396,7 @@ defmodule AcaiWeb.TeamLive do
                 <.button type="button" phx-click="close_invite_modal">
                   Cancel
                 </.button>
-                <%!-- TEAM.INVITE.3 --%>
+                <%!-- team-view.INVITE.3 --%>
                 <.button type="submit" variant="primary" id="send-invitation-btn">
                   Send Invitation
                 </.button>
@@ -406,7 +406,7 @@ defmodule AcaiWeb.TeamLive do
         </div>
       <% end %>
 
-      <%!-- TEAM.EDIT_ROLE.1 / TEAM.EDIT_ROLE.2 --%>
+      <%!-- team-view.EDIT_ROLE.1 / team-view.EDIT_ROLE.2 --%>
       <%= if @show_edit_modal do %>
         <div
           id="edit-role-modal-backdrop"
@@ -449,7 +449,7 @@ defmodule AcaiWeb.TeamLive do
               phx-submit="save_role"
               class="space-y-4"
             >
-              <%!-- TEAM.EDIT_ROLE.2 --%>
+              <%!-- team-view.EDIT_ROLE.2 --%>
               <.input
                 field={@edit_form[:role]}
                 type="select"
@@ -458,7 +458,7 @@ defmodule AcaiWeb.TeamLive do
               />
 
               <div class="flex gap-3 justify-end pt-1">
-                <%!-- TEAM.EDIT_ROLE.1 --%>
+                <%!-- team-view.EDIT_ROLE.1 --%>
                 <.button type="button" phx-click="close_edit_modal" id="cancel-edit-btn">
                   Cancel
                 </.button>
@@ -471,7 +471,7 @@ defmodule AcaiWeb.TeamLive do
         </div>
       <% end %>
 
-      <%!-- TEAM.DELETE_ROLE.1 / TEAM.DELETE_ROLE.2 --%>
+      <%!-- team-view.DELETE_ROLE.1 / team-view.DELETE_ROLE.2 --%>
       <%= if @show_delete_modal do %>
         <div
           id="delete-member-modal-backdrop"
@@ -496,7 +496,7 @@ defmodule AcaiWeb.TeamLive do
               </button>
             </div>
 
-            <%!-- TEAM.DELETE_ROLE.2 --%>
+            <%!-- team-view.DELETE_ROLE.2 --%>
             <div class="space-y-2">
               <p class="text-sm">
                 You are about to remove
@@ -525,7 +525,7 @@ defmodule AcaiWeb.TeamLive do
             <% end %>
 
             <div class="flex gap-3 justify-end pt-1">
-              <%!-- TEAM.DELETE_ROLE.1 --%>
+              <%!-- team-view.DELETE_ROLE.1 --%>
               <.button type="button" phx-click="close_delete_modal" id="cancel-delete-btn">
                 Cancel
               </.button>

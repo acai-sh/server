@@ -25,14 +25,14 @@ defmodule AcaiWeb.TeamLiveTest do
   describe "mount" do
     setup :register_and_log_in_user
 
-    # TEAM.MAIN.1
+    # team-view.MAIN.1
     test "renders the team name", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
       assert has_element?(view, "h1", team.name)
     end
 
-    # TEAM.MAIN.2
+    # team-view.MAIN.2
     test "renders the access tokens card linking to /tokens", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
@@ -40,7 +40,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "a[href='/t/#{team.id}/tokens']")
     end
 
-    # TEAM.MAIN.3
+    # team-view.MAIN.3
     test "renders the team settings button linking to /settings", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
@@ -48,7 +48,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "a[href='/t/#{team.id}/settings']")
     end
 
-    # TEAM.MEMBERS.1
+    # team-view.MEMBERS.1
     test "renders the members list with user email and role", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
@@ -61,14 +61,14 @@ defmodule AcaiWeb.TeamLiveTest do
   describe "invite button visibility" do
     setup :register_and_log_in_user
 
-    # TEAM.MEMBERS.2
+    # team-view.MEMBERS.2
     test "invite button is present for admin (owner) users", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
       assert has_element?(view, "#invite-member-btn")
     end
 
-    # TEAM.MEMBERS.2-1
+    # team-view.MEMBERS.2-1
     test "invite button is disabled for readonly user", %{conn: conn, user: user} do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "readonly"})
@@ -77,7 +77,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#invite-member-btn[disabled]")
     end
 
-    # TEAM.MEMBERS.2-1
+    # team-view.MEMBERS.2-1
     test "invite button is disabled for developer user", %{conn: conn, user: user} do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "developer"})
@@ -86,7 +86,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#invite-member-btn[disabled]")
     end
 
-    # TEAM.MEMBERS.2-1
+    # team-view.MEMBERS.2-1
     test "invite button is enabled for owner", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
@@ -97,7 +97,7 @@ defmodule AcaiWeb.TeamLiveTest do
   describe "edit button visibility" do
     setup :register_and_log_in_user
 
-    # TEAM.MEMBERS.3-1
+    # team-view.MEMBERS.3-1
     test "edit buttons are disabled for readonly user", %{conn: conn, user: user} do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "readonly"})
@@ -108,7 +108,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#edit-btn-#{other.id}[disabled]")
     end
 
-    # TEAM.MEMBERS.3-1
+    # team-view.MEMBERS.3-1
     test "edit buttons are disabled for developer user", %{conn: conn, user: user} do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "developer"})
@@ -119,7 +119,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#edit-btn-#{other.id}[disabled]")
     end
 
-    # TEAM.MEMBERS.3-2
+    # team-view.MEMBERS.3-2
     test "owner cannot edit their own role when they are the last owner", %{
       conn: conn,
       user: user
@@ -129,7 +129,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#edit-btn-#{user.id}[disabled]")
     end
 
-    # TEAM.MEMBERS.3-2
+    # team-view.MEMBERS.3-2
     test "owner can edit their own role when another owner exists", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       other_owner = user_fixture()
@@ -139,7 +139,7 @@ defmodule AcaiWeb.TeamLiveTest do
       refute has_element?(view, "#edit-btn-#{user.id}[disabled]")
     end
 
-    # TEAM.MEMBERS.3
+    # team-view.MEMBERS.3
     test "owner can see edit buttons for other members", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       other = user_fixture()
@@ -154,7 +154,7 @@ defmodule AcaiWeb.TeamLiveTest do
   describe "invite modal" do
     setup :register_and_log_in_user
 
-    # TEAM.MEMBERS.2
+    # team-view.MEMBERS.2
     test "clicking invite button opens the invite modal", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
@@ -175,7 +175,7 @@ defmodule AcaiWeb.TeamLiveTest do
       refute has_element?(view, "#invite-modal")
     end
 
-    # TEAM.INVITE.1
+    # team-view.INVITE.1
     test "invite modal renders email input", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
@@ -184,7 +184,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#invite-form input[type='email']")
     end
 
-    # TEAM.INVITE.2
+    # team-view.INVITE.2
     test "invite modal renders role dropdown", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
@@ -193,7 +193,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#invite-form select")
     end
 
-    # TEAM.INVITE.3
+    # team-view.INVITE.3
     test "invite modal renders Send Invitation button", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
@@ -202,7 +202,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#send-invitation-btn")
     end
 
-    # TEAM.INVITE.3-1
+    # team-view.INVITE.3-1
     test "shows error when invitee is already a team member", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       other = user_fixture()
@@ -218,7 +218,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#invite-error-msg")
     end
 
-    # TEAM.INVITE.3-2
+    # team-view.INVITE.3-2
     test "creates a new user when email doesn't exist and adds them to team", %{
       conn: conn,
       user: user
@@ -237,7 +237,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#members-list", new_email)
     end
 
-    # TEAM.INVITE.3-4
+    # team-view.INVITE.3-4
     test "immediately adds an existing user to the team without acceptance state", %{
       conn: conn,
       user: user
@@ -267,7 +267,7 @@ defmodule AcaiWeb.TeamLiveTest do
       %{team: team, other: other}
     end
 
-    # TEAM.MEMBERS.3
+    # team-view.MEMBERS.3
     test "edit modal opens when edit button is clicked", %{conn: conn, team: team, other: other} do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
 
@@ -285,7 +285,7 @@ defmodule AcaiWeb.TeamLiveTest do
       refute has_element?(view, "#edit-role-modal")
     end
 
-    # TEAM.EDIT_ROLE.1
+    # team-view.EDIT_ROLE.1
     test "edit modal renders Save and Cancel buttons", %{conn: conn, team: team, other: other} do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
       view |> element("#edit-btn-#{other.id}") |> render_click()
@@ -294,7 +294,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#cancel-edit-btn")
     end
 
-    # TEAM.EDIT_ROLE.2
+    # team-view.EDIT_ROLE.2
     test "edit modal renders a role dropdown", %{conn: conn, team: team, other: other} do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
       view |> element("#edit-btn-#{other.id}") |> render_click()
@@ -302,7 +302,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#edit-role-form select")
     end
 
-    # TEAM.EDIT_ROLE.3
+    # team-view.EDIT_ROLE.3
     test "saving a role updates the member's role immediately", %{
       conn: conn,
       team: team,
@@ -319,7 +319,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#member-#{other.id}", "readonly")
     end
 
-    # TEAM.MEMBERS.3-2
+    # team-view.MEMBERS.3-2
     test "shows error when owner tries to edit their own role (self-demotion guard)", %{
       conn: conn,
       user: user,
@@ -349,7 +349,7 @@ defmodule AcaiWeb.TeamLiveTest do
       %{team: team, other: other}
     end
 
-    # TEAM.DELETE_ROLE.1
+    # team-view.DELETE_ROLE.1
     test "clicking delete button opens the delete modal", %{conn: conn, team: team, other: other} do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
 
@@ -358,7 +358,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#delete-member-modal")
     end
 
-    # TEAM.DELETE_ROLE.1
+    # team-view.DELETE_ROLE.1
     test "delete modal renders Delete and Cancel buttons", %{conn: conn, team: team, other: other} do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
       view |> element("#delete-btn-#{other.id}") |> render_click()
@@ -367,7 +367,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert has_element?(view, "#cancel-delete-btn")
     end
 
-    # TEAM.DELETE_ROLE.2
+    # team-view.DELETE_ROLE.2
     test "delete modal shows warning about access and token revocation", %{
       conn: conn,
       team: team,
@@ -389,7 +389,7 @@ defmodule AcaiWeb.TeamLiveTest do
       refute has_element?(view, "#delete-member-modal")
     end
 
-    # TEAM.DELETE_ROLE.3
+    # team-view.DELETE_ROLE.3
     test "confirming delete removes the member and revokes their tokens", %{
       conn: conn,
       team: team,
@@ -408,7 +408,7 @@ defmodule AcaiWeb.TeamLiveTest do
       assert not is_nil(updated_token.revoked_at)
     end
 
-    # TEAM.DELETE_ROLE.4
+    # team-view.DELETE_ROLE.4
     test "shows error when trying to delete the last owner", %{conn: conn, user: user, team: team} do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.id}")
       view |> element("#delete-btn-#{user.id}") |> render_click()

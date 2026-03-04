@@ -9,9 +9,9 @@ defmodule Acai.Core.ValidationsTest do
     {%{}, types} |> cast(data, [:name, :key])
   end
 
-  # DATA.TEAMS.2-1
-  # DATA.SPECS.8-1
-  # DATA.SPECS.12-1
+  # data-model.TEAMS.2-1
+  # data-model.SPECS.8-1
+  # data-model.SPECS.12-1
   describe "validate_url_safe/2" do
     test "accepts alphanumeric characters" do
       cs = changeset(%{name: "hello123"}) |> validate_url_safe(:name)
@@ -45,7 +45,7 @@ defmodule Acai.Core.ValidationsTest do
     end
   end
 
-  # DATA.FIELDS.2
+  # data-model.FIELDS.2
   describe "validate_uppercase_key/2" do
     test "accepts uppercase alphanumeric characters" do
       cs = changeset(%{key: "COMPONENT1"}) |> validate_uppercase_key(:key)
