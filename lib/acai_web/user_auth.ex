@@ -7,6 +7,48 @@ defmodule AcaiWeb.UserAuth do
   alias Acai.Accounts
   alias Acai.Accounts.Scope
 
+  # ---- LiveView on_mount hooks ----
+
+  @doc """
+  LiveView on_mount hooks for current scope management and authentication.
+
+  - `:mount_current_scope` — mounts scope without requiring authentication.
+  - `:ensure_authenticated` — mounts scope and halts with redirect if unauthenticated.
+  """
+  def on_mount(:mount_current_scope, _params, session, socket) do
+    {:cont, mount_current_scope(socket, session)}
+  end
+
+  def on_mount(:ensure_authenticated, _params, session, socket) do
+    socket = mount_current_scope(socket, session)
+
+    if socket.assigns.current_scope && socket.assigns.current_scope.user do
+      {:cont, socket}
+    else
+      socket =
+        socket
+        |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+        |> Phoenix.LiveView.redirect(to: ~p"/users/log-in")
+
+      {:halt, socket}
+    end
+  end
+
+  defp mount_current_scope(socket, session) do
+    Phoenix.Component.assign_new(socket, :current_scope, fn ->
+      user =
+        if user_token = session["user_token"] do
+          Accounts.get_user_by_session_token(user_token)
+          |> case do
+            {user, _token_inserted_at} -> user
+            nil -> nil
+          end
+        end
+
+      Scope.for_user(user)
+    end)
+  end
+
   # Make the remember me cookie valid for 14 days. This should match
   # the session validity setting in UserToken.
   @max_cookie_age_in_days 14
@@ -194,7 +236,8 @@ defmodule AcaiWeb.UserAuth do
     end
   end
 
-  defp signed_in_path(_conn), do: ~p"/"
+  # TEAMS.MAIN.3
+  defp signed_in_path(_conn), do: ~p"/teams"
 
   @doc """
   Plug for routes that require the user to be authenticated.

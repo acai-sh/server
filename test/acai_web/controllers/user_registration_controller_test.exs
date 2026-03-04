@@ -15,7 +15,8 @@ defmodule AcaiWeb.UserRegistrationControllerTest do
     test "redirects if already logged in", %{conn: conn} do
       conn = conn |> log_in_user(user_fixture()) |> get(~p"/users/register")
 
-      assert redirected_to(conn) == ~p"/"
+      # TEAMS.MAIN.3
+      assert redirected_to(conn) == ~p"/teams"
     end
   end
 

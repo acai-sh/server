@@ -13,6 +13,9 @@ defmodule Acai.Teams.Team do
     # DATA.TEAMS.2-1
     field :name, :string
 
+    # TEAMS.ENG.1
+    has_many :user_team_roles, Acai.Teams.UserTeamRole
+
     timestamps(type: :utc_datetime)
   end
 

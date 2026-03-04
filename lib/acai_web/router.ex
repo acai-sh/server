@@ -57,6 +57,12 @@ defmodule AcaiWeb.Router do
   scope "/", AcaiWeb do
     pipe_through [:browser, :require_authenticated_user]
 
+    # TEAMS.MAIN.2, TEAMS.MAIN.3
+    live_session :require_authenticated_user,
+      on_mount: [{AcaiWeb.UserAuth, :ensure_authenticated}] do
+      live "/teams", TeamsLive
+    end
+
     get "/users/settings", UserSettingsController, :edit
     put "/users/settings", UserSettingsController, :update
     get "/users/settings/confirm-email/:token", UserSettingsController, :confirm_email
