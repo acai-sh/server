@@ -42,7 +42,7 @@ custom classes must fully style the input
 - Implement **subtle micro-interactions** (e.g., button hover effects, and smooth transitions)
 - Ensure **clean typography, spacing, and layout balance** for a refined, premium look
 - Focus on **delightful details** like hover effects, loading states, and smooth page transitions
-
+- **Never** use raw colors like bg-amber-50, only use daisyui theme colors like bg-warning
 
 <!-- phoenix-gen-auth-start -->
 ## Authentication

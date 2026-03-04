@@ -211,10 +211,10 @@ defmodule AcaiWeb.TeamTokensLive do
         <%!-- team-tokens.MAIN.2 --%>
         <div
           id="token-education"
-          class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
+          class="rounded-xl border border-warning/30 bg-warning p-4 text-sm text-warning-content"
         >
           <div class="flex gap-3">
-            <.icon name="hero-information-circle" class="size-5 shrink-0 text-amber-500 mt-0.5" />
+            <.icon name="hero-information-circle" class="size-5 shrink-0 text-warning-content mt-0.5" />
             <div class="space-y-1">
               <p class="font-semibold">About Team Access Tokens</p>
               <p>
