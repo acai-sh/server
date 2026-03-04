@@ -1,11 +1,15 @@
 /* See the Tailwind configuration guide for advanced usage
    https://tailwindcss.com/docs/configuration */
 
-@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap");
 @import "tailwindcss" source(none);
 @theme {
-  --font-sans: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --font-sans:
+        "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+    --font-mono:
+        "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
 }
 @source "../css";
 @source "../js";
@@ -39,7 +43,7 @@
     --color-accent-content: oklch(90% 0.02 330.4);
     --color-neutral: oklch(25.3% 0.008 323); /* #413741 - Gray 800 */
     --color-neutral-content: oklch(98% 0.003 247.858);
-    --color-info: oklch(58% 0.158 241.966);
+    --color-info: oklch(25% 0.06 260);
     --color-info-content: oklch(97% 0.013 236.62);
     --color-success: oklch(60% 0.118 184.704);
     --color-success-content: oklch(98% 0.014 180.72);
@@ -77,7 +81,7 @@
     --color-accent-content: oklch(10% 0.05 331.4);
     --color-neutral: oklch(65% 0.005 328); /* #a39ea2 - Gray 400 */
     --color-neutral-content: oklch(98% 0 0);
-    --color-info: oklch(62% 0.214 259.815);
+    --color-info: oklch(45% 0.13 260);
     --color-info-content: oklch(97% 0.014 254.604);
     --color-success: oklch(70% 0.14 182.503);
     --color-success-content: oklch(98% 0.014 180.72);
@@ -107,4 +111,13 @@
 [data-phx-session],
 [data-phx-teleported-src] {
     display: contents;
+}
+
+[data-theme="dark"] .btn.btn-primary.btn-soft {
+    color: oklch(0.98 0 0) !important;
+    background-color: color-mix(
+        in oklch,
+        var(--color-primary) 25%,
+        transparent
+    ) !important;
 }
