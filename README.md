@@ -72,4 +72,3 @@ HTTPS_PORT=8443     # Prevent Caddy port 443 conflict
 
 ## Troubleshooting & Tips
 - **Confirm proxy is working:** `http://localhost:4000/_caddy`
-- **Running Tests:** `MIX_ENV=test mix test` - don't forget the `MIX_ENV=test` part

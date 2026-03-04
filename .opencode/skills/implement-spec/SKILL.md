@@ -19,10 +19,9 @@ components:
         1-1: The ACID for this sub-requirement is 'FEAT.EXAMPLE.1-1'
 ```
 
-Key conventions and requirements for you;
+Specs are simple, focused on functionality only, and already approved. Use your best judgement to fill in gaps in the spec as you are an expert engineer.
+
 * [ ] You MUST leave code comments with the ACID to assist code review. These comments help us understand "why" that code was written.
-* [ ] You MUST NEVER write the requirement text, only comment the ID on it's own. If you don't you create drift between spec and code.
+* [ ] NEVER duplicate spec requirement text in comments. You must only write the ACID on it's own. If you ignore this requirement, you will ruin our codebase by creating spam and tight coupling between spec and code.
 * [ ] You MUST write at least one unit test for every ACID, or a dummy test if not testable.
 * [ ] You must NEVER change the spec unless explicitly asked to change it.
-
-Otherwise use your best judgement to fill in gaps in the spec, as you are an expert engineer.
