@@ -12,7 +12,6 @@ defmodule Acai.Specs.SpecTest do
     last_seen_commit: "abc123",
     parsed_at: ~U[2026-01-01 00:00:00Z],
     feature_name: "my-feature",
-    feature_key: "MYFEAT",
     feature_product: "acai"
   }
 
@@ -36,18 +35,6 @@ defmodule Acai.Specs.SpecTest do
 
     test "valid feature_name with hyphens and underscores" do
       cs = Spec.changeset(%Spec{}, %{@valid_attrs | feature_name: "my-feature_v2"})
-      assert cs.valid?
-    end
-
-    # data-model.FIELDS.2
-    test "invalid when feature_key is lowercase" do
-      cs = Spec.changeset(%Spec{}, %{@valid_attrs | feature_key: "myfeat"})
-      refute cs.valid?
-      assert %{feature_key: [_ | _]} = errors_on(cs)
-    end
-
-    test "valid feature_key with uppercase and underscores" do
-      cs = Spec.changeset(%Spec{}, %{@valid_attrs | feature_key: "MY_FEAT"})
       assert cs.valid?
     end
 
@@ -105,19 +92,6 @@ defmodule Acai.Specs.SpecTest do
         |> Acai.Repo.insert()
 
       assert cs.errors[:feature_name] != nil
-    end
-
-    # data-model.FIELDS.2
-    test "feature_key_uppercase check constraint fires for lowercase keys bypassing changeset" do
-      team = team_fixture()
-
-      {:error, cs} =
-        Spec.changeset(%Spec{}, @valid_attrs)
-        |> Ecto.Changeset.put_change(:team_id, team.id)
-        |> Ecto.Changeset.put_change(:feature_key, "lowercase")
-        |> Acai.Repo.insert()
-
-      assert cs.errors[:feature_key] != nil
     end
 
     # data-model.SPECS.12-1

@@ -100,9 +100,9 @@ components:
             8: note is a text field. Optional.
             9: is_deprecated is a boolean.
             10: replaced_by is a JSON array of ACID strings, default empty array.
-            11: feature_key is a string.
-            12: acid is a generated, indexed column concatenating <feature_key>.<group_key>.<local_id>.
-            12-note: We include this for quick lookups by ACID, but still the future ability to update reqs by swapping out the feature_key or group_key in an auditable way.
+            11: feature_name is the string defined under feature.name, copied from specs table.
+            12: acid is a generated, indexed column concatenating <feature_name>.<group_key>.<local_id>.
+            12-note: We include this for quick lookups by ACID, but still the future ability to update reqs by swapping out the feature_name or group_key in an auditable way.
             13: Composite Unique Constraint enforces (spec_id, group_key, local_id).
 
     REQ_STATUSES:

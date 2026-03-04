@@ -26,9 +26,6 @@ defmodule Acai.Specs.Spec do
     # data-model.SPECS.8
     # data-model.SPECS.8-1
     field :feature_name, :string
-    # data-model.SPECS.9
-    # data-model.FIELDS.2
-    field :feature_key, :string
     # data-model.SPECS.10
     field :feature_description, :string
     # data-model.SPECS.11
@@ -47,7 +44,6 @@ defmodule Acai.Specs.Spec do
     :last_seen_commit,
     :parsed_at,
     :feature_name,
-    :feature_key,
     :feature_product
   ]
 
@@ -61,9 +57,6 @@ defmodule Acai.Specs.Spec do
     # data-model.SPECS.8-1
     |> validate_url_safe(:feature_name)
     |> check_constraint(:feature_name, name: :feature_name_url_safe)
-    # data-model.FIELDS.2
-    |> validate_uppercase_key(:feature_key)
-    |> check_constraint(:feature_key, name: :feature_key_uppercase)
     # data-model.SPECS.12-1
     |> validate_url_safe(:feature_product)
     |> check_constraint(:feature_product, name: :feature_product_url_safe)

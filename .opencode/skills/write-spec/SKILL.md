@@ -4,7 +4,7 @@ description: Learn how to write compliant feature.yaml specs
 ---
 
 Every feature has a spec file called `feature.yaml`, located in the `features` directory.
-Each requirement in the spec has a stable ID e.g. `FEAT.COMPONENT.1-1` or `FEAT.CONSTRAINT.2`. We call these ACIDs.
+Each requirement in the spec has a stable ID e.g. `my-feature.COMPONENT.1-1` or `my-feature.CONSTRAINT.2`. We call these ACIDs.
 
 Here are tips for writing a good spec;
 - Only functionality, never design and style
@@ -95,8 +95,8 @@ components:
         name: Requirement ID references / Acceptance Criteria IDs (ACIDs)
         requirements:
             1: A requirement can be referenced anywhere in the product via its unique ACID
-            2: ACIDs follow the format `<FEATURE_KEY>.<GROUP_KEY>.<ID>` for example `FEAT.MY_COMPONENT.1-1` or `FEAT.MY_CONSTRAINT.2`
-            2-1: FEATURE_KEY and GROUP_KEY must be uppercase alphanumeric and underscores, to match their definition in the feature.yaml file.
+            2: ACIDs follow the format `<feature-name>.<GROUP_KEY>.<ID>` for example `my-feature.MY_COMPONENT.1-1` or `my-feature.MY_CONSTRAINT.2`
+            2-1: feature-name and GROUP_KEY must be uppercase alphanumeric and underscores, to match their definition in the feature.yaml file.
             
 constraints:
     EXAMPL:

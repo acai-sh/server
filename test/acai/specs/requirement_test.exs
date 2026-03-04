@@ -11,7 +11,7 @@ defmodule Acai.Specs.RequirementTest do
     local_id: "1",
     definition: "The system must do something.",
     is_deprecated: false,
-    feature_key: "MYFEAT",
+    feature_name: "my-feature",
     replaced_by: []
   }
 
@@ -44,8 +44,8 @@ defmodule Acai.Specs.RequirementTest do
       assert %{group_key: [_ | _]} = errors_on(cs)
     end
 
-    test "valid when feature_key is lowercase" do
-      cs = Requirement.changeset(%Requirement{}, %{@valid_attrs | feature_key: "my-feat"})
+    test "valid when feature_name is url-safe" do
+      cs = Requirement.changeset(%Requirement{}, %{@valid_attrs | feature_name: "my-feat"})
       assert cs.valid?
     end
 
@@ -58,7 +58,7 @@ defmodule Acai.Specs.RequirementTest do
           Map.merge(@valid_attrs, %{
             parent_local_id: "1",
             note: "See also X.",
-            replaced_by: ["OTHER.COMP.2"]
+            replaced_by: ["other-feature.COMP.2"]
           })
         )
 
@@ -79,7 +79,7 @@ defmodule Acai.Specs.RequirementTest do
       spec = spec_fixture(team)
 
       req =
-        requirement_fixture(spec, %{feature_key: "data-model", group_key: "REQS", local_id: "1"})
+        requirement_fixture(spec, %{feature_name: "data-model", group_key: "REQS", local_id: "1"})
 
       # reload to pick up the GENERATED ALWAYS AS column value from Postgres
       req = Acai.Repo.reload!(req)

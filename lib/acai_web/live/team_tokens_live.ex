@@ -222,7 +222,7 @@ defmodule AcaiWeb.TeamTokensLive do
                 including specs, implementations, references, and team metadata.
               </p>
               <p>
-                They can not be used to manage users or other access tokens.
+                They can not be used to manage users or other access tokens (tats:admin or team:admin).
               </p>
               <p>
                 When a user is removed from the team, any tokens they created are revoked.

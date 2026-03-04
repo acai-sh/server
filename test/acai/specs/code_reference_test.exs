@@ -9,7 +9,7 @@ defmodule Acai.Specs.CodeReferenceTest do
     repo_uri: "github.com/acai-sh/server",
     branch_name: "main",
     last_seen_commit: "abc123",
-    acid_string: "MYFEAT.COMP.1"
+    acid_string: "my-feature.COMP.1"
   }
 
   describe "changeset/2" do

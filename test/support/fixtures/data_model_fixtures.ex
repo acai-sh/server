@@ -60,7 +60,6 @@ defmodule Acai.DataModelFixtures do
         last_seen_commit: "abc123",
         parsed_at: DateTime.utc_now(:second),
         feature_name: "example-feature",
-        feature_key: "EXAMPLE",
         feature_product: "acai",
         feature_description: "An example feature"
       })
@@ -80,7 +79,7 @@ defmodule Acai.DataModelFixtures do
         local_id: "1",
         definition: "Some requirement definition.",
         is_deprecated: false,
-        feature_key: "EXAMPLE",
+        feature_name: "example-feature",
         replaced_by: []
       })
       |> then(&Requirement.changeset(%Requirement{}, &1))
@@ -97,7 +96,7 @@ defmodule Acai.DataModelFixtures do
         repo_uri: "github.com/acai-sh/server",
         branch_name: "main",
         last_seen_commit: "abc123",
-        acid_string: "EXAMPLE.COMP.1"
+        acid_string: "example-feature.COMP.1"
       })
       |> then(&CodeReference.changeset(%CodeReference{}, &1))
       |> Ecto.Changeset.put_change(:requirement_id, requirement.id)

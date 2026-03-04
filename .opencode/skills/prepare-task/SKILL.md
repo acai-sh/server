@@ -10,7 +10,7 @@ The task will include everything needed to implement 1 feature as specified in a
 **What makes a good task assignment?**
 - Comprehensive research and exploration of the current codebase. Points the developer to existing tools and components that may be useful for this task.
 - Includes clear action items / todo boxes to check
-- Lists all acceptance criteria to be satisfied, with their complete ACIDs e.g. `FEAT.COMPONENT.1-1` and requirement text
+- Lists all acceptance criteria to be satisfied, with their complete ACIDs e.g. `my-feature.COMPONENT.1-1` and requirement text
 - Excludes irrelevant and unrelated details.
 - **Only uses code snippets sparingly to demonstrate critical concepts and patterns. Let your devs do the coding**.
 - Doesn't micromanage: avoid deciding new variable names, new components, new file paths, etc. unless taken from spec.

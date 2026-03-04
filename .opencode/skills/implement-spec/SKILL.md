@@ -5,18 +5,17 @@ description: Learn how to implement feature.yaml specs in the codebase
 
 We write and review high quality specs before assigning them for implementation. Specs are in `/features/**/*` in `feature.yaml` files
 
-Each requirement in the spec has a stable ID e.g. `FEAT.COMPONENT.1-1` or `FEAT.CONSTRAINT.2`. We call these ACIDs (Acceptance Criteria ID)
+Each requirement in the spec has a stable ID e.g. `my-feature.COMPONENT.1-1` or `my-feature.CONSTRAINT.2`. We call these ACIDs (Acceptance Criteria ID)
 
 ```yaml
 feature:
-    name: example-feature
-    key: FEAT
+    name: my-feature
 
 components:
     EXAMPLE:
       requirements:
-        1: The ACID for this requirement is 'FEAT.EXAMPLE.1'
-        1-1: The ACID for this sub-requirement is 'FEAT.EXAMPLE.1-1'
+        1: The ACID for this requirement is 'my-feature.EXAMPLE.1'
+        1-1: The ACID for this sub-requirement is 'my-feature.EXAMPLE.1-1'
 ```
 
 Specs are simple, focused on functionality only, and already approved. Use your best judgement to fill in gaps in the spec as you are an expert engineer.

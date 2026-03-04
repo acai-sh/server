@@ -34,7 +34,7 @@ defmodule Acai.Specs.Requirement do
     field :replaced_by, {:array, :string}, default: []
     # data-model.REQS.11
     # data-model.FIELDS.2
-    field :feature_key, :string
+    field :feature_name, :string
 
     # data-model.REQS.12 — read-only generated column, never written by the app
     field :acid, :string
@@ -42,7 +42,14 @@ defmodule Acai.Specs.Requirement do
     timestamps(type: :utc_datetime)
   end
 
-  @required_fields [:group_key, :group_type, :local_id, :definition, :is_deprecated, :feature_key]
+  @required_fields [
+    :group_key,
+    :group_type,
+    :local_id,
+    :definition,
+    :is_deprecated,
+    :feature_name
+  ]
   @optional_fields [:parent_local_id, :note, :replaced_by]
 
   @doc false
@@ -53,7 +60,7 @@ defmodule Acai.Specs.Requirement do
     # data-model.FIELDS.2
     |> validate_uppercase_key(:group_key)
     # data-model.FIELDS.2
-    |> validate_url_safe(:feature_key)
+    |> validate_url_safe(:feature_name)
     # data-model.REQS.13
     |> unique_constraint([:spec_id, :group_key, :local_id])
   end
