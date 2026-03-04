@@ -188,7 +188,6 @@ services:
             MAILGUN_BASE_URL: none
             MAIL_FROM_NAME: ${MAIL_FROM_NAME:-acai.sh}
             MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-noreply@mg.acai.sh}
-            MIX_ENV: dev
             PHX_PORT: "4000"
             POOL_SIZE: "10"
             POSTGRES_DB: acai_dev
