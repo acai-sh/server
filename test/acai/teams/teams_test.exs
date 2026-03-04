@@ -271,6 +271,198 @@ defmodule Acai.TeamsTest do
     end
   end
 
+  describe "list_team_tokens/1" do
+    setup do
+      owner = user_fixture()
+      other_user = user_fixture()
+      team = team_fixture()
+      user_team_role_fixture(team, owner, %{title: "owner"})
+      user_team_role_fixture(team, other_user, %{title: "developer"})
+
+      token1 = access_token_fixture(team, owner, %{name: "Owner Token"})
+      token2 = access_token_fixture(team, other_user, %{name: "Dev Token"})
+
+      %{team: team, owner: owner, other_user: other_user, token1: token1, token2: token2}
+    end
+
+    # TATS.MAIN.1
+    test "returns all tokens for the team regardless of user", %{
+      team: team,
+      token1: token1,
+      token2: token2
+    } do
+      tokens = Teams.list_team_tokens(team)
+      token_ids = Enum.map(tokens, & &1.id)
+      assert token1.id in token_ids
+      assert token2.id in token_ids
+    end
+
+    # TATS.MAIN.1-1
+    test "preloads the user association on each token", %{team: team} do
+      tokens = Teams.list_team_tokens(team)
+      assert Enum.all?(tokens, fn t -> not is_nil(t.user) and is_binary(t.user.email) end)
+    end
+
+    test "does not return tokens from other teams", %{team: team} do
+      other_team = team_fixture()
+      other_user = user_fixture()
+      other_token = access_token_fixture(other_team, other_user)
+
+      tokens = Teams.list_team_tokens(team)
+      token_ids = Enum.map(tokens, & &1.id)
+      refute other_token.id in token_ids
+    end
+
+    test "returns tokens ordered newest first", %{team: team, owner: owner} do
+      # Insert tokens with explicit timestamps to ensure reliable ordering
+      now = DateTime.utc_now(:second)
+      older = access_token_fixture(team, owner, %{name: "Older"})
+
+      # Manually set inserted_at to be clearly older
+      Repo.update_all(
+        from(t in AccessToken, where: t.id == ^older.id),
+        set: [inserted_at: DateTime.add(now, -60, :second)]
+      )
+
+      newer = access_token_fixture(team, owner, %{name: "Newer"})
+
+      tokens = Teams.list_team_tokens(team)
+      ids = Enum.map(tokens, & &1.id)
+
+      newer_idx = Enum.find_index(ids, &(&1 == newer.id))
+      older_idx = Enum.find_index(ids, &(&1 == older.id))
+      assert newer_idx < older_idx
+    end
+  end
+
+  describe "generate_token/3" do
+    setup do
+      user = user_fixture()
+      team = team_fixture()
+      user_team_role_fixture(team, user, %{title: "owner"})
+      scope = Scope.for_user(user)
+      %{scope: scope, team: team, user: user}
+    end
+
+    # TATS.MAIN.3
+    # TATS.TATSEC.1
+    # TATS.TATSEC.2
+    test "returns ok with a token and raw_token virtual field populated", %{
+      scope: scope,
+      team: team
+    } do
+      assert {:ok, token} = Teams.generate_token(scope, team, %{name: "Test Token"})
+      assert is_binary(token.raw_token)
+      assert String.starts_with?(token.raw_token, "at_")
+    end
+
+    # TATS.TATSEC.1
+    test "stores only the hash, not the raw token", %{scope: scope, team: team} do
+      assert {:ok, token} = Teams.generate_token(scope, team, %{name: "Secure Token"})
+      persisted = Repo.get!(AccessToken, token.id)
+      assert is_nil(persisted.raw_token)
+      refute persisted.token_hash == token.raw_token
+    end
+
+    # TATS.TATSEC.2
+    test "token_hash is the SHA-256 hex of the raw token", %{scope: scope, team: team} do
+      assert {:ok, token} = Teams.generate_token(scope, team, %{name: "Hash Check"})
+      expected_hash = :crypto.hash(:sha256, token.raw_token) |> Base.encode16(case: :lower)
+      assert token.token_hash == expected_hash
+    end
+
+    test "token_prefix starts with at_ and matches the start of raw token", %{
+      scope: scope,
+      team: team
+    } do
+      assert {:ok, token} = Teams.generate_token(scope, team, %{name: "Prefix Check"})
+      assert String.starts_with?(token.token_prefix, "at_")
+      assert String.starts_with?(token.raw_token, token.token_prefix)
+    end
+
+    # TATS.MAIN.3
+    test "sets expires_at when provided", %{scope: scope, team: team} do
+      future = DateTime.utc_now(:second) |> DateTime.add(3600, :second)
+
+      assert {:ok, token} =
+               Teams.generate_token(scope, team, %{name: "Expiring", expires_at: future})
+
+      assert token.expires_at == future
+    end
+
+    test "returns error changeset when name is blank", %{scope: scope, team: team} do
+      assert {:error, changeset} = Teams.generate_token(scope, team, %{name: ""})
+      assert %{name: [_ | _]} = errors_on(changeset)
+    end
+
+    # TATS.MAIN.1-1
+    test "preloads user on returned token", %{scope: scope, team: team, user: user} do
+      assert {:ok, token} = Teams.generate_token(scope, team, %{name: "With User"})
+      assert token.user.id == user.id
+    end
+  end
+
+  describe "revoke_token/1" do
+    setup do
+      user = user_fixture()
+      team = team_fixture()
+      token = access_token_fixture(team, user)
+      %{token: token}
+    end
+
+    # TATS.MAIN.5
+    test "sets revoked_at on the token", %{token: token} do
+      assert {:ok, revoked} = Teams.revoke_token(token)
+      assert not is_nil(revoked.revoked_at)
+    end
+
+    test "persists revoked_at to the database", %{token: token} do
+      assert {:ok, _} = Teams.revoke_token(token)
+      persisted = Repo.get!(AccessToken, token.id)
+      assert not is_nil(persisted.revoked_at)
+    end
+  end
+
+  describe "valid_token?/1" do
+    setup do
+      user = user_fixture()
+      team = team_fixture()
+      token = access_token_fixture(team, user)
+      %{token: token}
+    end
+
+    # TATS.TATSEC.3
+    test "returns true for a fresh token", %{token: token} do
+      assert Teams.valid_token?(token)
+    end
+
+    # TATS.TATSEC.3
+    test "returns false when revoked_at is set", %{token: token} do
+      {:ok, revoked} = Teams.revoke_token(token)
+      refute Teams.valid_token?(revoked)
+    end
+
+    # TATS.TATSEC.3
+    test "returns false when expires_at is in the past", %{token: token} do
+      past = DateTime.utc_now(:second) |> DateTime.add(-3600, :second)
+      expired = %{token | expires_at: past}
+      refute Teams.valid_token?(expired)
+    end
+
+    # TATS.TATSEC.3
+    test "returns true when expires_at is in the future", %{token: token} do
+      future = DateTime.utc_now(:second) |> DateTime.add(3600, :second)
+      future_token = %{token | expires_at: future}
+      assert Teams.valid_token?(future_token)
+    end
+
+    # TATS.TATSEC.3
+    test "returns true when expires_at is nil", %{token: token} do
+      no_expiry = %{token | expires_at: nil}
+      assert Teams.valid_token?(no_expiry)
+    end
+  end
+
   describe "remove_member/2" do
     setup do
       owner = user_fixture()

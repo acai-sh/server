@@ -218,6 +218,17 @@ defmodule Acai.Teams do
     )
   end
 
+  # TATS.MAIN.1
+  # TATS.TATSEC.5
+  def list_team_tokens(%Team{} = team) do
+    Repo.all(
+      from t in AccessToken,
+        where: t.team_id == ^team.id,
+        order_by: [desc: t.inserted_at],
+        preload: [:user]
+    )
+  end
+
   def get_access_token!(id), do: Repo.get!(AccessToken, id)
 
   def create_access_token(current_scope, %Team{} = team, attrs) do
@@ -226,6 +237,66 @@ defmodule Acai.Teams do
     |> Ecto.Changeset.put_change(:team_id, team.id)
     |> Ecto.Changeset.put_change(:user_id, current_scope.user.id)
     |> Repo.insert()
+  end
+
+  @doc """
+  Generates a new cryptographically secure access token, hashes it, and persists
+  only the hash and prefix. Returns {:ok, token} with the raw_token virtual field
+  populated for one-time display, or {:error, changeset}.
+  """
+  # TATS.MAIN.3
+  # TATS.TATSEC.1
+  # TATS.TATSEC.2
+  def generate_token(current_scope, %Team{} = team, attrs) do
+    raw_bytes = :crypto.strong_rand_bytes(32)
+    encoded = Base.url_encode64(raw_bytes, padding: false)
+    raw_token = "at_" <> encoded
+    # TATS.TATSEC.1
+    token_prefix = "at_" <> String.slice(encoded, 0, 6)
+    token_hash = :crypto.hash(:sha256, raw_token) |> Base.encode16(case: :lower)
+
+    token_attrs =
+      attrs
+      |> Map.put(:token_hash, token_hash)
+      |> Map.put(:token_prefix, token_prefix)
+
+    case create_access_token(current_scope, team, token_attrs) do
+      {:ok, token} ->
+        token_with_user = Repo.preload(token, :user)
+        {:ok, %{token_with_user | raw_token: raw_token}}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  @doc """
+  Revokes a token by setting revoked_at to the current UTC time.
+  """
+  # TATS.MAIN.5
+  # TATS.TATSEC.4
+  def revoke_token(%AccessToken{} = token) do
+    now = DateTime.utc_now(:second)
+
+    token
+    |> Ecto.Changeset.change(revoked_at: now)
+    |> Repo.update()
+  end
+
+  @doc """
+  Returns true if the token is currently valid (not revoked, not expired).
+  """
+  # TATS.TATSEC.3
+  def valid_token?(%AccessToken{} = token) do
+    not_revoked = is_nil(token.revoked_at)
+
+    not_expired =
+      case token.expires_at do
+        nil -> true
+        expires_at -> DateTime.compare(DateTime.utc_now(), expires_at) == :lt
+      end
+
+    not_revoked and not_expired
   end
 
   def change_access_token(%AccessToken{} = token, attrs \\ %{}) do
