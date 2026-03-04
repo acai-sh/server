@@ -137,3 +137,23 @@ Implement the `/t/:team_id/settings` LiveView page where a team owner can rename
 - `UserTeamRole` has no `id` primary key — if you need to stream members (you likely won't for this view), use a composite DOM id. For this view, fetching the list once in mount to determine role is sufficient.
 - ACID comments in code must be the identifier **only** — no appended description text (e.g., `# TEAM_SETTINGS.RENAME.3-1` not `# TEAM_SETTINGS.RENAME.3-1 — inline error`).
 - Run `mix precommit` after completing all changes and fix any issues before submitting.
+
+---
+
+## Review — Round 1
+
+**Status: ACCEPTED**
+
+All 15 acceptance criteria are implemented, annotated, and tested. 300 tests pass, precommit clean, no warnings.
+
+### Findings
+
+**Correctness & Coverage:** Every ACID from the feature spec is annotated in both production code and tests, with no omissions. The test suite is thorough: auth enforcement is tested for all three negative cases (developer, readonly, no role) as well as the positive owner case; the rename flow covers success, blank name, invalid characters, and duplicate name; the delete flow covers all button states, the confirmation gating, and the final deletion/redirect. Context-level tests for `delete_team/1` verify both the return value and cascade deletion.
+
+**Auth implementation:** The `mount/3` permission guard is correct — `Permissions.has_permission?/2` is called with `nil` safely (returns `false`) for users with no role. The redirect uses `push_navigate` (not `redirect`) which results in a `{:ok, push_navigate(...)}` tuple — this is idiomatic for LiveView and is exercised by the test assertions on `{:error, {:live_redirect, ...}}`.
+
+**Rename form:** `to_form(Teams.change_team(team))` is used for the initial form and correctly reset on open. On error, the changeset is passed through `to_form/1` to preserve errors for inline display via `<.input>`. On success, the `:team` assign is updated from the returned `updated_team`, so the page name reflects the DB-persisted (lowercased) value immediately without a full reload.
+
+**Delete confirmation:** The `@confirm_name` string assign approach is clean and correct. The server-side guard in `confirm_delete` (re-checking `confirm_name == team.name`) is a good defensive layer beyond the disabled button.
+
+**Code quality:** Follows all project conventions — `@impl true` decorators, ACID-only comments, inline modals, no LiveComponents, `<Layouts.app>` wrapper, proper `push_navigate` usage. Comment style is compliant (identifiers only, no description text appended).
