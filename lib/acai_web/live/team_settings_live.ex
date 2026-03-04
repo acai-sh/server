@@ -166,7 +166,6 @@ defmodule AcaiWeb.TeamSettingsLive do
         <div
           id="rename-modal-backdrop"
           class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center"
-          phx-click="close_rename_modal"
         >
           <div
             id="rename-modal"
@@ -222,7 +221,6 @@ defmodule AcaiWeb.TeamSettingsLive do
         <div
           id="delete-modal-backdrop"
           class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center"
-          phx-click="close_delete_modal"
         >
           <div
             id="delete-modal"

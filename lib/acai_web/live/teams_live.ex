@@ -137,7 +137,6 @@ defmodule AcaiWeb.TeamsLive do
         <div
           id="create-team-modal-backdrop"
           class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center"
-          phx-click="close_modal"
         >
           <div
             id="create-team-modal"
