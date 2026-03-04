@@ -10,6 +10,15 @@ defmodule Acai.TeamsTest do
   alias Acai.Accounts.Scope
   alias Acai.Repo
 
+  # Drain any pending email messages from the test process mailbox
+  defp flush_emails do
+    receive do
+      {:email, _} -> flush_emails()
+    after
+      0 -> :ok
+    end
+  end
+
   describe "update_member_role/3" do
     setup do
       owner = user_fixture()
@@ -201,6 +210,37 @@ defmodule Acai.TeamsTest do
                Teams.invite_member(team, email, "readonly", &"http://example.com/#{&1}")
 
       assert member.title == "readonly"
+    end
+
+    # TEAM.INVITE.3-3
+    test "sends a magic-link confirmation email to a new (unconfirmed) user", %{team: team} do
+      email = unique_user_email()
+
+      assert {:ok, _member} =
+               Teams.invite_member(team, email, "developer", &"http://example.com/#{&1}")
+
+      assert_received {:email, sent_email}
+      assert sent_email.subject =~ "Confirmation instructions"
+      assert sent_email.to == [{email, email}] or match?([{_, ^email}], sent_email.to)
+    end
+
+    # TEAM.INVITE.3-3
+    test "sends a notification email to an existing confirmed user", %{team: team} do
+      existing_user = user_fixture()
+
+      # Drain any emails sent during user_fixture setup (login instructions)
+      flush_emails()
+
+      assert {:ok, _member} =
+               Teams.invite_member(
+                 team,
+                 existing_user.email,
+                 "developer",
+                 &"http://example.com/#{&1}"
+               )
+
+      assert_received {:email, sent_email}
+      assert sent_email.subject =~ team.name
     end
   end
 

@@ -39,29 +39,6 @@ defmodule Acai.Accounts.UserNotifier do
   end
 
   @doc """
-  Deliver a team invite email with a magic link for a new (unconfirmed) user.
-  """
-  # TEAM.INVITE.3-3
-  def deliver_team_invite_instructions(user, team_name, url) do
-    deliver(user.email, "You've been invited to #{team_name}", """
-
-    ==============================
-
-    Hi #{user.email},
-
-    You have been invited to join the team "#{team_name}" on Acai.
-
-    Create your account and accept the invitation by visiting the URL below:
-
-    #{url}
-
-    If you didn't expect this invitation, please ignore this email.
-
-    ==============================
-    """)
-  end
-
-  @doc """
   Deliver a simple notification to an existing user that they were added to a team.
   """
   # TEAM.INVITE.3-3
