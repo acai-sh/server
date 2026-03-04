@@ -31,7 +31,7 @@
     prefersdark: true;
     color-scheme: "dark";
     /* Acai.sh Dark Theme */
-    --color-base-100: oklch(8.29% 0.015 330); /* #140411 - Background Dark */
+    --color-base-100: oklch(15% 0.04 334.49); /* #140411 - Background Dark */
     --color-base-200: oklch(18% 0.02 334); /* elevated surface (purple tint) */
     --color-base-300: oklch(24% 0.025 334); /* hover surface (purple tint) */
     --color-base-content: oklch(83.9% 0.004 316); /* #d2ced1 - Gray 300 */
