@@ -169,7 +169,7 @@ defmodule AcaiWeb.TeamsLiveTest do
       {:ok, view, _html} = live(conn, ~p"/teams")
       view |> element("#open-create-team-modal") |> render_click()
 
-      # TEAMS.CREATE.3-1 — assert navigate to /t/:team_id
+      # TEAMS.CREATE.3-1
       assert {:error, {:live_redirect, %{to: redirect_path}}} =
                view
                |> form("#create-team-form", %{"team" => %{"name" => "my-new-team"}})
@@ -179,7 +179,7 @@ defmodule AcaiWeb.TeamsLiveTest do
       assert team.name == "my-new-team"
       assert redirect_path == "/t/#{team.id}"
 
-      # TEAMS.ENG.1 — owner role assigned to creating user
+      # TEAMS.ENG.1
       [role] = Teams.list_user_team_roles(scope, team)
       assert role.title == "owner"
       assert role.user_id == user.id

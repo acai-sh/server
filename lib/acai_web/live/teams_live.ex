@@ -79,7 +79,7 @@ defmodule AcaiWeb.TeamsLive do
           </:actions>
         </.header>
 
-        <%!-- TEAMS.MAIN.2-1 — empty state --%>
+        <%!-- TEAMS.MAIN.2-1 --%>
         <%= if @teams_empty? do %>
           <div
             id="teams-empty-state"
@@ -100,7 +100,7 @@ defmodule AcaiWeb.TeamsLive do
           </div>
         <% end %>
 
-        <%!-- TEAMS.MAIN.2 — team cards --%>
+        <%!-- TEAMS.MAIN.2 --%>
         <div
           id="teams-list"
           phx-update="stream"
@@ -132,7 +132,7 @@ defmodule AcaiWeb.TeamsLive do
         </div>
       </div>
 
-      <%!-- TEAMS.MAIN.1-1 / TEAMS.CREATE — Create Team modal --%>
+      <%!-- TEAMS.MAIN.1-1 / TEAMS.CREATE --%>
       <%= if @show_modal do %>
         <div
           id="create-team-modal-backdrop"
