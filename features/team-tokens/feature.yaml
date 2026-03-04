@@ -17,7 +17,7 @@ components:
             3: Can create a new token, with name, optional expiration timestamp (date picker)
             3-1: Can not edit token scopes, it's the same set of scopes for all tokens
             4: On creation, user is presented with the token, and educated that they will never be able to see it again
-            4-1: New has a copy paste button and can be cleanly highlighted with click-drag or triple-mouse click
+            4-1: Displayed token has a copy paste button and can be cleanly highlighted with click-drag or triple-mouse click
             5: Tokens can be revoked by clicking a revoke button
             5-1: Token revocation triggers confirmation
 

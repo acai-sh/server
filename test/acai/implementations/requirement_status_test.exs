@@ -31,6 +31,17 @@ defmodule Acai.Implementations.RequirementStatusTest do
       assert cs.valid?
     end
 
+    # data-model.REQ_STATUSES.8
+    test "accepts optional note" do
+      cs =
+        RequirementStatus.changeset(
+          %RequirementStatus{},
+          Map.put(@valid_attrs, :note, "This is a note")
+        )
+
+      assert cs.valid?
+    end
+
     # data-model.REQ_STATUSES.1
     test "uses UUIDv7 primary key" do
       assert RequirementStatus.__schema__(:primary_key) == [:id]

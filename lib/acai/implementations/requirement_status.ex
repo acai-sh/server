@@ -19,12 +19,14 @@ defmodule Acai.Implementations.RequirementStatus do
     field :is_active, :boolean, default: true
     # data-model.REQ_STATUSES.6
     field :last_seen_commit, :string
+    # data-model.REQ_STATUSES.8
+    field :note, :string
 
     timestamps(type: :utc_datetime)
   end
 
   @required_fields [:is_active, :last_seen_commit]
-  @optional_fields [:status]
+  @optional_fields [:status, :note]
 
   @doc false
   def changeset(requirement_status, attrs) do
