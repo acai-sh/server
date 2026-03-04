@@ -167,3 +167,19 @@ Implement the `/t/:team_id/tokens` LiveView page where authenticated team member
 - For the copy-to-clipboard button, use a colocated JS hook (`.CopyToken`) scoped to the raw-token display area. The hook reads the text from a sibling element's `innerText` or a `data-token` attribute and calls `navigator.clipboard.writeText(...)`.
 - ACID comments must be the identifier **only** — no appended description text (e.g., `# TATS.MAIN.1` not `# TATS.MAIN.1 — list all tokens`).
 - Run `mix precommit` after completing all changes and fix any issues before submitting.
+
+---
+
+## Review — Round 1
+
+**Status: ACCEPTED**
+
+All 15 ACIDs are implemented, annotated in production code with identifier-only comments, and covered by at least one test each. 343 tests pass, precommit clean.
+
+### Summary of findings
+
+- **Context (`teams.ex`)**: `list_team_tokens/1`, `generate_token/3`, `revoke_token/1`, and `valid_token?/1` are all correct, well-structured, and idiomatic. Token generation follows the prescribed crypto pattern exactly (`:crypto.strong_rand_bytes/1`, SHA-256 hash, prefix extracted from encoded bytes). The raw token is correctly never stored — only populated on the virtual field of the return value.
+- **LiveView (`team_tokens_live.ex`)**: Follows the established inline-modal + stream pattern from `TeamLive` and `TeamSettingsLive` precisely. Permission gates on `can_manage_tokens?` are applied correctly in both the UI (disabled buttons) and event handlers (no-op guard). The `build_token_attrs/1` helper handles the `datetime-local` format correctly.
+- **Template**: All ACID annotations present and identifier-only (the single combined `<%!-- TATS.MAIN.3 / TATS.MAIN.4 --%>` is consistent with the accepted pattern already in the codebase). `select-all` CSS class on the token `<pre>` correctly satisfies `TATS.MAIN.4-1` for click-drag highlighting. Colocated `.CopyToken` JS hook is correctly scoped and named.
+- **Route**: Correctly placed inside the existing `live_session :require_authenticated_user` block.
+- **Tests**: Full coverage across context (`teams_test.exs`) and LiveView (`team_tokens_live_test.exs`). The ordering test was made robust by using explicit `inserted_at` timestamps via `Repo.update_all`. ACID annotations are identifier-only throughout.
