@@ -218,10 +218,7 @@ defmodule AcaiWeb.TeamTokensLive do
             <div class="space-y-1">
               <p class="font-semibold">About Team Access Tokens</p>
               <p>
-                Tokens grant full read and write access to all team resources.
-              </p>
-              <p>
-                They can not be used to manage users or other access tokens.
+                Tokens grant full read and write access to all team resources, except they can not be used to manage users or other access tokens.
               </p>
               <p>
                 When a user is removed from the team, any tokens they created are revoked.

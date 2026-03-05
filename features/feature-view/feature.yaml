@@ -16,6 +16,7 @@ components:
             3: Renders a grid of implementation cards, one per active implementation of this feature
             3-1: If no implementations exist, an empty state is shown
             4: Each implementation card navigates to /t/:team_name/f/:feature_name/i/:impl_slug on click
+            4-note: ":impl_slug follows the Notion-style pattern my-impl-name+dashless_uuid (see implementation-view.ROUTING)"
 
     IMPL_CARD:
         name: A card summarising a single implementation of the feature

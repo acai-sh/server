@@ -43,7 +43,7 @@ components:
             5: The panel automatically expands and highlights the correct product and feature based on the current URL
             5-1: When viewing /t/:team_name/p/:product_name, the matching product item is expanded and highlighted
             5-2: When viewing /t/:team_name/f/:feature_name, the matching product is expanded and the matching feature is highlighted
-            5-3: When viewing /t/:team_name/f/:feature_name/i/:impl_slug, the panel highlights the feature that owns that implementation
+            5-3: When viewing /t/:team_name/f/:feature_name/i/:impl_slug (where :impl_slug follows the my-impl-name+dashless_uuid pattern), the panel highlights the feature that owns that implementation
             5-4: Highlighting propagates upward — the active product is also highlighted whenever any child feature or implementation is active
 
             6: Renders a Team Settings link (/t/:team_name/settings) and a Tokens link (/t/:team_name/tokens) at the bottom of the panel

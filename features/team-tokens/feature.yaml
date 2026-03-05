@@ -12,8 +12,7 @@ components:
         requirements:
             1: Lists all tokens that have been created for this team, by any user
             1-1: Lists the token prefix and the token name, created-by attribution, other useful metadata contained in the database (see DATA feature)
-            2: "User education explains that Team Access Tokens provide full read and write access to any resources in the team, except for tats:admin and teams:admin."
-            2-note: "tats:admin and team:admin refer to the ability to create and delete access tokens, or create/edit/delete user roles. Tokens can still be used to read team data and read access token metadata"
+            2: "User education explains that Team Access Tokens provide full read and write access to any resources in the team, except admin actions"
             3: Can create a new token, with name, optional expiration timestamp (date picker)
             3-1: Can not edit token scopes, it's the same set of scopes for all tokens
             4: On creation, user is presented with the token, and educated that they will never be able to see it again

@@ -69,7 +69,8 @@ constraints:
         name: Notion-style slug routing for implementations
         requirements:
             1: Implementation URLs follow the pattern /t/:team_name/f/:feature_name/i/:impl_slug
-            1-1: The :impl_slug is a compound of the implementation name and its id, e.g. my-impl-name-018f1a2b3c4d5e6f7a8b9c0d1e2f3a4b
-            2: When resolving the URL, extract the UUID (last 32 hex characters of the slug, the id without dashes) and look up the implementation by id only
-            2-1: The name portion of the slug is cosmetic and discarded during resolution — this ensures name changes never break URLs
+            1-1: The :impl_slug is a compound of the implementation name and its dashless UUID joined with a `+`, e.g. my-impl-name+018f1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+            1-2: The dashless UUID is the implementation id with all hyphens removed (32 hex characters)
+            2: When resolving the URL, split on `+` and use only the right-hand dashless UUID to look up the implementation by id — the name portion is cosmetic and discarded
+            2-1: This ensures that renaming an implementation never breaks existing URLs
             3: If no matching implementation is found, the user is redirected to /t/:team_name/f/:feature_name

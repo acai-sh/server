@@ -89,17 +89,19 @@ defmodule Acai.DataModelFixtures do
     req
   end
 
-  def code_reference_fixture(requirement, attrs \\ %{}) do
+  def code_reference_fixture(requirement, branch, attrs \\ %{}) do
     {:ok, ref} =
       attrs
       |> Enum.into(%{
         repo_uri: "github.com/acai-sh/server",
-        branch_name: "main",
         last_seen_commit: "abc123",
-        acid_string: "example-feature.COMP.1"
+        acid_string: "example-feature.COMP.1",
+        path: "lib/my_app/my_module.ex:42",
+        is_test: false
       })
       |> then(&CodeReference.changeset(%CodeReference{}, &1))
       |> Ecto.Changeset.put_change(:requirement_id, requirement.id)
+      |> Ecto.Changeset.put_change(:branch_id, branch.id)
       |> Repo.insert()
 
     ref

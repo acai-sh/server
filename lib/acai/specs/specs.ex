@@ -7,6 +7,7 @@ defmodule Acai.Specs do
   alias Acai.Repo
   alias Acai.Specs.{Spec, Requirement, CodeReference}
   alias Acai.Teams.Team
+  alias Acai.Implementations.TrackedBranch
 
   # --- Specs ---
 
@@ -66,11 +67,40 @@ defmodule Acai.Specs do
 
   def get_code_reference!(id), do: Repo.get!(CodeReference, id)
 
-  def create_code_reference(%Requirement{} = requirement, attrs) do
+  def create_code_reference(
+        %Requirement{} = requirement,
+        %TrackedBranch{} = branch,
+        attrs
+      ) do
     %CodeReference{}
     |> CodeReference.changeset(attrs)
     |> Ecto.Changeset.put_change(:requirement_id, requirement.id)
+    |> Ecto.Changeset.put_change(:branch_id, branch.id)
     |> Repo.insert()
+  end
+
+  @doc """
+  Inserts or updates a code reference identified by (requirement_id, branch_id, path).
+
+  On conflict the mutable tracking fields — last_seen_commit, last_seen_at, acid_string,
+  repo_uri, and is_test — are updated in place, leaving id and inserted_at untouched.
+  """
+  def upsert_code_reference(
+        %Requirement{} = requirement,
+        %TrackedBranch{} = branch,
+        attrs
+      ) do
+    %CodeReference{}
+    |> CodeReference.changeset(attrs)
+    |> Ecto.Changeset.put_change(:requirement_id, requirement.id)
+    |> Ecto.Changeset.put_change(:branch_id, branch.id)
+    |> Repo.insert(
+      on_conflict:
+        {:replace,
+         [:last_seen_commit, :last_seen_at, :acid_string, :repo_uri, :is_test, :updated_at]},
+      conflict_target: [:requirement_id, :branch_id, :path],
+      returning: true
+    )
   end
 
   def change_code_reference(%CodeReference{} = code_reference, attrs \\ %{}) do
