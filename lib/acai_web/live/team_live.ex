@@ -43,6 +43,8 @@ defmodule AcaiWeb.TeamLive do
       |> assign(:show_delete_modal, false)
       |> assign(:deleting_member, nil)
       |> assign(:delete_error, nil)
+      # nav.AUTH.1: Pass current_path for navigation
+      |> assign(:current_path, "/t/#{team.name}")
 
     {:ok, socket}
   end
@@ -240,7 +242,12 @@ defmodule AcaiWeb.TeamLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      team={@team}
+      current_path={@current_path}
+    >
       <div class="space-y-8">
         <%!-- team-view.MAIN.1 --%>
         <.header>

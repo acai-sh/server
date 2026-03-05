@@ -30,6 +30,8 @@ defmodule AcaiWeb.TeamSettingsLive do
         |> assign(:show_delete_modal, false)
         # team-settings.DELETE.2
         |> assign(:confirm_name, "")
+        # nav.AUTH.1: Pass current_path for navigation
+        |> assign(:current_path, "/t/#{team.name}/settings")
 
       {:ok, socket}
     else
@@ -114,7 +116,12 @@ defmodule AcaiWeb.TeamSettingsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      team={@team}
+      current_path={@current_path}
+    >
       <div class="space-y-8 max-w-2xl mx-auto">
         <%!-- team-settings.MAIN.1 --%>
         <.header>

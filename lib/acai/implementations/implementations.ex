@@ -34,6 +34,51 @@ defmodule Acai.Implementations do
     Implementation.changeset(implementation, attrs)
   end
 
+  # nav.PANEL.5-3
+  @doc """
+  Gets an implementation by parsing the slug pattern: {impl_name}+{uuid_without_dashes}.
+  Returns nil if not found or invalid format.
+  """
+  def get_implementation_by_slug(slug) when is_binary(slug) do
+    case String.split(slug, "+", parts: 2) do
+      [_name, uuid_part] ->
+        # Try to parse the UUID (without dashes, we need to add them back)
+        case parse_uuid_without_dashes(uuid_part) do
+          {:ok, uuid} ->
+            Repo.get(Implementation, uuid)
+
+          :error ->
+            nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp parse_uuid_without_dashes(uuid_string) when byte_size(uuid_string) == 32 do
+    # UUID without dashes is 32 characters
+    # Format: 8-4-4-4-12 (total 36 with dashes, 32 without)
+    try do
+      formatted_uuid =
+        String.slice(uuid_string, 0..7) <>
+          "-" <>
+          String.slice(uuid_string, 8..11) <>
+          "-" <>
+          String.slice(uuid_string, 12..15) <>
+          "-" <>
+          String.slice(uuid_string, 16..19) <>
+          "-" <>
+          String.slice(uuid_string, 20..31)
+
+      {:ok, formatted_uuid}
+    rescue
+      _ -> :error
+    end
+  end
+
+  defp parse_uuid_without_dashes(_), do: :error
+
   # --- Tracked Branches ---
 
   def list_tracked_branches(%Implementation{} = implementation) do

@@ -106,4 +106,39 @@ defmodule Acai.Specs do
   def change_code_reference(%CodeReference{} = code_reference, attrs \\ %{}) do
     CodeReference.changeset(code_reference, attrs)
   end
+
+  # nav.PANEL.3-2
+  @doc """
+  Returns a list of distinct feature_product values for a team.
+  """
+  def list_products_for_team(%Team{} = team) do
+    Repo.all(
+      from s in Spec,
+        where: s.team_id == ^team.id,
+        select: s.feature_product,
+        distinct: true,
+        order_by: s.feature_product
+    )
+  end
+
+  # nav.PANEL.4-1
+  @doc """
+  Returns all specs for a team, grouped by product.
+  """
+  def list_specs_grouped_by_product(%Team{} = team) do
+    specs = Repo.all(from s in Spec, where: s.team_id == ^team.id)
+
+    Enum.group_by(specs, & &1.feature_product)
+  end
+
+  # nav.PANEL.5-3
+  @doc """
+  Gets a spec by feature_name for a team.
+  """
+  def get_spec_by_feature_name(%Team{} = team, feature_name) do
+    Repo.one(
+      from s in Spec,
+        where: s.team_id == ^team.id and s.feature_name == ^feature_name
+    )
+  end
 end
