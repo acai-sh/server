@@ -28,3 +28,4 @@ components:
             5-4: The clickable link is constructed as https://<repo_uri>/blob/<branch_name>/<path>
             5-5: Test references (is_test = true, data-model.REFS.9) are visually distinguished from non-test references within each group
             6: The drawer can be dismissed to return to the underlying view without navigation
+            7: Renders a comment section which displays `note` attached to the req status record, (text of arbitrary length, often empty)

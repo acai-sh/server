@@ -402,7 +402,7 @@ defmodule AcaiWeb.ImplementationLive do
         <p class="text-sm text-base-content/50">No tracked branches</p>
       <% else %>
         <div :for={branch <- @branches} class="flex items-center gap-2 text-sm">
-          <.icon name="hero-git-branch" class="size-4 text-base-content/50" />
+          <.icon name="hero-link" class="size-4 text-base-content/50" />
           <span class="text-base-content/80">{branch.repo_uri}</span>
           <span class="text-base-content/40">/</span>
           <span class="text-primary font-medium">{branch.branch_name}</span>

@@ -15,6 +15,7 @@ Assume the role of an experienced, high-ranking, high-standards engineer. Your t
 * [ ] Validate that **all acceptance criteria have been met and tested**, and that it complies with our guides.
 * [ ] Validate that test coverage is sufficient.
 * [ ] Validate that code quality is of the highest standards for readability, elegance, and simplicity.
+* [ ] Evaluate performance, and ensure the implementation is well-optimized with regards to data fetching, queries, async operations, and memory
 * [ ] Confirm the chosen patterns and tools are performant, maintainable and idiomatic for our modern Elixir Phoenix app.
 
 ## Output

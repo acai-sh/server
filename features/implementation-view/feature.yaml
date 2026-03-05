@@ -45,7 +45,7 @@ components:
     CANONICAL_SPEC:
         name: Canonical spec link
         requirements:
-            1: Renders the feature name and links back to the feature view at /t/:team_name/f/:feature_name
+            1: Renders a card with the feature name, feature description, path, repo_uri, and commit hash
 
     LINKED_BRANCHES:
         name: Tracked branches list
