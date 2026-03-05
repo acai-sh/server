@@ -154,6 +154,49 @@ defmodule Acai.Specs do
     )
   end
 
+  # requirement-details.DRAWER.5-1
+  @doc """
+  Gets a requirement by ID with preloaded associations.
+  """
+  def get_requirement_with_refs!(id) do
+    Repo.get!(Requirement, id)
+  end
+
+  # requirement-details.DRAWER.5-1
+  # requirement-details.DRAWER.5-2
+  @doc """
+  Lists code references for a requirement, filtered by implementation's tracked branches.
+  Returns references grouped by tracked_branch.
+
+  Each reference has the branch association preloaded.
+  """
+  def list_code_references_for_requirement_and_implementation(
+        %Requirement{} = requirement,
+        %Acai.Implementations.Implementation{} = implementation
+      ) do
+    alias Acai.Implementations.TrackedBranch
+
+    # Get all tracked branch IDs for this implementation
+    tracked_branch_ids =
+      Repo.all(
+        from b in TrackedBranch,
+          where: b.implementation_id == ^implementation.id,
+          select: b.id
+      )
+
+    # Query code references for this requirement that belong to tracked branches
+    refs =
+      Repo.all(
+        from ref in CodeReference,
+          where: ref.requirement_id == ^requirement.id,
+          where: ref.branch_id in ^tracked_branch_ids,
+          preload: [:branch]
+      )
+
+    # Group by tracked_branch
+    Enum.group_by(refs, & &1.branch)
+  end
+
   # product-view.ROUTING.1
   @doc """
   Gets specs for a team by product name (case-insensitive).

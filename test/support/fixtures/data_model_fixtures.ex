@@ -86,7 +86,8 @@ defmodule Acai.DataModelFixtures do
       |> Ecto.Changeset.put_change(:spec_id, spec.id)
       |> Repo.insert()
 
-    req
+    # Reload to get the generated acid column
+    Repo.get!(Requirement, req.id)
   end
 
   def code_reference_fixture(requirement, branch, attrs \\ %{}) do
