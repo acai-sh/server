@@ -26,3 +26,5 @@ B) Resolving feedback or incomplete items (QA, code review etc.), appended to th
 * [ ] You should commit to the task branch when you complete work
 * [ ] Completion is only reached when all tests are passing, all assigned acceptance criteria are implemented, and your work is committed.
 * [ ] Upon completion, respond back to the supervisor "Task {task_id} has been implemented and is ready for (re-)review."
+
+Important: ACID comments are encouraged, but use bare identifiers only. NEVER write the requirement description!

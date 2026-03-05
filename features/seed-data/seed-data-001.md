@@ -70,3 +70,109 @@ Implement comprehensive seed data generation in `priv/repo/seeds.exs` to populat
   - For activity events, note that `actor_token_id` is optional — you can create an access token for the team via `Acai.Teams.generate_token/4` to use as actor, or leave it nil
 - [ ] Verify idempotency: running `mix run priv/repo/seeds.exs` twice should not raise errors or create duplicates
 - [ ] Run `mix precommit` to ensure compilation and tests pass
+
+---
+
+## Review — Round 1
+
+**Status: REJECTED**
+
+All acceptance criteria are functionally satisfied and all 388 tests pass. The implementation is well-structured, idempotent, and produces rich, realistic seed data. One code-quality violation must be fixed before acceptance.
+
+### Findings
+
+#### ❌ ACID comments contain extra description text (violates implement-spec rules)
+
+The implement-spec rules are explicit: *"You must only write the ACID on its own. NEVER duplicate spec requirement text in comments."*
+
+Many ACID comments in `priv/repo/seeds.exs` append human-readable summaries after the ACID, coupling the code to the spec text and creating the exact maintenance problem the rule exists to prevent. All of the following must be trimmed to the bare ACID(s) only:
+
+```
+# line 5  — remove " — runs automatically via `mix ecto.setup`"
+# line 6  — remove " — idempotent: uses get_by lookups before inserting"
+# line 174 — remove " — Pregenerate the three test users"
+# line 184 — remove " — Pregenerate two teams"
+# line 193 — remove " — Assign users to testing-team" + the prose comment on line 194-195
+# line 202 — remove " — Assign users to empty-team"
+# line 212 — remove " (Spec A) — Full requirements + multiple implementations"
+# line 213 — remove " — COMPONENT + CONSTRAINT groups, nested reqs, notes, replaced_by"
+# line 228 — remove the "# COMPONENT group requirements" free-text comment
+# line 288 — remove " — SEED_DATA.MOCK_DATA.2" suffix / rephrase as bare ACID
+# line 311 — remove "# A deprecated requirement with replaced_by —" prefix; keep only the ACID
+# line 325 — remove " — Implementations for spec_a (multiple)"
+# line 326 — remove " — At least one impl with a linked TrackedBranch"
+# line 336 — remove " — linked TrackedBranch"
+# line 343 — remove "# Varying requirement statuses —" prefix
+# line 369 — remove "# Second implementation (feature branch) —" prefix
+# line 396 — remove the IO.puts line (not an ACID comment, but contextual prose is fine; this one is fine to keep as IO.puts are progress logs, not comments)
+# line 399 — remove " (Spec B) — Pending requirements, no implementations"
+# line 400 — remove " — COMPONENT + CONSTRAINT, nested, notes"
+# line 473 — remove "# No implementations for spec_b —" prefix; keep bare ACID
+# line 477 — remove " (Spec C) — Mix of implemented, partial, deprecated"
+# line 478 — remove " — COMPONENT + CONSTRAINT, nested, replaced_by"
+# line 584 — remove " — implementation with mixed statuses"
+# line 598 — remove "# Mix of statuses —" prefix
+# line 635 — remove " — Activity events for testing-team"
+# line 637-638 — remove the free-text comment block (prose, not ACID)
+```
+
+The corrected form for a section header is simply:
+```elixir
+# SEED_DATA.MOCK_DATA.1
+# SEED_DATA.MOCK_DATA.2
+spec_a = seed_spec.(...)
+```
+
+And for inline annotations:
+```elixir
+# SEED_DATA.MOCK_DATA.3
+_branch_a_prod = seed_branch.(...)
+```
+
+### Todo
+
+- [x] Strip all description text appended to ACID comments in `priv/repo/seeds.exs`, leaving only the bare ACID identifier(s) per line (e.g. `# SEED_DATA.MOCK_DATA.1` not `# SEED_DATA.MOCK_DATA.1 — Full requirements + multiple implementations`). Remove free-text prose comments that are not ACID references. IO.puts progress lines are fine to keep.
+
+---
+
+## Review — Round 2
+
+**Status: REJECTED**
+
+`priv/repo/seeds.exs` is now fully compliant — all ACID comments are bare identifiers only. All 388 tests continue to pass. However the same violation that was fixed in the seeds file was overlooked in the test file.
+
+### Findings
+
+#### ❌ ACID comments in `test/acai/seeds_test.exs` still carry description text
+
+The fix was applied to `priv/repo/seeds.exs` but not to `test/acai/seeds_test.exs`. The same rule applies to all source files. The following 17 lines in the test file must have everything after the ACID identifier stripped:
+
+- Line 356: `# SEED_DATA.MOCK_DATA.1 — spec with full requirements and multiple implementations`
+- Line 415: `# SEED_DATA.MOCK_DATA.1 — spec with pending requirements and no implementations`
+- Line 447: `# SEED_DATA.MOCK_DATA.1 — spec with mix of implemented/partial/deprecated`
+- Line 516: `# SEED_DATA.MOCK_DATA.2 — both COMPONENT and CONSTRAINT group types`
+- Line 554: `# SEED_DATA.MOCK_DATA.2 — nested requirements via parent_local_id`
+- Line 593: `# SEED_DATA.MOCK_DATA.2 — requirements with notes and replaced_by ACIDs`
+- Line 629: `# SEED_DATA.MOCK_DATA.3 — at least one implementation with a linked TrackedBranch`
+- Line 669: `# SEED_DATA.MOCK_DATA.3 — varying statuses for requirements within implementations`
+- Line 753: `# SEED_DATA.MOCK_DATA.4 — events for spec creation, requirement updates, implementation progress`
+- Line 821: `# SEED_DATA.MOCK_DATA.4 — events attributed to different team members`
+- Line 872: `# SEED_DATA.ENVIRONMENT.1 — verifies seed helpers run without error`
+- Line 885: `# SEED_DATA.ENVIRONMENT.2 — running seed helpers twice does not create duplicates`
+- Line 902: `# SEED_DATA.ENVIRONMENT.2 — seed_team is idempotent`
+- Line 920: `# SEED_DATA.ENVIRONMENT.2 — seed_role is idempotent`
+- Line 938: `# SEED_DATA.ENVIRONMENT.2 — seed_spec is idempotent`
+- Line 970: `# SEED_DATA.ENVIRONMENT.2 — seed_requirement is idempotent`
+- Line 1011: `# SEED_DATA.ENVIRONMENT.2 — seed_impl is idempotent`
+
+### Todo
+
+- [x] Strip the `— <description>` suffix from every ACID comment in `test/acai/seeds_test.exs`, leaving only the bare ACID (e.g. `# SEED_DATA.MOCK_DATA.1`).
+
+---
+
+## Review — Round 3
+
+**Status: ACCEPTED**
+
+All findings from previous rounds have been fully resolved. Both `priv/repo/seeds.exs` and `test/acai/seeds_test.exs` now contain only bare ACID identifiers in comments with no appended description text. All 9 acceptance criteria are implemented and tested. 388 tests pass. The implementation is clean, idempotent, and production-quality.
