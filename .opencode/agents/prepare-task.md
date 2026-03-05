@@ -2,7 +2,7 @@
 name: prepare-task
 description: "Plan and prepare the next task and create a task document, which includes a well-researched implementation plan"
 mode: subagent
-model: opencode/gemini-3.1-pro
+model: opencode/glm-5
 permission:
   edit: allow
   bash:
