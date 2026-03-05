@@ -1,0 +1,63 @@
+feature:
+    name: seed-data
+    key: SEED_DATA
+    description: Generate seed data in the devcontainer for QA / testing purposes
+
+components:
+    USERS:
+        name: User Accounts
+        requirements:
+            1: |
+                Pregenerate the following user accounts:
+                - `owner@testing.team`
+                - `developer@testing.team`
+                - `readonly@testing.team`
+            2: All pregenerated users must have the password `password123456`
+            3: All pregenerated users must be marked as confirmed
+
+    TEAMS:
+        name: Teams and Membership
+        requirements:
+            1: |
+                Generate two teams:
+                - `testing-team`
+                - `empty-team`
+            2: |
+                Assign the pregenerated users to `testing-team` with their respective roles:
+                - `owner@testing.team` -> `owner`
+                - `developer@testing.team` -> `developer`
+                - `readonly@testing.team` -> `readonly`
+            3: |
+                Assign the pregenerated users to `empty-team` as well with their respective roles:
+                - `owner@testing.team` -> `owner`
+                - `developer@testing.team` -> `developer`
+                - `readonly@testing.team` -> `readonly`
+
+    MOCK_DATA:
+        name: Mock Domain Data
+        description: Functional data for testing-team to enable QA of core features
+        requirements:
+            1: |
+                Generate at least 3 `Specs` for `testing-team` with varying states:
+                - One spec with a full set of requirements and multiple implementations
+                - One spec with pending requirements and no implementations
+                - One spec with a mix of implemented, partially implemented, and deprecated requirements
+            2: |
+                Requirements for each spec must cover:
+                - Both `COMPONENT` and `CONSTRAINT` group types
+                - Nested requirements (sub-requirements)
+                - Requirements with notes and `replaced_by` ACIDs
+            3: |
+                Generate `Implementations` for the specs in `testing-team`:
+                - At least one implementation with a linked `TrackedBranch`
+                - Varying statuses for requirements within implementations
+            4: |
+                Generate a history of `ActivityEvents` for `testing-team`:
+                - Events for spec creation, requirement updates, and implementation progress
+                - Events attributed to different team members (owner, developer)
+
+constraints:
+    ENVIRONMENT:
+        requirements:
+            1: Seed data generation must run automatically during devcontainer build or when `mix run priv/repo/seeds.exs` is executed
+            2: Seeding must be idempotent; running it multiple times should not create duplicate users or teams
