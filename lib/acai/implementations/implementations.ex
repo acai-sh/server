@@ -139,4 +139,55 @@ defmodule Acai.Implementations do
   def change_requirement_status(%RequirementStatus{} = requirement_status, attrs \\ %{}) do
     RequirementStatus.changeset(requirement_status, attrs)
   end
+
+  # feature-view.MAIN.3
+  @doc """
+  Lists all active implementations for a list of specs.
+  """
+  def list_active_implementations_for_specs(specs) when is_list(specs) do
+    spec_ids = Enum.map(specs, & &1.id)
+
+    Repo.all(
+      from i in Implementation,
+        where: i.spec_id in ^spec_ids and i.is_active == true
+    )
+  end
+
+  # feature-view.IMPL_CARD.2
+  @doc """
+  Counts tracked branches for an implementation.
+  """
+  def count_tracked_branches(%Implementation{} = implementation) do
+    Repo.one(
+      from b in TrackedBranch,
+        where: b.implementation_id == ^implementation.id,
+        select: count()
+    )
+  end
+
+  # feature-view.IMPL_CARD.4
+  @doc """
+  Gets requirement status counts for an implementation.
+  Returns %{accepted: count, implemented: count, null: count}
+  """
+  def get_requirement_status_counts(%Implementation{} = implementation, total_requirements) do
+    # Count statuses that are not null
+    status_counts =
+      Repo.all(
+        from rs in RequirementStatus,
+          where: rs.implementation_id == ^implementation.id,
+          group_by: rs.status,
+          select: {rs.status, count()}
+      )
+      |> Map.new()
+
+    accepted = Map.get(status_counts, "accepted", 0)
+    implemented = Map.get(status_counts, "implemented", 0)
+
+    # Null count = total requirements - (accepted + implemented)
+    # This includes requirements with no requirement_status row or status IS NULL
+    null = max(total_requirements - accepted - implemented, 0)
+
+    %{accepted: accepted, implemented: implemented, null: null}
+  end
 end
