@@ -14,6 +14,18 @@ defmodule Acai.Implementations do
     Repo.all(from i in Implementation, where: i.spec_id == ^spec.id)
   end
 
+  # product-view.FEATURE_CARD.3
+  @doc """
+  Counts active implementations for a spec.
+  """
+  def count_active_implementations(%Spec{} = spec) do
+    Repo.one(
+      from i in Implementation,
+        where: i.spec_id == ^spec.id and i.is_active == true,
+        select: count()
+    )
+  end
+
   def get_implementation!(id), do: Repo.get!(Implementation, id)
 
   def create_implementation(_current_scope, %Spec{} = spec, attrs) do

@@ -141,4 +141,34 @@ defmodule Acai.Specs do
         where: s.team_id == ^team.id and s.feature_name == ^feature_name
     )
   end
+
+  # product-view.ROUTING.1
+  @doc """
+  Gets specs for a team by product name (case-insensitive).
+  Returns the actual product name (from the database) and the list of specs.
+  Returns nil if no matching product is found.
+  """
+  def get_specs_by_product_name(%Team{} = team, product_name) do
+    # First, find the actual product name with case-insensitive matching
+    actual_product =
+      Repo.one(
+        from s in Spec,
+          where: s.team_id == ^team.id,
+          where: fragment("lower(?)", s.feature_product) == ^String.downcase(product_name),
+          select: s.feature_product,
+          limit: 1
+      )
+
+    if actual_product do
+      specs =
+        Repo.all(
+          from s in Spec,
+            where: s.team_id == ^team.id and s.feature_product == ^actual_product
+        )
+
+      {actual_product, specs}
+    else
+      nil
+    end
+  end
 end
