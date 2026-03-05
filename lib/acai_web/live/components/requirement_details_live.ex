@@ -36,11 +36,23 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   end
 
   def update(
-        %{id: _id, requirement_id: requirement_id, implementation: _implementation} = assigns,
+        %{id: id, requirement_id: requirement_id, implementation: implementation} = assigns,
         socket
       ) do
-    requirement = Specs.get_requirement_with_refs!(requirement_id)
-    update(Map.put(assigns, :requirement, requirement), socket)
+    if requirement_id do
+      requirement = Specs.get_requirement_with_refs!(requirement_id)
+      update(Map.merge(assigns, %{requirement: requirement}), socket)
+    else
+      # No requirement selected, just update visibility and set requirement to nil
+      socket =
+        socket
+        |> assign(:id, id)
+        |> assign(:implementation, implementation)
+        |> assign(:visible, Map.get(assigns, :visible, false))
+        |> assign(:requirement, nil)
+
+      {:ok, socket}
+    end
   end
 
   @impl true
@@ -87,133 +99,154 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
         aria-modal="true"
         aria-labelledby={"#{@id}-title"}
       >
-        <%!-- Drawer header --%>
-        <div class="flex items-center justify-between p-4 border-b border-base-300">
-          <%!-- requirement-details.DRAWER.1: Renders the requirement ACID as the drawer title --%>
-          <h2 id={"#{@id}-title"} class="text-lg font-semibold text-base-content">
-            {@requirement.acid}
-          </h2>
-          <%!-- requirement-details.DRAWER.6: Close button --%>
-          <button
-            type="button"
-            class="btn btn-ghost btn-sm btn-square"
-            phx-click="close"
-            phx-target={@myself}
-            aria-label="Close drawer"
-          >
-            <.icon name="hero-x-mark" class="size-5" />
-          </button>
-        </div>
-
-        <%!-- Drawer content --%>
-        <div class="flex-1 overflow-y-auto p-4 space-y-6">
-          <%!-- requirement-details.DRAWER.2: Renders the full requirement definition text --%>
-          <div class="space-y-2">
-            <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
-              Definition
-            </h3>
-            <p class="text-base-content whitespace-pre-wrap">
-              {@requirement.definition}
-            </p>
+        <%= if @requirement do %>
+          <%!-- Drawer header --%>
+          <div class="flex items-center justify-between p-4 border-b border-base-300">
+            <%!-- requirement-details.DRAWER.1: Renders the requirement ACID as the drawer title --%>
+            <h2 id={"#{@id}-title"} class="text-lg font-semibold text-base-content">
+              {@requirement.acid}
+            </h2>
+            <%!-- requirement-details.DRAWER.6: Close button --%>
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm btn-square"
+              phx-click="close"
+              phx-target={@myself}
+              aria-label="Close drawer"
+            >
+              <.icon name="hero-x-mark" class="size-5" />
+            </button>
           </div>
 
-          <%!-- requirement-details.DRAWER.3: Renders the requirement note if one exists --%>
-          <div :if={@requirement.note} class="space-y-2">
-            <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
-              Note
-            </h3>
-            <p class="text-base-content/80 text-sm whitespace-pre-wrap">
-              {@requirement.note}
-            </p>
-          </div>
+          <%!-- Drawer content --%>
+          <div class="flex-1 overflow-y-auto p-4 space-y-6">
+            <%!-- requirement-details.DRAWER.2: Renders the full requirement definition text --%>
+            <div class="space-y-2">
+              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
+                Definition
+              </h3>
+              <p class="text-base-content whitespace-pre-wrap">
+                {@requirement.definition}
+              </p>
+            </div>
 
-          <%!-- requirement-details.DRAWER.4: Status section --%>
-          <div class="space-y-2">
-            <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
-              Status
-            </h3>
-            <div class="flex items-center gap-3">
-              <%!-- requirement-details.DRAWER.4-1: If no status exists, renders a clear 'no status' indicator --%>
-              <%= if @requirement_status && @requirement_status.status do %>
-                <%!-- requirement-details.DRAWER.4: Show status value if exists --%>
-                <span class={[
-                  "badge",
-                  status_badge_color(@requirement_status.status)
-                ]}>
-                  {@requirement_status.status}
+            <%!-- requirement-details.DRAWER.3: Renders the requirement note if one exists --%>
+            <div :if={@requirement.note} class="space-y-2">
+              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
+                Note
+              </h3>
+              <p class="text-base-content/80 text-sm whitespace-pre-wrap">
+                {@requirement.note}
+              </p>
+            </div>
+
+            <%!-- requirement-details.DRAWER.4: Status section --%>
+            <div class="space-y-2">
+              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
+                Status
+              </h3>
+              <div class="flex items-center gap-3">
+                <%!-- requirement-details.DRAWER.4-1: If no status exists, renders a clear 'no status' indicator --%>
+                <%= if @requirement_status && @requirement_status.status do %>
+                  <%!-- requirement-details.DRAWER.4: Show status value if exists --%>
+                  <span class={[
+                    "badge",
+                    status_badge_color(@requirement_status.status)
+                  ]}>
+                    {@requirement_status.status}
+                  </span>
+                <% else %>
+                  <span class="badge badge-ghost text-base-content/50">
+                    No status
+                  </span>
+                <% end %>
+
+                <%!-- requirement-details.DRAWER.4-2: Renders the implementation name as context label --%>
+                <span class="text-sm text-base-content/50">
+                  in {@implementation.name}
                 </span>
+              </div>
+            </div>
+
+            <%!-- requirement-details.DRAWER.5: References section --%>
+            <div class="space-y-3">
+              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
+                References
+              </h3>
+
+              <%= if map_size(@refs_by_branch) == 0 do %>
+                <p class="text-sm text-base-content/50">
+                  No code references found for this requirement in the tracked branches.
+                </p>
               <% else %>
-                <span class="badge badge-ghost text-base-content/50">
-                  No status
-                </span>
-              <% end %>
+                <%!-- requirement-details.DRAWER.5-2: References are grouped by their tracked branch --%>
+                <div :for={{branch, refs} <- @refs_by_branch} class="space-y-2">
+                  <%!-- Group header shows repo_uri and branch_name --%>
+                  <div class="flex items-center gap-2 text-sm font-medium text-base-content/80">
+                    <.icon name="hero-git-branch" class="size-4" />
+                    <span>{branch.repo_uri}</span>
+                    <span class="text-base-content/40">/</span>
+                    <span class="text-primary">{branch.branch_name}</span>
+                  </div>
 
-              <%!-- requirement-details.DRAWER.4-2: Renders the implementation name as context label --%>
-              <span class="text-sm text-base-content/50">
-                in {@implementation.name}
-              </span>
+                  <%!-- References list --%>
+                  <ul class="ml-6 space-y-1">
+                    <li :for={ref <- refs} class="flex items-center gap-2">
+                      <%!-- requirement-details.DRAWER.5-5: Test references visually distinguished --%>
+                      <%= if ref.is_test do %>
+                        <.icon name="hero-beaker" class="size-4 text-info flex-shrink-0" />
+                      <% else %>
+                        <.icon
+                          name="hero-code-bracket"
+                          class="size-4 text-base-content/50 flex-shrink-0"
+                        />
+                      <% end %>
+
+                      <%!-- requirement-details.DRAWER.5-3: Each reference shows file path and line number --%>
+                      <%!-- requirement-details.DRAWER.5-4: Clickable link format --%>
+                      <.link
+                        href={build_reference_url(ref)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class={[
+                          "text-sm hover:underline",
+                          ref.is_test && "text-info",
+                          !ref.is_test && "text-base-content/80 hover:text-primary"
+                        ]}
+                      >
+                        {format_path(ref.path)}
+                      </.link>
+
+                      <%!-- Test badge for test references --%>
+                      <%= if ref.is_test do %>
+                        <span class="badge badge-info badge-xs">Test</span>
+                      <% end %>
+                    </li>
+                  </ul>
+                </div>
+              <% end %>
             </div>
           </div>
-
-          <%!-- requirement-details.DRAWER.5: References section --%>
-          <div class="space-y-3">
-            <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
-              References
-            </h3>
-
-            <%= if map_size(@refs_by_branch) == 0 do %>
-              <p class="text-sm text-base-content/50">
-                No code references found for this requirement in the tracked branches.
-              </p>
-            <% else %>
-              <%!-- requirement-details.DRAWER.5-2: References are grouped by their tracked branch --%>
-              <div :for={{branch, refs} <- @refs_by_branch} class="space-y-2">
-                <%!-- Group header shows repo_uri and branch_name --%>
-                <div class="flex items-center gap-2 text-sm font-medium text-base-content/80">
-                  <.icon name="hero-git-branch" class="size-4" />
-                  <span>{branch.repo_uri}</span>
-                  <span class="text-base-content/40">/</span>
-                  <span class="text-primary">{branch.branch_name}</span>
-                </div>
-
-                <%!-- References list --%>
-                <ul class="ml-6 space-y-1">
-                  <li :for={ref <- refs} class="flex items-center gap-2">
-                    <%!-- requirement-details.DRAWER.5-5: Test references visually distinguished --%>
-                    <%= if ref.is_test do %>
-                      <.icon name="hero-beaker" class="size-4 text-info flex-shrink-0" />
-                    <% else %>
-                      <.icon
-                        name="hero-code-bracket"
-                        class="size-4 text-base-content/50 flex-shrink-0"
-                      />
-                    <% end %>
-
-                    <%!-- requirement-details.DRAWER.5-3: Each reference shows file path and line number --%>
-                    <%!-- requirement-details.DRAWER.5-4: Clickable link format --%>
-                    <.link
-                      href={build_reference_url(ref)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class={[
-                        "text-sm hover:underline",
-                        ref.is_test && "text-info",
-                        !ref.is_test && "text-base-content/80 hover:text-primary"
-                      ]}
-                    >
-                      {format_path(ref.path)}
-                    </.link>
-
-                    <%!-- Test badge for test references --%>
-                    <%= if ref.is_test do %>
-                      <span class="badge badge-info badge-xs">Test</span>
-                    <% end %>
-                  </li>
-                </ul>
-              </div>
-            <% end %>
+        <% else %>
+          <%!-- Empty drawer when no requirement selected --%>
+          <div class="flex items-center justify-between p-4 border-b border-base-300">
+            <h2 id={"#{@id}-title"} class="text-lg font-semibold text-base-content">
+              Requirement Details
+            </h2>
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm btn-square"
+              phx-click="close"
+              phx-target={@myself}
+              aria-label="Close drawer"
+            >
+              <.icon name="hero-x-mark" class="size-5" />
+            </button>
           </div>
-        </div>
+          <div class="flex-1 flex items-center justify-center p-4">
+            <p class="text-base-content/50">No requirement selected</p>
+          </div>
+        <% end %>
       </div>
     </div>
     """
