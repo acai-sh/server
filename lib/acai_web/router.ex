@@ -63,6 +63,8 @@ defmodule AcaiWeb.Router do
       live "/teams", TeamsLive
       # team-view.MAIN.1
       live "/t/:team_name", TeamLive
+      # product-view.MAIN.1
+      live "/t/:team_name/p/:product_name", ProductLive
       # team-settings.AUTH.1
       live "/t/:team_name/settings", TeamSettingsLive
       # team-tokens.MAIN.1
