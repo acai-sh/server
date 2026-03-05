@@ -57,7 +57,7 @@ components:
 
     BRANCHES:
         name: tracked_branches table
-        description: A join table that links branches to the implementations that track them.
+        description: A join table that links branches to an implementation (many to many, but no duplicates to the same implementation)
         requirements:
             1: id field is a UUIDv7 Primary Key.
             2: implementation_id is a Foreign Key to implementations table, non-nullable.
@@ -128,11 +128,16 @@ components:
             1: id field is a UUIDv7 Primary Key.
             2: requirement_id is a Foreign Key to requirements table. NOT CASCADE - preserved for stale ref detection.
             3: repo_uri is a text field.
-            4: branch_name is a text field.
+            4:
+                requirement: branch_name is a text field.
+                deprecated: true
+                note: this was a mistake, we should have done a foreign key (See data-model.REFS.10)
             5: last_seen_commit is a text field.
             6: acid_string is a text field logging the exact reference found in the code.
             7: last_seen_at is a timestamp updated on each CLI push where the reference is still present, enabling stale ref detection. Optional.
-
+            8: path is a string containing the file path from repo root and the line of code
+            9: is_test is a boolean
+            10: branch_id is a Foreign Key to branches table
     EVENTS:
         name: activity_events table
         description: Append-only log of meaningful domain events, used to power activity feeds scoped to a team, implementation, or individual requirement.

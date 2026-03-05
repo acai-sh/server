@@ -1,0 +1,75 @@
+feature:
+    name: implementation-view
+    description: |
+        The /t/:team_name/f/:feature_name/i/:impl_slug view showing full implementation detail:
+        coverage grids, canonical spec, linked branches, and a sortable requirements table.
+    prerequisites:
+        - data-model.SPECS
+        - data-model.REQS
+        - data-model.IMPLS
+        - data-model.REQ_STATUSES
+        - data-model.REFS
+        - data-model.BRANCHES
+        - feature-view
+        - requirement-details
+
+components:
+    MAIN:
+        name: Page header and breadcrumb
+        requirements:
+            1: Renders the implementation name as the page title
+            2: Renders a breadcrumb showing the parent product and feature, each linking to their respective views
+
+    REQ_COVERAGE:
+        name: Requirements coverage chip grid
+        description: One colored chip per requirement, visualising implementation status at a glance.
+        requirements:
+            1: Renders one chip per requirement in the feature's spec, ordered by ACID ascending
+            2: Chip color reflects the requirement's status for this implementation
+            2-1: Green chip — status is 'accepted'
+            2-2: Blue chip — status is 'implemented'
+            2-3: Gray chip — status is null or no requirement_status row exists for this implementation
+            3: Clicking a chip opens the requirement-details drawer for that requirement (see requirement-details.DRAWER)
+
+    TEST_COVERAGE:
+        name: Test coverage chip grid
+        description: One chip per requirement showing how many test references exist for it.
+        requirements:
+            1: Renders one chip per requirement in the feature's spec, ordered by ACID ascending
+            2: Chip color reflects whether any test code references exist for that requirement
+            2-1: Green chip — one or more code_references with is_test = true exist for this requirement
+            2-2: Gray chip — no test references exist
+            3: Each green chip displays the count of test references it represents
+            4: Clicking a chip opens the requirement-details drawer for that requirement (see requirement-details.DRAWER)
+
+    CANONICAL_SPEC:
+        name: Canonical spec link
+        requirements:
+            1: Renders the feature name and links back to the feature view at /t/:team_name/f/:feature_name
+
+    LINKED_BRANCHES:
+        name: Tracked branches list
+        requirements:
+            1: Renders a list of all tracked branches for this implementation
+            2: Each entry shows the repo_uri and branch_name
+
+    REQ_LIST:
+        name: Requirements table
+        description: A full table of all requirements for this implementation, with sortable columns.
+        requirements:
+            1: Renders a table with columns — ACID, Status, Definition, Refs, Tests
+            2: The Refs column displays the count of non-test code_references for the requirement
+            3: The Tests column displays the count of code_references with is_test = true for the requirement
+            4: Every column is sortable; clicking a column header toggles ascending / descending sort
+            4-1: Default sort is ACID ascending
+            5: Clicking a row opens the requirement-details drawer for that requirement (see requirement-details.DRAWER)
+
+constraints:
+    ROUTING:
+        name: Notion-style slug routing for implementations
+        requirements:
+            1: Implementation URLs follow the pattern /t/:team_name/f/:feature_name/i/:impl_slug
+            1-1: The :impl_slug is a compound of the implementation name and its id, e.g. my-impl-name-018f1a2b3c4d5e6f7a8b9c0d1e2f3a4b
+            2: When resolving the URL, extract the UUID (last 32 hex characters of the slug, the id without dashes) and look up the implementation by id only
+            2-1: The name portion of the slug is cosmetic and discarded during resolution — this ensures name changes never break URLs
+            3: If no matching implementation is found, the user is redirected to /t/:team_name/f/:feature_name

@@ -1,0 +1,30 @@
+feature:
+    name: product-view
+    description: The /t/:team_name/p/:product_name view listing all features that belong to a product.
+    prerequisites:
+        - data-model.SPECS
+        - data-model.IMPLS
+        - nav
+
+components:
+    MAIN:
+        name: Main requirements for the /t/:team_name/p/:product_name view
+        requirements:
+            1: Renders the product name (derived from feature_product on the team's specs)
+            2: Renders a grid of feature cards, one per distinct feature_name within this product
+            2-1: If the product has no features, an empty state is shown
+            3: Each feature card navigates to /t/:team_name/f/:feature_name on click
+
+    FEATURE_CARD:
+        name: A card summarising a single feature within the product
+        requirements:
+            1: Renders the feature name
+            2: Renders the feature description if one exists
+            3: Renders the count of implementations for that feature
+
+constraints:
+    ROUTING:
+        name: Slug-based routing for products
+        requirements:
+            1: The :product_name URL segment resolves by matching feature_product on the team's specs (case-insensitive)
+            2: If no matching product is found for the team, the user is redirected to /t/:team_name
