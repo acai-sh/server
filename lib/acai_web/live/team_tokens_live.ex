@@ -218,11 +218,10 @@ defmodule AcaiWeb.TeamTokensLive do
             <div class="space-y-1">
               <p class="font-semibold">About Team Access Tokens</p>
               <p>
-                Tokens grant full read and write access to your team's resources —
-                including specs, implementations, references, and team metadata.
+                Tokens grant full read and write access to all team resources.
               </p>
               <p>
-                They can not be used to manage users or other access tokens (tats:admin or team:admin).
+                They can not be used to manage users or other access tokens.
               </p>
               <p>
                 When a user is removed from the team, any tokens they created are revoked.
@@ -372,7 +371,7 @@ defmodule AcaiWeb.TeamTokensLive do
                       const btn = this.el.parentElement.querySelector("#copy-token-btn");
                       const status = this.el.parentElement.querySelector("#copy-status");
                       const iconContainer = this.el.parentElement.querySelector("#copy-icon-container");
-                      
+
                       if (btn && status && iconContainer) {
                         btn.addEventListener("click", () => {
                           const token = this.el.dataset.token;
@@ -381,7 +380,7 @@ defmodule AcaiWeb.TeamTokensLive do
                             status.classList.remove("hidden");
                             const originalIcon = iconContainer.innerHTML;
                             iconContainer.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="size-4 text-success" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
-                            
+
                             setTimeout(() => {
                               status.classList.add("hidden");
                               iconContainer.innerHTML = originalIcon;
