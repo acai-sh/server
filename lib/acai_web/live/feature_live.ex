@@ -1,0 +1,233 @@
+defmodule AcaiWeb.FeatureLive do
+  use AcaiWeb, :live_view
+
+  alias Acai.Teams
+  alias Acai.Specs
+  alias Acai.Implementations
+
+  @impl true
+  def mount(%{"team_name" => team_name, "feature_name" => feature_name}, _session, socket) do
+    team = Teams.get_team_by_name!(team_name)
+
+    # feature-view.ROUTING.1: Case-insensitive feature name matching
+    case Specs.get_specs_by_feature_name(team, feature_name) do
+      nil ->
+        # feature-view.ROUTING.2: Redirect if feature not found
+        socket =
+          socket
+          |> put_flash(:error, "Feature not found")
+          |> push_navigate(to: ~p"/t/#{team.name}")
+
+        {:ok, socket}
+
+      {actual_feature_name, specs} ->
+        # Get the first spec for display info (they share the same feature_name)
+        first_spec = List.first(specs)
+
+        # feature-view.MAIN.3: Get all active implementations for these specs
+        implementations = Implementations.list_active_implementations_for_specs(specs)
+
+        # Build implementation cards with progress data
+        implementation_cards =
+          implementations
+          |> Enum.map(fn impl ->
+            # feature-view.IMPL_CARD.2: Count tracked branches
+            tracked_branch_count = Implementations.count_tracked_branches(impl)
+
+            # Get the spec for this implementation to count requirements
+            impl_spec = Enum.find(specs, &(&1.id == impl.spec_id))
+
+            # feature-view.IMPL_CARD.3: Count total requirements for the spec
+            total_requirements = Specs.count_requirements(impl_spec)
+
+            # feature-view.IMPL_CARD.4: Get status counts for progress bar
+            status_counts =
+              Implementations.get_requirement_status_counts(impl, total_requirements)
+
+            # Build the slug for navigation (impl_name+uuid_without_dashes)
+            # feature-view.MAIN.4
+            slug = build_implementation_slug(impl)
+
+            %{
+              id: "impl-#{impl.id}",
+              implementation: impl,
+              slug: slug,
+              tracked_branch_count: tracked_branch_count,
+              total_requirements: total_requirements,
+              status_counts: status_counts
+            }
+          end)
+          |> Enum.sort_by(& &1.implementation.name)
+
+        socket =
+          socket
+          |> assign(:team, team)
+          # feature-view.MAIN.1
+          |> assign(:feature_name, actual_feature_name)
+          # feature-view.MAIN.2
+          |> assign(:feature_description, first_spec.feature_description)
+          |> assign(:implementations_empty?, implementation_cards == [])
+          # feature-view.MAIN.3
+          |> stream(:implementations, implementation_cards)
+          # nav.AUTH.1: Pass current_path for navigation
+          |> assign(:current_path, "/t/#{team.name}/f/#{feature_name}")
+
+        {:ok, socket}
+    end
+  end
+
+  # feature-view.MAIN.4: Build slug for implementation navigation
+  defp build_implementation_slug(%Implementations.Implementation{} = impl) do
+    # Format: {impl_name}+{uuid_without_dashes}
+    uuid_string = impl.id |> to_string()
+    uuid_without_dashes = String.replace(uuid_string, "-", "")
+    "#{impl.name}+#{uuid_without_dashes}"
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      team={@team}
+      current_path={@current_path}
+    >
+      <div class="space-y-6">
+        <%!-- feature-view.MAIN.1 --%>
+        <.header>
+          {@feature_name}
+          <:subtitle>Feature implementations</:subtitle>
+        </.header>
+
+        <%!-- feature-view.MAIN.2 --%>
+        <p :if={@feature_description} class="text-base-content/70">
+          {@feature_description}
+        </p>
+
+        <%!-- feature-view.MAIN.3 --%>
+        <%= if @implementations_empty? do %>
+          <%!-- feature-view.MAIN.3-1: Empty state --%>
+          <div class="text-center py-12">
+            <.icon name="hero-code-bracket" class="size-12 text-base-content/30 mx-auto mb-4" />
+            <p class="text-base-content/60">No implementations found for this feature</p>
+          </div>
+        <% else %>
+          <div
+            id="implementations-grid"
+            phx-update="stream"
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+            <%!-- feature-view.IMPL_CARD --%>
+            <.link
+              :for={{id, card} <- @streams.implementations}
+              id={id}
+              navigate={"/t/#{@team.name}/f/#{@feature_name}/i/#{card.slug}"}
+              class="block group"
+            >
+              <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer h-full">
+                <div class="card-body">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="flex-1 min-w-0">
+                      <%!-- feature-view.IMPL_CARD.1 --%>
+                      <h3 class="font-semibold text-base group-hover:text-primary transition-colors truncate">
+                        {card.implementation.name}
+                      </h3>
+                    </div>
+                    <div class="flex-shrink-0">
+                      <.icon name="hero-code-bracket" class="size-5 text-base-content/40" />
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-4 mt-3 pt-3 border-t border-base-200">
+                    <%!-- feature-view.IMPL_CARD.2 --%>
+                    <div class="flex items-center gap-1.5">
+                      <.icon name="hero-git-branch" class="size-4 text-base-content/50" />
+                      <span class="text-sm text-base-content/60">
+                        {card.tracked_branch_count} branch{if card.tracked_branch_count != 1,
+                          do: "es",
+                          else: ""}
+                      </span>
+                    </div>
+
+                    <%!-- feature-view.IMPL_CARD.3 --%>
+                    <div class="flex items-center gap-1.5">
+                      <.icon name="hero-list-bullet" class="size-4 text-base-content/50" />
+                      <span class="text-sm text-base-content/60">
+                        {card.total_requirements} requirement{if card.total_requirements != 1,
+                          do: "s",
+                          else: ""}
+                      </span>
+                    </div>
+                  </div>
+
+                  <%!-- feature-view.IMPL_CARD.4: Progress bar --%>
+                  <div class="mt-3">
+                    <.progress_bar counts={card.status_counts} total={card.total_requirements} />
+                  </div>
+                </div>
+              </div>
+            </.link>
+          </div>
+        <% end %>
+      </div>
+    </Layouts.app>
+    """
+  end
+
+  # feature-view.IMPL_CARD.4: Progress bar component
+  defp progress_bar(assigns) do
+    %{counts: %{accepted: accepted, implemented: implemented, null: null}, total: total} = assigns
+
+    # Calculate percentages (avoid division by zero)
+    {accepted_pct, implemented_pct, null_pct} =
+      if total > 0 do
+        {
+          round(accepted / total * 100),
+          round(implemented / total * 100),
+          round(null / total * 100)
+        }
+      else
+        {0, 0, 0}
+      end
+
+    assigns =
+      assigns
+      |> assign(:accepted, accepted)
+      |> assign(:implemented, implemented)
+      |> assign(:accepted_pct, accepted_pct)
+      |> assign(:implemented_pct, implemented_pct)
+      |> assign(:null_pct, null_pct)
+
+    ~H"""
+    <div class="flex items-center gap-2">
+      <div class="flex-1 h-2 bg-base-200 rounded-full overflow-hidden flex">
+        <%!-- feature-view.IMPL_CARD.4-1: Green for accepted --%>
+        <div
+          :if={@accepted_pct > 0}
+          class="bg-success h-full"
+          style={"width: #{@accepted_pct}%"}
+          title={"#{@accepted_pct}% accepted"}
+        />
+        <%!-- feature-view.IMPL_CARD.4-2: Blue for implemented --%>
+        <div
+          :if={@implemented_pct > 0}
+          class="bg-info h-full"
+          style={"width: #{@implemented_pct}%"}
+          title={"#{@implemented_pct}% implemented"}
+        />
+        <%!-- feature-view.IMPL_CARD.4-3: Gray for null/no status --%>
+        <div
+          :if={@null_pct > 0}
+          class="bg-base-300 h-full"
+          style={"width: #{@null_pct}%"}
+          title={"#{@null_pct}% not started"}
+        />
+      </div>
+      <span class="text-xs text-base-content/50">
+        {@accepted + @implemented}/{@total}
+      </span>
+    </div>
+    """
+  end
+end

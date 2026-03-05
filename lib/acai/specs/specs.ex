@@ -40,6 +40,18 @@ defmodule Acai.Specs do
     Repo.all(from r in Requirement, where: r.spec_id == ^spec.id)
   end
 
+  # feature-view.IMPL_CARD.3
+  @doc """
+  Counts requirements for a spec.
+  """
+  def count_requirements(%Spec{} = spec) do
+    Repo.one(
+      from r in Requirement,
+        where: r.spec_id == ^spec.id,
+        select: count()
+    )
+  end
+
   def get_requirement!(id), do: Repo.get!(Requirement, id)
 
   def create_requirement(%Spec{} = spec, attrs) do
@@ -167,6 +179,36 @@ defmodule Acai.Specs do
         )
 
       {actual_product, specs}
+    else
+      nil
+    end
+  end
+
+  # feature-view.ROUTING.1
+  @doc """
+  Gets specs for a team by feature_name (case-insensitive).
+  Returns the actual feature_name (from database) and the list of specs.
+  Returns nil if no matching feature is found.
+  """
+  def get_specs_by_feature_name(%Team{} = team, feature_name) do
+    # First, find the actual feature name with case-insensitive matching
+    actual_feature_name =
+      Repo.one(
+        from s in Spec,
+          where: s.team_id == ^team.id,
+          where: fragment("lower(?)", s.feature_name) == ^String.downcase(feature_name),
+          select: s.feature_name,
+          limit: 1
+      )
+
+    if actual_feature_name do
+      specs =
+        Repo.all(
+          from s in Spec,
+            where: s.team_id == ^team.id and s.feature_name == ^actual_feature_name
+        )
+
+      {actual_feature_name, specs}
     else
       nil
     end
