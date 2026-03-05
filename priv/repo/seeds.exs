@@ -2,8 +2,8 @@
 #
 #     mix run priv/repo/seeds.exs
 #
-# SEED_DATA.ENVIRONMENT.1 — runs automatically via `mix ecto.setup`
-# SEED_DATA.ENVIRONMENT.2 — idempotent: uses get_by lookups before inserting
+# SEED_DATA.ENVIRONMENT.1
+# SEED_DATA.ENVIRONMENT.2
 
 import Ecto.Query
 
@@ -20,8 +20,9 @@ alias Acai.Events
 # Helpers
 # ---------------------------------------------------------------------------
 
-# Returns an existing user or creates a new confirmed user with a password.
-# SEED_DATA.USERS.1 / SEED_DATA.USERS.2 / SEED_DATA.USERS.3
+# SEED_DATA.USERS.1
+# SEED_DATA.USERS.2
+# SEED_DATA.USERS.3
 # SEED_DATA.ENVIRONMENT.2
 seed_user = fn email ->
   case Accounts.get_user_by_email(email) do
@@ -44,7 +45,6 @@ seed_user = fn email ->
   end
 end
 
-# Returns an existing team by name or creates it via the owner scope.
 # SEED_DATA.TEAMS.1
 # SEED_DATA.ENVIRONMENT.2
 seed_team = fn name, owner ->
@@ -59,8 +59,8 @@ seed_team = fn name, owner ->
   end
 end
 
-# Ensures a UserTeamRole exists for the given team/user/role combination.
-# SEED_DATA.TEAMS.2 / SEED_DATA.TEAMS.3
+# SEED_DATA.TEAMS.2
+# SEED_DATA.TEAMS.3
 # SEED_DATA.ENVIRONMENT.2
 seed_role = fn team, user, title ->
   exists =
@@ -78,7 +78,7 @@ seed_role = fn team, user, title ->
   end
 end
 
-# Creates a spec only if one with the same (team, repo_uri, branch_name, path) does not exist.
+# SEED_DATA.MOCK_DATA.1
 # SEED_DATA.ENVIRONMENT.2
 seed_spec = fn team, attrs ->
   case Repo.get_by(Acai.Specs.Spec,
@@ -97,7 +97,7 @@ seed_spec = fn team, attrs ->
   end
 end
 
-# Creates a requirement only if one with the same (spec, group_key, local_id) does not exist.
+# SEED_DATA.MOCK_DATA.2
 # SEED_DATA.ENVIRONMENT.2
 seed_requirement = fn spec, attrs ->
   case Repo.get_by(Acai.Specs.Requirement,
@@ -114,7 +114,7 @@ seed_requirement = fn spec, attrs ->
   end
 end
 
-# Creates an implementation only if one with the same (spec, name) does not exist.
+# SEED_DATA.MOCK_DATA.3
 # SEED_DATA.ENVIRONMENT.2
 seed_impl = fn spec, attrs ->
   case Repo.get_by(Acai.Implementations.Implementation,
@@ -131,7 +131,7 @@ seed_impl = fn spec, attrs ->
   end
 end
 
-# Creates a tracked branch only if one with the same (implementation, repo_uri) does not exist.
+# SEED_DATA.MOCK_DATA.3
 # SEED_DATA.ENVIRONMENT.2
 seed_branch = fn impl, attrs ->
   case Repo.get_by(Acai.Implementations.TrackedBranch,
@@ -147,7 +147,7 @@ seed_branch = fn impl, attrs ->
   end
 end
 
-# Creates a requirement status only if one with the same (implementation, requirement) does not exist.
+# SEED_DATA.MOCK_DATA.3
 # SEED_DATA.ENVIRONMENT.2
 seed_status = fn impl, req, attrs ->
   case Repo.get_by(Acai.Implementations.RequirementStatus,
@@ -163,7 +163,6 @@ seed_status = fn impl, req, attrs ->
   end
 end
 
-# Always inserts an activity event (events are append-only; idempotency not required per record).
 # SEED_DATA.MOCK_DATA.4
 seed_event = fn team, attrs ->
   {:ok, event} = Events.create_activity_event(team, attrs)
@@ -171,7 +170,7 @@ seed_event = fn team, attrs ->
 end
 
 # ---------------------------------------------------------------------------
-# SEED_DATA.USERS.1 — Pregenerate the three test users
+# SEED_DATA.USERS.1
 # ---------------------------------------------------------------------------
 
 owner_user = seed_user.("owner@testing.team")
@@ -181,7 +180,7 @@ readonly_user = seed_user.("readonly@testing.team")
 IO.puts("Users seeded: #{owner_user.email}, #{developer_user.email}, #{readonly_user.email}")
 
 # ---------------------------------------------------------------------------
-# SEED_DATA.TEAMS.1 — Pregenerate two teams
+# SEED_DATA.TEAMS.1
 # ---------------------------------------------------------------------------
 
 testing_team = seed_team.("testing-team", owner_user)
@@ -190,8 +189,7 @@ empty_team = seed_team.("empty-team", owner_user)
 IO.puts("Teams seeded: #{testing_team.name}, #{empty_team.name}")
 
 # ---------------------------------------------------------------------------
-# SEED_DATA.TEAMS.2 — Assign users to testing-team
-# The owner was already assigned by create_team; ensure developer and readonly.
+# SEED_DATA.TEAMS.2
 # ---------------------------------------------------------------------------
 
 seed_role.(testing_team, owner_user, "owner")
@@ -199,7 +197,7 @@ seed_role.(testing_team, developer_user, "developer")
 seed_role.(testing_team, readonly_user, "readonly")
 
 # ---------------------------------------------------------------------------
-# SEED_DATA.TEAMS.3 — Assign users to empty-team
+# SEED_DATA.TEAMS.3
 # ---------------------------------------------------------------------------
 
 seed_role.(empty_team, owner_user, "owner")
@@ -209,8 +207,8 @@ seed_role.(empty_team, readonly_user, "readonly")
 IO.puts("Roles seeded for both teams.")
 
 # ---------------------------------------------------------------------------
-# SEED_DATA.MOCK_DATA.1 (Spec A) — Full requirements + multiple implementations
-# SEED_DATA.MOCK_DATA.2 — COMPONENT + CONSTRAINT groups, nested reqs, notes, replaced_by
+# SEED_DATA.MOCK_DATA.1
+# SEED_DATA.MOCK_DATA.2
 # ---------------------------------------------------------------------------
 
 spec_a =
@@ -225,7 +223,6 @@ spec_a =
     feature_description: "User authentication and session management"
   })
 
-# COMPONENT group requirements
 req_a1 =
   seed_requirement.(spec_a, %{
     group_key: "LOGIN",
@@ -285,7 +282,7 @@ req_a3 =
     replaced_by: []
   })
 
-# CONSTRAINT group requirements — SEED_DATA.MOCK_DATA.2
+# SEED_DATA.MOCK_DATA.2
 req_a_sec1 =
   seed_requirement.(spec_a, %{
     group_key: "SECURITY",
@@ -297,6 +294,7 @@ req_a_sec1 =
     replaced_by: []
   })
 
+# SEED_DATA.MOCK_DATA.2
 _req_a_sec2 =
   seed_requirement.(spec_a, %{
     group_key: "SECURITY",
@@ -308,7 +306,7 @@ _req_a_sec2 =
     replaced_by: []
   })
 
-# A deprecated requirement with replaced_by — SEED_DATA.MOCK_DATA.2
+# SEED_DATA.MOCK_DATA.2
 _req_a_old =
   seed_requirement.(spec_a, %{
     group_key: "LOGIN",
@@ -322,8 +320,7 @@ _req_a_old =
   })
 
 # ---------------------------------------------------------------------------
-# SEED_DATA.MOCK_DATA.3 — Implementations for spec_a (multiple)
-# SEED_DATA.MOCK_DATA.3 — At least one impl with a linked TrackedBranch
+# SEED_DATA.MOCK_DATA.3
 # ---------------------------------------------------------------------------
 
 impl_a_prod =
@@ -333,14 +330,14 @@ impl_a_prod =
     is_active: true
   })
 
-# SEED_DATA.MOCK_DATA.3 — linked TrackedBranch
+# SEED_DATA.MOCK_DATA.3
 _branch_a_prod =
   seed_branch.(impl_a_prod, %{
     repo_uri: "github.com/testing-team/auth-service",
     branch_name: "main"
   })
 
-# Varying requirement statuses — SEED_DATA.MOCK_DATA.3
+# SEED_DATA.MOCK_DATA.3
 seed_status.(impl_a_prod, req_a1, %{
   status: "implemented",
   is_active: true,
@@ -366,7 +363,7 @@ seed_status.(impl_a_prod, req_a_sec1, %{
   last_seen_commit: "a1b2c3d4e5f6"
 })
 
-# Second implementation (feature branch) — SEED_DATA.MOCK_DATA.3
+# SEED_DATA.MOCK_DATA.3
 impl_a_feat =
   seed_impl.(spec_a, %{
     name: "Feature: OAuth Integration",
@@ -396,8 +393,8 @@ seed_status.(impl_a_feat, req_a2, %{
 IO.puts("Spec A (user-auth) seeded with implementations.")
 
 # ---------------------------------------------------------------------------
-# SEED_DATA.MOCK_DATA.1 (Spec B) — Pending requirements, no implementations
-# SEED_DATA.MOCK_DATA.2 — COMPONENT + CONSTRAINT, nested, notes
+# SEED_DATA.MOCK_DATA.1
+# SEED_DATA.MOCK_DATA.2
 # ---------------------------------------------------------------------------
 
 spec_b =
@@ -447,6 +444,7 @@ _req_b2 =
     replaced_by: []
   })
 
+# SEED_DATA.MOCK_DATA.2
 _req_b_pay1 =
   seed_requirement.(spec_b, %{
     group_key: "PAYMENTS",
@@ -459,6 +457,7 @@ _req_b_pay1 =
     replaced_by: []
   })
 
+# SEED_DATA.MOCK_DATA.2
 _req_b_pay2 =
   seed_requirement.(spec_b, %{
     group_key: "PAYMENTS",
@@ -470,12 +469,12 @@ _req_b_pay2 =
     replaced_by: []
   })
 
-# No implementations for spec_b — SEED_DATA.MOCK_DATA.1
+# SEED_DATA.MOCK_DATA.1
 IO.puts("Spec B (subscriptions) seeded with no implementations.")
 
 # ---------------------------------------------------------------------------
-# SEED_DATA.MOCK_DATA.1 (Spec C) — Mix of implemented, partial, deprecated
-# SEED_DATA.MOCK_DATA.2 — COMPONENT + CONSTRAINT, nested, replaced_by
+# SEED_DATA.MOCK_DATA.1
+# SEED_DATA.MOCK_DATA.2
 # ---------------------------------------------------------------------------
 
 spec_c =
@@ -524,6 +523,7 @@ req_c2 =
     replaced_by: []
   })
 
+# SEED_DATA.MOCK_DATA.2
 req_c3 =
   seed_requirement.(spec_c, %{
     group_key: "EMAIL",
@@ -559,6 +559,7 @@ _req_c_inapp1_1 =
     replaced_by: []
   })
 
+# SEED_DATA.MOCK_DATA.2
 req_c_rel1 =
   seed_requirement.(spec_c, %{
     group_key: "RELIABILITY",
@@ -570,6 +571,7 @@ req_c_rel1 =
     replaced_by: []
   })
 
+# SEED_DATA.MOCK_DATA.2
 _req_c_rel2 =
   seed_requirement.(spec_c, %{
     group_key: "RELIABILITY",
@@ -581,7 +583,7 @@ _req_c_rel2 =
     replaced_by: []
   })
 
-# SEED_DATA.MOCK_DATA.3 — implementation with mixed statuses
+# SEED_DATA.MOCK_DATA.3
 impl_c_prod =
   seed_impl.(spec_c, %{
     name: "Production",
@@ -589,13 +591,15 @@ impl_c_prod =
     is_active: true
   })
 
+# SEED_DATA.MOCK_DATA.3
 _branch_c_prod =
   seed_branch.(impl_c_prod, %{
     repo_uri: "github.com/testing-team/notifications-service",
     branch_name: "main"
   })
 
-# Mix of statuses — SEED_DATA.MOCK_DATA.1 / SEED_DATA.MOCK_DATA.3
+# SEED_DATA.MOCK_DATA.1
+# SEED_DATA.MOCK_DATA.3
 seed_status.(impl_c_prod, req_c1, %{
   status: "implemented",
   is_active: true,
@@ -627,19 +631,14 @@ seed_status.(impl_c_prod, req_c_rel1, %{
   last_seen_commit: "cafebabe9999"
 })
 
-# req_c3 is deprecated — no status entry needed
-
 IO.puts("Spec C (notifications) seeded with mixed-status implementation.")
 
 # ---------------------------------------------------------------------------
-# SEED_DATA.MOCK_DATA.4 — Activity events for testing-team
-# Events for spec creation, requirement updates, implementation progress
-# Attributed to owner and developer via nil actor_token_id (no AT required)
+# SEED_DATA.MOCK_DATA.4
 # ---------------------------------------------------------------------------
 
 batch_id = Acai.UUIDv7.autogenerate()
 
-# Spec creation events
 seed_event.(testing_team, %{
   event_type: "spec.created",
   subject_type: "spec",
@@ -676,7 +675,6 @@ seed_event.(testing_team, %{
   }
 })
 
-# Requirement update events
 seed_event.(testing_team, %{
   event_type: "requirement.deprecated",
   subject_type: "requirement",
@@ -701,7 +699,6 @@ seed_event.(testing_team, %{
   }
 })
 
-# Implementation progress events
 seed_event.(testing_team, %{
   event_type: "implementation.created",
   subject_type: "implementation",
