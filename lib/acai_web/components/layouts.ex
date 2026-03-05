@@ -89,7 +89,10 @@ defmodule AcaiWeb.Layouts do
             </span>
 
             <div class="dropdown dropdown-end">
-              <label tabindex="0" class="btn btn-ghost btn-circle avatar border-none hover:bg-primary/10">
+              <label
+                tabindex="0"
+                class="btn btn-ghost btn-circle avatar border-none hover:bg-primary/10"
+              >
                 <div class="w-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <.icon name="hero-user" class="size-5 text-primary" />
                 </div>
@@ -104,7 +107,9 @@ defmodule AcaiWeb.Layouts do
                   </.link>
                 </li>
                 <li class="menu-title px-4 py-2">
-                  <span class="text-xs text-base-content/50 truncate">{@current_scope.user.email}</span>
+                  <span class="text-xs text-base-content/50 truncate">
+                    {@current_scope.user.email}
+                  </span>
                 </li>
                 <div class="divider my-0"></div>
                 <li>
@@ -228,30 +233,32 @@ defmodule AcaiWeb.Layouts do
       <div class="flex-none flex items-center gap-4">
         <.theme_toggle />
 
-        <div class="flex items-center gap-3 ml-2">
-          <span class="text-sm text-base-content/70 hidden sm:inline">
-            {@current_scope.user.email}
-          </span>
-
+        <div class="flex items-center gap-3">
           <div class="dropdown dropdown-end">
-            <label tabindex="0" class="btn btn-ghost btn-circle avatar border-none hover:bg-primary/10">
-              <div class="w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <.icon name="hero-user" class="size-5 text-primary" />
+            <label
+              tabindex="0"
+              class="btn btn-ghost btn-circle avatar border-none hover:bg-primary/10 flex"
+            >
+              <div class="avatar avatar-placeholder">
+                <div class="bg-primary text-neutral-content w-8 rounded-full">
+                  <.icon name="hero-user" class="size-5" />
+                </div>
               </div>
             </label>
             <ul
               tabindex="0"
               class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300 mt-2"
             >
+              <li class="menu-title px-4 py-2">
+                <span class="text-xs text-base-content/50 truncate">{@current_scope.user.email}</span>
+              </li>
               <%!-- nav.HEADER.3: Link to User Settings --%>
               <li>
                 <.link href={~p"/users/settings"} class="flex items-center gap-2">
                   <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
                 </.link>
               </li>
-              <li class="menu-title px-4 py-2">
-                <span class="text-xs text-base-content/50 truncate">{@current_scope.user.email}</span>
-              </li>
+
               <%!-- nav.HEADER.4: Log Out button --%>
               <div class="divider my-0"></div>
               <li>

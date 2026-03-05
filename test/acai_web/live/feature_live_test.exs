@@ -147,11 +147,24 @@ defmodule AcaiWeb.FeatureLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
-      # Build expected slug
-      uuid_string = impl.id |> to_string()
-      uuid_without_dashes = String.replace(uuid_string, "-", "")
-      expected_slug = "MyImpl+#{uuid_without_dashes}"
+      expected_slug = Implementations.implementation_slug(impl)
 
+      assert has_element?(view, "a[href='/t/#{team.name}/f/my-feature/i/#{expected_slug}']")
+    end
+
+    test "implementation card link uses sanitized slug for special characters", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      spec = create_spec_for_feature(team, "my-feature")
+      impl = create_implementation_for_spec(spec, name: "Deploy / Canary + EU-West 🚀")
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
+
+      expected_slug = Implementations.implementation_slug(impl)
+
+      assert expected_slug =~ ~r/^[a-z0-9-]+\+[0-9a-f]{32}$/
       assert has_element?(view, "a[href='/t/#{team.name}/f/my-feature/i/#{expected_slug}']")
     end
   end

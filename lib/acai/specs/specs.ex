@@ -146,12 +146,15 @@ defmodule Acai.Specs do
   # nav.PANEL.5-3
   @doc """
   Gets a spec by feature_name for a team.
+  Returns the first matching spec if multiple exist (e.g. across different branches).
   """
   def get_spec_by_feature_name(%Team{} = team, feature_name) do
-    Repo.one(
+    Repo.all(
       from s in Spec,
-        where: s.team_id == ^team.id and s.feature_name == ^feature_name
+        where: s.team_id == ^team.id and s.feature_name == ^feature_name,
+        limit: 1
     )
+    |> List.first()
   end
 
   # requirement-details.DRAWER.5-1

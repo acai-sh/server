@@ -102,17 +102,10 @@ defmodule AcaiWeb.ImplementationLive do
       |> assign(:sort_dir, :asc)
       |> assign(
         :current_path,
-        "/t/#{team.name}/f/#{feature_name}/i/#{build_slug(implementation)}"
+        "/t/#{team.name}/f/#{feature_name}/i/#{Implementations.implementation_slug(implementation)}"
       )
 
     {:ok, socket}
-  end
-
-  # implementation-view.ROUTING.1-1: Build slug from implementation
-  defp build_slug(%Implementations.Implementation{} = impl) do
-    uuid_string = impl.id |> to_string()
-    uuid_without_dashes = String.replace(uuid_string, "-", "")
-    "#{impl.name}+#{uuid_without_dashes}"
   end
 
   # Get code reference counts per requirement
@@ -222,7 +215,7 @@ defmodule AcaiWeb.ImplementationLive do
               <div class="flex items-center gap-2">
                 <span class="text-xs font-semibold text-base-content/50 uppercase">Feature</span>
                 <.link
-                  href={~p"/t/#{@team.name}/f/#{@feature_name}"}
+                  navigate={~p"/t/#{@team.name}/f/#{@feature_name}"}
                   class="link link-primary flex items-center gap-2 font-medium"
                 >
                   <.icon name="hero-document-text" class="size-4" />
@@ -295,15 +288,15 @@ defmodule AcaiWeb.ImplementationLive do
   defp breadcrumb(assigns) do
     ~H"""
     <nav class="flex items-center gap-2 text-sm text-base-content/70">
-      <.link href={~p"/t/#{@team.name}"} class="hover:text-primary">
+      <.link navigate={~p"/t/#{@team.name}"} class="hover:text-primary">
         {@team.name}
       </.link>
       <span class="text-base-content/40">/</span>
-      <.link href={~p"/t/#{@team.name}/p/#{@spec.feature_product}"} class="hover:text-primary">
+      <.link navigate={~p"/t/#{@team.name}/p/#{@spec.feature_product}"} class="hover:text-primary">
         {@spec.feature_product}
       </.link>
       <span class="text-base-content/40">/</span>
-      <.link href={~p"/t/#{@team.name}/f/#{@feature_name}"} class="hover:text-primary">
+      <.link navigate={~p"/t/#{@team.name}/f/#{@feature_name}"} class="hover:text-primary">
         {@feature_name}
       </.link>
       <span class="text-base-content/40">/</span>

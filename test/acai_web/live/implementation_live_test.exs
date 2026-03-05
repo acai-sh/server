@@ -5,6 +5,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
   import Acai.AccountsFixtures
   import Acai.DataModelFixtures
 
+  alias Acai.Implementations
+
   # Helper to set up a team with an owner (the logged-in user)
   defp create_team_with_owner(user) do
     team = team_fixture()
@@ -56,9 +58,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
   # Helper to build slug for an implementation
   defp build_impl_slug(impl) do
-    uuid_string = impl.id |> to_string()
-    uuid_without_dashes = String.replace(uuid_string, "-", "")
-    "#{impl.name}+#{uuid_without_dashes}"
+    Implementations.implementation_slug(impl)
   end
 
   # Helper to create a code reference
@@ -135,6 +135,22 @@ defmodule AcaiWeb.ImplementationLiveTest do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{wrong_name_slug}")
       # Should still show the correct implementation name
       assert has_element?(view, "h1", "Production")
+    end
+
+    test "uses URL-safe slug when implementation name has special characters", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      spec = create_spec_for_feature(team, "my-feature")
+      impl = create_implementation_for_spec(spec, name: "QA / Canary + EU-West 🚀")
+
+      slug = build_impl_slug(impl)
+
+      assert slug =~ ~r/^[a-z0-9-]+\+[0-9a-f]{32}$/
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      assert has_element?(view, "h1", "QA / Canary + EU-West 🚀")
     end
 
     # implementation-view.ROUTING.3

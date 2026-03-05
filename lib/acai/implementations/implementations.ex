@@ -46,21 +46,26 @@ defmodule Acai.Implementations do
     Implementation.changeset(implementation, attrs)
   end
 
+  @doc """
+  Builds a URL-safe slug for an implementation.
+
+  Format: {sanitized_name}+{uuid_without_dashes}
+  """
+  def implementation_slug(%Implementation{} = implementation) do
+    "#{sanitize_slug_part(implementation.name)}+#{uuid_without_dashes(implementation.id)}"
+  end
+
   # nav.PANEL.5-3
   @doc """
   Gets an implementation by parsing the slug pattern: {impl_name}+{uuid_without_dashes}.
   Returns nil if not found or invalid format.
   """
   def get_implementation_by_slug(slug) when is_binary(slug) do
-    case String.split(slug, "+", parts: 2) do
-      [_name, uuid_part] ->
-        # Try to parse the UUID (without dashes, we need to add them back)
+    case Regex.run(~r/\+([0-9a-fA-F]{32})$/, slug, capture: :all_but_first) do
+      [uuid_part] ->
         case parse_uuid_without_dashes(uuid_part) do
-          {:ok, uuid} ->
-            Repo.get(Implementation, uuid)
-
-          :error ->
-            nil
+          {:ok, uuid} -> Repo.get(Implementation, uuid)
+          :error -> nil
         end
 
       _ ->
@@ -90,6 +95,23 @@ defmodule Acai.Implementations do
   end
 
   defp parse_uuid_without_dashes(_), do: :error
+
+  defp sanitize_slug_part(name) do
+    name
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/u, "-")
+    |> String.trim("-")
+    |> case do
+      "" -> "implementation"
+      slug -> slug
+    end
+  end
+
+  defp uuid_without_dashes(id) do
+    id
+    |> to_string()
+    |> String.replace("-", "")
+  end
 
   # --- Tracked Branches ---
 

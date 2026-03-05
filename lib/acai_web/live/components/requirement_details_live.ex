@@ -71,8 +71,6 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
         @visible && "opacity-100 pointer-events-auto",
         !@visible && "opacity-0 pointer-events-none"
       ]}
-      phx-mounted={@visible && show_drawer(@id)}
-      phx-remove={hide_drawer(@id)}
       phx-window-keydown="close"
       phx-target={@myself}
       phx-key="Escape"
@@ -169,7 +167,10 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
             </div>
 
             <%!-- requirement-details.DRAWER.7: Comment section from status note --%>
-            <div :if={@requirement_status && @requirement_status.note} class="space-y-2 bg-base-200/50 p-4 rounded-lg border border-base-300">
+            <div
+              :if={@requirement_status && @requirement_status.note}
+              class="space-y-2 bg-base-200/50 p-4 rounded-lg border border-base-300"
+            >
               <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
                 Status Comment
               </h3>
@@ -260,16 +261,6 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
       </div>
     </div>
     """
-  end
-
-  # Helper to show drawer with animation
-  defp show_drawer(id) do
-    JS.exec("phx-mounted", to: "##{id}")
-  end
-
-  # Helper to hide drawer with animation
-  defp hide_drawer(id) do
-    JS.exec("phx-remove", to: "##{id}")
   end
 
   # requirement-details.DRAWER.5-4: Build the clickable link

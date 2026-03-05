@@ -23,12 +23,14 @@ defmodule AcaiWeb.Live.Components.NavLive do
     {active_product, active_feature} = parse_active_from_path(current_path, team)
 
     # nav.PANEL.4-2: Multiple products can be expanded simultaneously
-    # Auto-expand the active product if not already expanded
+    # Merge active product into existing expanded set instead of overwriting
+    existing_expanded = Map.get(socket.assigns, :expanded_products, MapSet.new())
+
     expanded_products =
       if active_product do
-        MapSet.new([active_product])
+        MapSet.put(existing_expanded, active_product)
       else
-        MapSet.new()
+        existing_expanded
       end
 
     socket =
@@ -58,22 +60,23 @@ defmodule AcaiWeb.Live.Components.NavLive do
 
         {product, nil}
 
-      # nav.PANEL.5-2: /t/:team_name/f/:feature_name
-      String.starts_with?(path_without_team, "/f/") ->
-        feature =
-          path_without_team |> String.trim_leading("/f/") |> String.split("/") |> List.first()
-
-        # nav.PANEL.5-4: Find the product that contains this feature
-        product = find_product_for_feature(team, feature)
-        {product, feature}
-
       # nav.PANEL.5-3: /t/:team_name/f/:feature_name/i/:impl_slug
+      # Check for specific implementation path first (more specific than feature path)
       String.starts_with?(path_without_team, "/f/") and String.contains?(path_without_team, "/i/") ->
         # Parse feature and impl_slug
         parts = path_without_team |> String.trim_leading("/f/") |> String.split("/i/")
         feature = List.first(parts) || nil
 
         # nav.PANEL.5-3: Highlight the feature that owns the implementation
+        product = find_product_for_feature(team, feature)
+        {product, feature}
+
+      # nav.PANEL.5-2: /t/:team_name/f/:feature_name
+      String.starts_with?(path_without_team, "/f/") ->
+        feature =
+          path_without_team |> String.trim_leading("/f/") |> String.split("/") |> List.first()
+
+        # nav.PANEL.5-4: Find the product that contains this feature
         product = find_product_for_feature(team, feature)
         {product, feature}
 
@@ -106,8 +109,8 @@ defmodule AcaiWeb.Live.Components.NavLive do
 
   # nav.PANEL.1-2: Team selection navigates to /t/:team_name
   def handle_event("select_team", %{"team" => team_name}, socket) do
-    # nav.MOBILE.3: Auto-close on navigation
-    {:noreply, push_navigate(socket, to: "/t/#{team_name}")}
+    # nav.ENG.1: Prefer push_navigate over redirect
+    {:noreply, push_navigate(socket, to: ~p"/t/#{team_name}")}
   end
 
   @impl true
@@ -116,7 +119,10 @@ defmodule AcaiWeb.Live.Components.NavLive do
     <div id="nav-panel" class="flex flex-col h-full bg-base-100">
       <%!-- nav.HEADER.1: logo moved into the very top left, top of left nav panel above the team dropdown --%>
       <div class="p-4 flex items-center gap-3">
-        <.link navigate={~p"/teams"} class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <.link
+          navigate={~p"/teams"}
+          class="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
           <img src={~p"/images/logo.svg"} width="32" />
           <span class="text-lg font-bold">Acai</span>
         </.link>
@@ -131,7 +137,7 @@ defmodule AcaiWeb.Live.Components.NavLive do
       <nav class="flex-1 overflow-y-auto p-3 space-y-1">
         <%!-- nav.PANEL.2: Home nav item --%>
         <.nav_item
-          navigate={"/t/#{@team.name}"}
+          navigate={~p"/t/#{@team.name}"}
           icon="hero-home"
           label="Home"
           active={is_nil(@active_product) and is_nil(@active_feature)}
@@ -161,13 +167,13 @@ defmodule AcaiWeb.Live.Components.NavLive do
       <%!-- nav.PANEL.6: Bottom navigation links --%>
       <div class="p-3 border-t border-base-300 space-y-1">
         <.nav_item
-          navigate={"/t/#{@team.name}/settings"}
+          navigate={~p"/t/#{@team.name}/settings"}
           icon="hero-cog-6-tooth"
           label="Team Settings"
           active={String.ends_with?(@current_path, "/settings")}
         />
         <.nav_item
-          navigate={"/t/#{@team.name}/tokens"}
+          navigate={~p"/t/#{@team.name}/tokens"}
           icon="hero-key"
           label="Tokens"
           active={String.ends_with?(@current_path, "/tokens")}
@@ -216,7 +222,6 @@ defmodule AcaiWeb.Live.Components.NavLive do
         @active && "bg-primary/10 text-primary",
         !@active && "text-base-content/70 hover:bg-base-200 hover:text-base-content"
       ]}
-      phx-click={close_mobile_nav()}
     >
       <.icon name={@icon} class="size-5" />
       <span>{@label}</span>
@@ -237,13 +242,13 @@ defmodule AcaiWeb.Live.Components.NavLive do
     ~H"""
     <div>
       <%!-- nav.PANEL.3-2: Product display name --%>
-      <div class="flex items-center group">
+      <div class="flex items-center group -ml-2">
         <%!-- nav.PANEL.3-3, nav.PANEL.4-3: Product item links to overview --%>
         <.link
           navigate={~p"/t/#{@team.name}/p/#{@product}"}
           class={
             [
-              "flex-1 flex items-center gap-3 px-3 py-2 rounded-l-lg text-sm font-medium transition-colors",
+              "flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors min-h-10",
               # nav.PANEL.5-4: Active product highlighted
               @active_product == @product && "bg-primary/10 text-primary",
               @active_product != @product &&
@@ -251,19 +256,17 @@ defmodule AcaiWeb.Live.Components.NavLive do
             ]
           }
         >
-          <.icon name="hero-cube" class="size-5" />
+          <.icon name="hero-circle-stack" class="size-4" />
           <span>{@product}</span>
         </.link>
 
         <%!-- nav.PANEL.4-3: Separate toggle button --%>
         <button
           type="button"
-          class={
-            [
-              "px-2 py-2 rounded-r-lg transition-colors text-base-content/40 hover:text-base-content hover:bg-base-200",
-              @active_product == @product && "bg-primary/10 text-primary/60 hover:text-primary"
-            ]
-          }
+          class={[
+            "px-2 py-2 rounded-lg transition-colors text-base-content/40 hover:text-base-content hover:bg-base-200 min-h-10",
+            @active_product == @product && "bg-primary/10 text-primary/60 hover:text-primary"
+          ]}
           phx-click="toggle_product"
           phx-value-product={@product}
           phx-target={@myself}
@@ -276,7 +279,7 @@ defmodule AcaiWeb.Live.Components.NavLive do
       </div>
 
       <%!-- nav.PANEL.4-1: Feature names under each product --%>
-      <div :if={@expanded} class="mt-1 ml-4 space-y-1">
+      <div :if={@expanded} class="mt-1 ml-2 space-y-1">
         <.feature_item
           :for={spec <- @specs}
           spec={spec}
@@ -292,7 +295,7 @@ defmodule AcaiWeb.Live.Components.NavLive do
   defp feature_item(assigns) do
     ~H"""
     <.link
-      navigate={"/t/#{@team.name}/f/#{@spec.feature_name}"}
+      navigate={~p"/t/#{@team.name}/f/#{@spec.feature_name}"}
       class={
         [
           "flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm transition-colors",
@@ -302,17 +305,9 @@ defmodule AcaiWeb.Live.Components.NavLive do
             "text-base-content/60 hover:bg-base-200 hover:text-base-content"
         ]
       }
-      phx-click={close_mobile_nav()}
     >
-      <.icon name="hero-document-text" class="size-4" />
       <span>{@spec.feature_name}</span>
     </.link>
     """
-  end
-
-  # nav.MOBILE.3: Close mobile panel on navigation
-  defp close_mobile_nav do
-    JS.toggle_class("hidden", to: "#mobile-nav-backdrop")
-    |> JS.toggle_class("translate-x-0", to: "#nav-sidebar")
   end
 end

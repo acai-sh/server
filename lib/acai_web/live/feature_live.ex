@@ -46,7 +46,7 @@ defmodule AcaiWeb.FeatureLive do
 
             # Build the slug for navigation (impl_name+uuid_without_dashes)
             # feature-view.MAIN.4
-            slug = build_implementation_slug(impl)
+            slug = Implementations.implementation_slug(impl)
 
             %{
               id: "impl-#{impl.id}",
@@ -74,14 +74,6 @@ defmodule AcaiWeb.FeatureLive do
 
         {:ok, socket}
     end
-  end
-
-  # feature-view.MAIN.4: Build slug for implementation navigation
-  defp build_implementation_slug(%Implementations.Implementation{} = impl) do
-    # Format: {impl_name}+{uuid_without_dashes}
-    uuid_string = impl.id |> to_string()
-    uuid_without_dashes = String.replace(uuid_string, "-", "")
-    "#{impl.name}+#{uuid_without_dashes}"
   end
 
   @impl true

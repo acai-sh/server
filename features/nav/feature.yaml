@@ -59,6 +59,9 @@ components:
             3: Navigating to any route closes the mobile panel automatically
 
 constraints:
+    ENG:
+        requirements:
+            1: Prefer to use patch followed by navigate rather than href. Patch works within a view, navigate works across views in the same live_sesion and fallsback gracefully. Reserve href for external urls.
     AUTH:
         name: Visibility and access
         requirements:

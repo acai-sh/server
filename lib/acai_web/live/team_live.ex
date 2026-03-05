@@ -30,6 +30,7 @@ defmodule AcaiWeb.TeamLive do
       |> assign(:team, team)
       |> assign(:products, products)
       |> assign(:current_role_title, current_role_title)
+      |> assign(:current_path, ~p"/t/#{team.name}")
       |> assign(:can_admin?, can_admin?)
       |> assign(:owner_count, owner_count)
       # team-view.MEMBERS.1
