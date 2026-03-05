@@ -31,9 +31,46 @@ defmodule AcaiWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
 
+  attr :team, :map,
+    default: nil,
+    doc: "the current team for team-scoped routes"
+
+  attr :current_path, :string,
+    default: nil,
+    doc: "the current request path"
+
   slot :inner_block, required: true
 
   def app(assigns) do
+    ~H"""
+    <%!-- nav.AUTH.1: Check if in team-scoped route --%>
+    <%= if @team do %>
+      <.team_layout
+        flash={@flash}
+        current_scope={@current_scope}
+        team={@team}
+        current_path={@current_path}
+      >
+        {render_slot(@inner_block)}
+      </.team_layout>
+    <% else %>
+      <.default_layout flash={@flash} current_scope={@current_scope}>
+        {render_slot(@inner_block)}
+      </.default_layout>
+    <% end %>
+
+    <.flash_group flash={@flash} />
+    """
+  end
+
+  @doc """
+  Default layout for non-team routes.
+  """
+  attr :flash, :map, required: true
+  attr :current_scope, :map, default: nil
+  slot :inner_block, required: true
+
+  def default_layout(assigns) do
     ~H"""
     <header class="navbar px-4 sm:px-6 lg:px-8">
       <div class="flex-1">
@@ -67,8 +104,142 @@ defmodule AcaiWeb.Layouts do
         {render_slot(@inner_block)}
       </div>
     </main>
+    """
+  end
 
-    <.flash_group flash={@flash} />
+  @doc """
+  Team layout with navigation sidebar and header.
+  """
+  attr :flash, :map, required: true
+  attr :current_scope, :map, required: true
+  attr :team, :map, required: true
+  attr :current_path, :string, required: true
+  slot :inner_block, required: true
+
+  def team_layout(assigns) do
+    ~H"""
+    <div class="flex h-screen">
+      <%!-- nav.MOBILE.2: Mobile panel overlay --%>
+      <div
+        id="mobile-nav-backdrop"
+        class="lg:hidden hidden fixed inset-0 z-40 bg-black/50"
+        phx-click={
+          JS.toggle_class("hidden", to: "#mobile-nav-backdrop")
+          |> JS.toggle_class("translate-x-0", to: "#nav-sidebar")
+        }
+      />
+
+      <%!-- Sidebar --%>
+      <aside
+        id="nav-sidebar"
+        class={
+          [
+            "fixed lg:static inset-y-0 left-0 z-50 w-64 bg-base-100 border-r border-base-300 flex flex-col",
+            "transform transition-transform duration-300 ease-in-out",
+            # nav.MOBILE.2: Hidden by default on mobile
+            "lg:translate-x-0 -translate-x-full"
+          ]
+        }
+      >
+        <.live_component
+          module={AcaiWeb.Live.Components.NavLive}
+          id="nav-component"
+          current_scope={@current_scope}
+          team={@team}
+          current_path={@current_path}
+        />
+      </aside>
+
+      <%!-- Main content area --%>
+      <div class="flex-1 flex flex-col min-w-0">
+        <%!-- nav.HEADER: Top header bar --%>
+        <.nav_header current_scope={@current_scope} team={@team} />
+
+        <%!-- Main content --%>
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <div class="mx-auto max-w-6xl space-y-4">
+            {render_slot(@inner_block)}
+          </div>
+        </main>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Navigation header for team-scoped routes.
+  """
+  attr :current_scope, :map, required: true
+  attr :team, :map, required: true
+
+  def nav_header(assigns) do
+    ~H"""
+    <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300 bg-base-100">
+      <%!-- nav.MOBILE.1: Hamburger button for small screens --%>
+      <div class="flex-none lg:hidden">
+        <button
+          id="mobile-nav-toggle"
+          type="button"
+          class="btn btn-ghost btn-sm btn-square"
+          phx-click={
+            JS.toggle_class("hidden", to: "#mobile-nav-backdrop")
+            |> JS.toggle_class("translate-x-0", to: "#nav-sidebar")
+          }
+          aria-label="Toggle navigation"
+        >
+          <.icon name="hero-bars-3" class="size-5" />
+        </button>
+      </div>
+
+      <%!-- nav.HEADER.1: Application logo linking to /teams --%>
+      <div class="flex-1">
+        <.link navigate={~p"/teams"} class="flex items-center gap-2">
+          <img src={~p"/images/logo.svg"} width="28" />
+          <span class="text-sm font-semibold hidden sm:inline">Acai</span>
+        </.link>
+      </div>
+
+      <%!-- nav.HEADER.2: Current user's email address --%>
+      <div class="flex-none">
+        <div class="flex items-center gap-4">
+          <span class="text-sm text-base-content/70 hidden sm:inline">
+            {@current_scope.user.email}
+          </span>
+
+          <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-ghost btn-sm btn-circle avatar">
+              <div class="w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <.icon name="hero-user" class="size-4 text-primary" />
+              </div>
+            </label>
+            <ul
+              tabindex="0"
+              class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300"
+            >
+              <%!-- nav.HEADER.3: Link to User Settings --%>
+              <li>
+                <.link navigate={~p"/users/settings"} class="flex items-center gap-2">
+                  <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
+                </.link>
+              </li>
+              <li class="menu-title">
+                <span class="text-xs text-base-content/50">{@current_scope.user.email}</span>
+              </li>
+              <%!-- nav.HEADER.4: Log Out button --%>
+              <li>
+                <.link
+                  href={~p"/users/log-out"}
+                  method="delete"
+                  class="flex items-center gap-2 text-error"
+                >
+                  <.icon name="hero-arrow-right-on-rectangle" class="size-4" /> Log out
+                </.link>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </header>
     """
   end
 

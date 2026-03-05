@@ -51,6 +51,8 @@ defmodule AcaiWeb.TeamTokensLive do
       |> assign(:show_revoke_modal, false)
       |> assign(:revoking_token, nil)
       |> assign(:timezone_offset, timezone_offset)
+      # nav.AUTH.1: Pass current_path for navigation
+      |> assign(:current_path, "/t/#{team.name}/tokens")
 
     {:ok, socket}
   end
@@ -196,7 +198,12 @@ defmodule AcaiWeb.TeamTokensLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      team={@team}
+      current_path={@current_path}
+    >
       <div class="space-y-8">
         <.header>
           {@team.name} — Access Tokens
