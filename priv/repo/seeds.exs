@@ -339,26 +339,26 @@ _branch_a_prod =
 
 # SEED_DATA.MOCK_DATA.3
 seed_status.(impl_a_prod, req_a1, %{
-  status: "implemented",
+  status: "completed",
   is_active: true,
   last_seen_commit: "a1b2c3d4e5f6",
-  note: "Fully implemented and covered by tests."
+  note: "Fully completed and covered by tests."
 })
 
 seed_status.(impl_a_prod, req_a2, %{
-  status: "implemented",
+  status: "completed",
   is_active: true,
   last_seen_commit: "a1b2c3d4e5f6"
 })
 
 seed_status.(impl_a_prod, req_a3, %{
-  status: "implemented",
+  status: "completed",
   is_active: true,
   last_seen_commit: "a1b2c3d4e5f6"
 })
 
 seed_status.(impl_a_prod, req_a_sec1, %{
-  status: "implemented",
+  status: "completed",
   is_active: true,
   last_seen_commit: "a1b2c3d4e5f6"
 })
@@ -381,7 +381,7 @@ seed_status.(impl_a_feat, req_a1, %{
   status: "partial",
   is_active: true,
   last_seen_commit: "f6e5d4c3b2a1",
-  note: "OAuth flow implemented; password path not yet touched."
+  note: "OAuth flow completed; password path not yet touched."
 })
 
 seed_status.(impl_a_feat, req_a2, %{
@@ -601,13 +601,13 @@ _branch_c_prod =
 # SEED_DATA.MOCK_DATA.1
 # SEED_DATA.MOCK_DATA.3
 seed_status.(impl_c_prod, req_c1, %{
-  status: "implemented",
+  status: "completed",
   is_active: true,
   last_seen_commit: "cafebabe9999"
 })
 
 seed_status.(impl_c_prod, req_c1_1, %{
-  status: "implemented",
+  status: "completed",
   is_active: true,
   last_seen_commit: "cafebabe9999"
 })
@@ -626,7 +626,7 @@ seed_status.(impl_c_prod, req_c_inapp1, %{
 })
 
 seed_status.(impl_c_prod, req_c_rel1, %{
-  status: "implemented",
+  status: "completed",
   is_active: true,
   last_seen_commit: "cafebabe9999"
 })

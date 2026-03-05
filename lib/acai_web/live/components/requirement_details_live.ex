@@ -122,27 +122,27 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
           <div class="flex-1 overflow-y-auto p-4 space-y-6">
             <%!-- requirement-details.DRAWER.2: Renders the full requirement definition text --%>
             <div class="space-y-2">
-              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
+              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
                 Definition
               </h3>
-              <p class="text-base-content whitespace-pre-wrap">
+              <p class="text-base-content leading-relaxed">
                 {@requirement.definition}
               </p>
             </div>
 
             <%!-- requirement-details.DRAWER.3: Renders the requirement note if one exists --%>
             <div :if={@requirement.note} class="space-y-2">
-              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
+              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
                 Note
               </h3>
-              <p class="text-base-content/80 text-sm whitespace-pre-wrap">
+              <p class="text-base-content/80 text-sm">
                 {@requirement.note}
               </p>
             </div>
 
             <%!-- requirement-details.DRAWER.4: Status section --%>
             <div class="space-y-2">
-              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
+              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
                 Status
               </h3>
               <div class="flex items-center gap-3">
@@ -162,10 +162,20 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
                 <% end %>
 
                 <%!-- requirement-details.DRAWER.4-2: Renders the implementation name as context label --%>
-                <span class="text-sm text-base-content/50">
+                <span class="text-sm text-base-content/50 truncate">
                   in {@implementation.name}
                 </span>
               </div>
+            </div>
+
+            <%!-- requirement-details.DRAWER.7: Comment section from status note --%>
+            <div :if={@requirement_status && @requirement_status.note} class="space-y-2 bg-base-200/50 p-4 rounded-lg border border-base-300">
+              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
+                Status Comment
+              </h3>
+              <p class="text-sm text-base-content/80 italic leading-relaxed">
+                "{@requirement_status.note}"
+              </p>
             </div>
 
             <%!-- requirement-details.DRAWER.5: References section --%>
@@ -288,7 +298,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   defp status_badge_color(status) do
     case status do
       "accepted" -> "badge-success"
-      "implemented" -> "badge-info"
+      "completed" -> "badge-info"
       "pending" -> "badge-warning"
       "blocked" -> "badge-error"
       _ -> "badge-ghost"

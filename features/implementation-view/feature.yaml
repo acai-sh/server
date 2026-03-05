@@ -27,7 +27,7 @@ components:
             1: Renders one chip per requirement in the feature's spec, ordered by ACID ascending
             2: Chip color reflects the requirement's status for this implementation
             2-1: Green chip — status is 'accepted'
-            2-2: Blue chip — status is 'implemented'
+            2-2: Blue chip — status is 'completed'
             2-3: Gray chip — status is null or no requirement_status row exists for this implementation
             3: Clicking a chip opens the requirement-details drawer for that requirement (see requirement-details.DRAWER)
 

@@ -485,7 +485,7 @@ defmodule Acai.SeedsTest do
       impl_c = seed_impl(spec_c, %{name: "Production", is_active: true})
 
       seed_status(impl_c, req_c1, %{
-        status: "implemented",
+        status: "completed",
         is_active: true,
         last_seen_commit: "cafebabe9999"
       })
@@ -509,7 +509,7 @@ defmodule Acai.SeedsTest do
         )
 
       status_values = Enum.map(statuses, & &1.status)
-      assert "implemented" in status_values
+      assert "completed" in status_values
       assert "partial" in status_values
     end
 
@@ -667,7 +667,7 @@ defmodule Acai.SeedsTest do
     end
 
     # SEED_DATA.MOCK_DATA.3
-    test "requirement statuses include varying values (implemented, partial, pending)", %{
+    test "requirement statuses include varying values (completed, partial, pending)", %{
       testing_team: testing_team
     } do
       spec =
@@ -717,7 +717,7 @@ defmodule Acai.SeedsTest do
       impl = seed_impl(spec, %{name: "Production", is_active: true})
 
       seed_status(impl, req1, %{
-        status: "implemented",
+        status: "completed",
         is_active: true,
         last_seen_commit: "abc"
       })
@@ -741,7 +741,7 @@ defmodule Acai.SeedsTest do
             select: rs.status
         )
 
-      assert "implemented" in statuses
+      assert "completed" in statuses
       assert "partial" in statuses
       assert "pending" in statuses
     end

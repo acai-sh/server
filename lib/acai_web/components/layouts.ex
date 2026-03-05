@@ -72,35 +72,64 @@ defmodule AcaiWeb.Layouts do
 
   def default_layout(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
+    <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300 bg-base-100 min-h-16">
       <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
+        <a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <img src={~p"/images/logo.svg"} width="32" />
+          <span class="text-lg font-bold">Acai</span>
         </a>
       </div>
-      <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
-          <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
-          </li>
-          <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://hexdocs.pm/phoenix/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
-          </li>
-        </ul>
+      <div class="flex-none flex items-center gap-4">
+        <.theme_toggle />
+
+        <%= if @current_scope do %>
+          <div class="flex items-center gap-3 ml-2">
+            <span class="text-sm text-base-content/70 hidden sm:inline">
+              {@current_scope.user.email}
+            </span>
+
+            <div class="dropdown dropdown-end">
+              <label tabindex="0" class="btn btn-ghost btn-circle avatar border-none hover:bg-primary/10">
+                <div class="w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <.icon name="hero-user" class="size-5 text-primary" />
+                </div>
+              </label>
+              <ul
+                tabindex="0"
+                class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300 mt-2"
+              >
+                <li>
+                  <.link href={~p"/users/settings"} class="flex items-center gap-2">
+                    <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
+                  </.link>
+                </li>
+                <li class="menu-title px-4 py-2">
+                  <span class="text-xs text-base-content/50 truncate">{@current_scope.user.email}</span>
+                </li>
+                <div class="divider my-0"></div>
+                <li>
+                  <.link
+                    href={~p"/users/log-out"}
+                    method="delete"
+                    class="flex items-center gap-2 text-error"
+                  >
+                    <.icon name="hero-arrow-right-on-rectangle" class="size-4" /> Log out
+                  </.link>
+                </li>
+              </ul>
+            </div>
+          </div>
+        <% else %>
+          <ul class="menu menu-horizontal px-1 gap-2">
+            <li><.link href={~p"/users/log-in"} class="btn btn-ghost btn-sm">Log in</.link></li>
+            <li><.link href={~p"/users/register"} class="btn btn-primary btn-sm">Register</.link></li>
+          </ul>
+        <% end %>
       </div>
     </header>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
+    <main class="px-4 py-12 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-4xl space-y-4">
         {render_slot(@inner_block)}
       </div>
     </main>
@@ -174,7 +203,7 @@ defmodule AcaiWeb.Layouts do
 
   def nav_header(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300 bg-base-100">
+    <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300 bg-base-100 min-h-16">
       <%!-- nav.MOBILE.1: Hamburger button for small screens --%>
       <div class="flex-none lg:hidden">
         <button
@@ -191,41 +220,40 @@ defmodule AcaiWeb.Layouts do
         </button>
       </div>
 
-      <%!-- nav.HEADER.1: Application logo linking to /teams --%>
       <div class="flex-1">
-        <.link navigate={~p"/teams"} class="flex items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="28" />
-          <span class="text-sm font-semibold hidden sm:inline">Acai</span>
-        </.link>
+        <%!-- Empty space since logo moved to sidebar --%>
       </div>
 
-      <%!-- nav.HEADER.2: Current user's email address --%>
-      <div class="flex-none">
-        <div class="flex items-center gap-4">
+      <%!-- nav.HEADER.5: Theme toggle and User info --%>
+      <div class="flex-none flex items-center gap-4">
+        <.theme_toggle />
+
+        <div class="flex items-center gap-3 ml-2">
           <span class="text-sm text-base-content/70 hidden sm:inline">
             {@current_scope.user.email}
           </span>
 
           <div class="dropdown dropdown-end">
-            <label tabindex="0" class="btn btn-ghost btn-sm btn-circle avatar">
-              <div class="w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <.icon name="hero-user" class="size-4 text-primary" />
+            <label tabindex="0" class="btn btn-ghost btn-circle avatar border-none hover:bg-primary/10">
+              <div class="w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <.icon name="hero-user" class="size-5 text-primary" />
               </div>
             </label>
             <ul
               tabindex="0"
-              class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300"
+              class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300 mt-2"
             >
               <%!-- nav.HEADER.3: Link to User Settings --%>
               <li>
-                <.link navigate={~p"/users/settings"} class="flex items-center gap-2">
+                <.link href={~p"/users/settings"} class="flex items-center gap-2">
                   <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
                 </.link>
               </li>
-              <li class="menu-title">
-                <span class="text-xs text-base-content/50">{@current_scope.user.email}</span>
+              <li class="menu-title px-4 py-2">
+                <span class="text-xs text-base-content/50 truncate">{@current_scope.user.email}</span>
               </li>
               <%!-- nav.HEADER.4: Log Out button --%>
+              <div class="divider my-0"></div>
               <li>
                 <.link
                   href={~p"/users/log-out"}

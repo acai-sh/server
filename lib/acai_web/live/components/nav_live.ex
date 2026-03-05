@@ -113,9 +113,17 @@ defmodule AcaiWeb.Live.Components.NavLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div id="nav-panel" class="flex flex-col h-full">
+    <div id="nav-panel" class="flex flex-col h-full bg-base-100">
+      <%!-- nav.HEADER.1: logo moved into the very top left, top of left nav panel above the team dropdown --%>
+      <div class="p-4 flex items-center gap-3">
+        <.link navigate={~p"/teams"} class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <img src={~p"/images/logo.svg"} width="32" />
+          <span class="text-lg font-bold">Acai</span>
+        </.link>
+      </div>
+
       <%!-- nav.PANEL.1: Team dropdown selector --%>
-      <div class="p-3 border-b border-base-300">
+      <div class="px-3 pb-3 border-b border-base-300">
         <.team_selector teams={@teams} current_team={@team} myself={@myself} />
       </div>
 
@@ -177,21 +185,22 @@ defmodule AcaiWeb.Live.Components.NavLive do
   defp team_selector(assigns) do
     ~H"""
     <div class="relative">
-      <select
-        id="team-selector"
-        name="team"
-        class="w-full select select-sm"
-        phx-change="select_team"
-        phx-target={@myself}
-      >
-        <%!-- nav.PANEL.1-1: List all teams the current user is a member of --%>
-        <option :for={team <- @teams} value={team.name} selected={team.id == @current_team.id}>
-          {team.name}
-        </option>
-      </select>
+      <%!-- Wrap in form to ensure phx-change works reliably --%>
+      <form phx-change="select_team" phx-target={@myself}>
+        <select
+          id="team-selector"
+          name="team"
+          class="w-full select select-sm select-bordered pr-8"
+        >
+          <%!-- nav.PANEL.1-1: List all teams the current user is a member of --%>
+          <option :for={team <- @teams} value={team.name} selected={team.id == @current_team.id}>
+            {team.name}
+          </option>
+        </select>
+      </form>
       <%!-- nav.PANEL.1-3: Visually indicate currently active team --%>
-      <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-        <.icon name="hero-chevron-down" class="size-4 text-base-content/50" />
+      <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+        <.icon name="hero-chevron-down-micro" class="size-4 text-base-content/50" />
       </div>
     </div>
     """
@@ -228,30 +237,43 @@ defmodule AcaiWeb.Live.Components.NavLive do
     ~H"""
     <div>
       <%!-- nav.PANEL.3-2: Product display name --%>
-      <button
-        type="button"
-        class={
-          [
-            "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-            # nav.PANEL.5-4: Active product highlighted
-            @active_product == @product && "bg-primary/10 text-primary",
-            @active_product != @product &&
-              "text-base-content/70 hover:bg-base-200 hover:text-base-content"
-          ]
-        }
-        phx-click="toggle_product"
-        phx-value-product={@product}
-        phx-target={@myself}
-      >
-        <div class="flex items-center gap-3">
+      <div class="flex items-center group">
+        <%!-- nav.PANEL.3-3, nav.PANEL.4-3: Product item links to overview --%>
+        <.link
+          navigate={~p"/t/#{@team.name}/p/#{@product}"}
+          class={
+            [
+              "flex-1 flex items-center gap-3 px-3 py-2 rounded-l-lg text-sm font-medium transition-colors",
+              # nav.PANEL.5-4: Active product highlighted
+              @active_product == @product && "bg-primary/10 text-primary",
+              @active_product != @product &&
+                "text-base-content/70 hover:bg-base-200 hover:text-base-content"
+            ]
+          }
+        >
           <.icon name="hero-cube" class="size-5" />
           <span>{@product}</span>
-        </div>
-        <.icon
-          name={if @expanded, do: "hero-chevron-down", else: "hero-chevron-right"}
-          class="size-4"
-        />
-      </button>
+        </.link>
+
+        <%!-- nav.PANEL.4-3: Separate toggle button --%>
+        <button
+          type="button"
+          class={
+            [
+              "px-2 py-2 rounded-r-lg transition-colors text-base-content/40 hover:text-base-content hover:bg-base-200",
+              @active_product == @product && "bg-primary/10 text-primary/60 hover:text-primary"
+            ]
+          }
+          phx-click="toggle_product"
+          phx-value-product={@product}
+          phx-target={@myself}
+        >
+          <.icon
+            name={if @expanded, do: "hero-chevron-down", else: "hero-chevron-right"}
+            class="size-4"
+          />
+        </button>
+      </div>
 
       <%!-- nav.PANEL.4-1: Feature names under each product --%>
       <div :if={@expanded} class="mt-1 ml-4 space-y-1">

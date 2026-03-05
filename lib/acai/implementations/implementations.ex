@@ -168,7 +168,7 @@ defmodule Acai.Implementations do
   # feature-view.IMPL_CARD.4
   @doc """
   Gets requirement status counts for an implementation.
-  Returns %{accepted: count, implemented: count, null: count}
+  Returns %{accepted: count, completed: count, null: count}
   """
   def get_requirement_status_counts(%Implementation{} = implementation, total_requirements) do
     # Count statuses that are not null
@@ -182,13 +182,13 @@ defmodule Acai.Implementations do
       |> Map.new()
 
     accepted = Map.get(status_counts, "accepted", 0)
-    implemented = Map.get(status_counts, "implemented", 0)
+    completed = Map.get(status_counts, "completed", 0)
 
-    # Null count = total requirements - (accepted + implemented)
+    # Null count = total requirements - (accepted + completed)
     # This includes requirements with no requirement_status row or status IS NULL
-    null = max(total_requirements - accepted - implemented, 0)
+    null = max(total_requirements - accepted - completed, 0)
 
-    %{accepted: accepted, implemented: implemented, null: null}
+    %{accepted: accepted, completed: completed, null: null}
   end
 
   # requirement-details.DRAWER.4

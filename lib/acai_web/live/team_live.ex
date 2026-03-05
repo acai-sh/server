@@ -3,6 +3,7 @@ defmodule AcaiWeb.TeamLive do
 
   alias Acai.Teams
   alias Acai.Teams.Permissions
+  alias Acai.Specs
 
   @impl true
   def mount(%{"team_name" => team_name}, _session, socket) do
@@ -10,6 +11,8 @@ defmodule AcaiWeb.TeamLive do
     current_user = socket.assigns.current_scope.user
 
     members = Teams.list_team_members(team)
+    products_data = Specs.list_specs_grouped_by_product(team)
+    products = Map.keys(products_data) |> Enum.sort()
 
     current_role =
       Enum.find(members, fn r -> r.user_id == current_user.id end)
@@ -25,6 +28,7 @@ defmodule AcaiWeb.TeamLive do
       socket
       # team-view.MAIN.1
       |> assign(:team, team)
+      |> assign(:products, products)
       |> assign(:current_role_title, current_role_title)
       |> assign(:can_admin?, can_admin?)
       |> assign(:owner_count, owner_count)
@@ -248,7 +252,7 @@ defmodule AcaiWeb.TeamLive do
       team={@team}
       current_path={@current_path}
     >
-      <div class="space-y-8">
+      <div class="space-y-10">
         <%!-- team-view.MAIN.1 --%>
         <.header>
           {@team.name}
@@ -260,6 +264,35 @@ defmodule AcaiWeb.TeamLive do
             </.button>
           </:actions>
         </.header>
+
+        <%!-- team-view.PRODUCTS.1 --%>
+        <div class="space-y-4">
+          <div>
+            <h2 class="text-base font-semibold">Products</h2>
+            <p class="text-sm text-base-content/60">Overview of products owned by this team</p>
+          </div>
+
+          <div id="products-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div :for={product <- @products}>
+              <%!-- team-view.PRODUCTS.3 --%>
+              <.link navigate={"/t/#{@team.name}/p/#{product}"} class="block group">
+                <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer h-full">
+                  <div class="card-body p-5">
+                    <div class="flex items-center gap-3">
+                      <div class="rounded-lg bg-primary/10 p-2">
+                        <.icon name="hero-cube" class="size-5 text-primary" />
+                      </div>
+                      <%!-- team-view.PRODUCTS.2 --%>
+                      <h3 class="font-semibold text-base group-hover:text-primary transition-colors">
+                        {product}
+                      </h3>
+                    </div>
+                  </div>
+                </div>
+              </.link>
+            </div>
+          </div>
+        </div>
 
         <%!-- team-view.MAIN.2 --%>
         <.link navigate={"/t/#{@team.name}/tokens"} class="block group" id="access-tokens-card">

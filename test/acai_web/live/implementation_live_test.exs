@@ -183,9 +183,9 @@ defmodule AcaiWeb.ImplementationLiveTest do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
 
       # Should have chips for all requirements
-      assert has_element?(view, ".badge", req1.acid)
-      assert has_element?(view, ".badge", req2.acid)
-      assert has_element?(view, ".badge", req3.acid)
+      assert has_element?(view, "div[title='#{req1.acid}']")
+      assert has_element?(view, "div[title='#{req2.acid}']")
+      assert has_element?(view, "div[title='#{req3.acid}']")
     end
 
     # implementation-view.REQ_COVERAGE.2-1
@@ -199,21 +199,21 @@ defmodule AcaiWeb.ImplementationLiveTest do
       slug = build_impl_slug(impl)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
 
-      assert has_element?(view, ".badge-success", req.acid)
+      assert has_element?(view, ".bg-success[title='#{req.acid}']")
     end
 
     # implementation-view.REQ_COVERAGE.2-2
-    test "blue chip for implemented status", %{conn: conn, user: user} do
+    test "blue chip for completed status", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       spec = create_spec_for_feature(team, "my-feature")
       impl = create_implementation_for_spec(spec)
       req = create_requirement_for_spec(spec)
-      create_requirement_status(impl, req, status: "implemented")
+      create_requirement_status(impl, req, status: "completed")
 
       slug = build_impl_slug(impl)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
 
-      assert has_element?(view, ".badge-info", req.acid)
+      assert has_element?(view, ".bg-info[title='#{req.acid}']")
     end
 
     # implementation-view.REQ_COVERAGE.2-3
@@ -227,7 +227,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       slug = build_impl_slug(impl)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
 
-      assert has_element?(view, ".badge-ghost", req.acid)
+      assert has_element?(view, ".bg-base-300[title='#{req.acid}']")
     end
 
     # implementation-view.REQ_COVERAGE.3
@@ -268,8 +268,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       slug = build_impl_slug(impl)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
 
-      assert has_element?(view, ".badge", req1.acid)
-      assert has_element?(view, ".badge", req2.acid)
+      assert has_element?(view, "div[title*='#{req1.acid}']")
+      assert has_element?(view, "div[title*='#{req2.acid}']")
     end
 
     # implementation-view.TEST_COVERAGE.2-1
@@ -286,8 +286,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       slug = build_impl_slug(impl)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
 
-      # Should have green badge (success) for test coverage
-      assert has_element?(view, ".badge-success", req.acid)
+      # Should have green background for test coverage
+      assert has_element?(view, ".bg-success[title*='#{req.acid}']")
     end
 
     # implementation-view.TEST_COVERAGE.2-2
@@ -304,8 +304,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       slug = build_impl_slug(impl)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
 
-      # Should have gray badge for no test coverage
-      assert has_element?(view, ".badge-ghost", req.acid)
+      # Should have gray background for no test coverage
+      assert has_element?(view, ".bg-base-300[title*='#{req.acid}']")
     end
 
     # implementation-view.TEST_COVERAGE.3
@@ -324,8 +324,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       slug = build_impl_slug(impl)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
 
-      # Should show count (3)
-      assert has_element?(view, ".badge-success", "(3)")
+      # Should show count 3 inside the chip
+      assert has_element?(view, ".bg-success", "3")
     end
 
     # implementation-view.TEST_COVERAGE.4

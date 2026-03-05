@@ -104,26 +104,23 @@ defmodule AcaiWeb.TeamsLive do
         <div
           id="teams-list"
           phx-update="stream"
-          class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          class="flex flex-col gap-4"
         >
           <div :for={{id, team} <- @streams.teams} id={id}>
             <%!-- team-list.MAIN.2-2 --%>
-            <.link navigate={"/t/#{team.name}"} class="block group">
+            <.link navigate={"/t/#{team.name}"} class="block group w-full">
               <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer">
-                <div class="card-body gap-3">
-                  <div class="flex items-center gap-3">
+                <div class="card-body py-4 flex-row items-center justify-between gap-4">
+                  <div class="flex items-center gap-4">
                     <div class="rounded-lg bg-primary/10 p-2">
-                      <.icon name="hero-user-group" class="size-5 text-primary" />
+                      <.icon name="hero-user-group" class="size-6 text-primary" />
                     </div>
-                    <h2 class="card-title text-base group-hover:text-primary transition-colors">
+                    <h2 class="card-title text-lg group-hover:text-primary transition-colors">
                       {team.name}
                     </h2>
                   </div>
-                  <div class="flex items-center justify-end text-xs text-base-content/50">
-                    <.icon
-                      name="hero-arrow-right"
-                      class="size-4 group-hover:translate-x-1 transition-transform"
-                    />
+                  <div class="text-base-content/30 group-hover:text-primary group-hover:translate-x-1 transition-all">
+                    <.icon name="hero-chevron-right" class="size-6" />
                   </div>
                 </div>
               </div>

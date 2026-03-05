@@ -177,14 +177,14 @@ defmodule AcaiWeb.FeatureLive do
 
   # feature-view.IMPL_CARD.4: Progress bar component
   defp progress_bar(assigns) do
-    %{counts: %{accepted: accepted, implemented: implemented, null: null}, total: total} = assigns
+    %{counts: %{accepted: accepted, completed: completed, null: null}, total: total} = assigns
 
     # Calculate percentages (avoid division by zero)
-    {accepted_pct, implemented_pct, null_pct} =
+    {accepted_pct, completed_pct, null_pct} =
       if total > 0 do
         {
           round(accepted / total * 100),
-          round(implemented / total * 100),
+          round(completed / total * 100),
           round(null / total * 100)
         }
       else
@@ -194,9 +194,9 @@ defmodule AcaiWeb.FeatureLive do
     assigns =
       assigns
       |> assign(:accepted, accepted)
-      |> assign(:implemented, implemented)
+      |> assign(:completed, completed)
       |> assign(:accepted_pct, accepted_pct)
-      |> assign(:implemented_pct, implemented_pct)
+      |> assign(:completed_pct, completed_pct)
       |> assign(:null_pct, null_pct)
 
     ~H"""
@@ -209,12 +209,12 @@ defmodule AcaiWeb.FeatureLive do
           style={"width: #{@accepted_pct}%"}
           title={"#{@accepted_pct}% accepted"}
         />
-        <%!-- feature-view.IMPL_CARD.4-2: Blue for implemented --%>
+        <%!-- feature-view.IMPL_CARD.4-2: Blue for completed --%>
         <div
-          :if={@implemented_pct > 0}
+          :if={@completed_pct > 0}
           class="bg-info h-full"
-          style={"width: #{@implemented_pct}%"}
-          title={"#{@implemented_pct}% implemented"}
+          style={"width: #{@completed_pct}%"}
+          title={"#{@completed_pct}% completed"}
         />
         <%!-- feature-view.IMPL_CARD.4-3: Gray for null/no status --%>
         <div
@@ -225,7 +225,7 @@ defmodule AcaiWeb.FeatureLive do
         />
       </div>
       <span class="text-xs text-base-content/50">
-        {@accepted + @implemented}/{@total}
+        {@accepted + @completed}/{@total}
       </span>
     </div>
     """

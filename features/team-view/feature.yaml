@@ -14,6 +14,13 @@ components:
             2: Renders an Access Tokens card that takes the user to `/t/:team_name/tokens` (see TOKENS)
             3: Renders a Team Settings button that navigates the user to `/t/:team_name/settings`
 
+    PRODUCTS:
+        name: A section that lists products owned by the team
+        requirements:
+            1: Renders a list of product cards
+            2: Each card displays the product name
+            3: Each card is a hyperlink that navigates to the product overview (/t/:team_name/p/:product_name)
+
     MEMBERS:
         name: A component that lists team members
         requirements:

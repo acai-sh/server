@@ -234,10 +234,10 @@ defmodule AcaiWeb.FeatureLiveTest do
       req3 = create_requirement_for_spec(spec)
       req4 = create_requirement_for_spec(spec)
 
-      # 2 accepted, 1 implemented, 1 null
+      # 2 accepted, 1 completed, 1 null
       create_requirement_status(impl, req1, status: "accepted")
       create_requirement_status(impl, req2, status: "accepted")
-      create_requirement_status(impl, req3, status: "implemented")
+      create_requirement_status(impl, req3, status: "completed")
       # req4 has no status (null)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
@@ -262,13 +262,13 @@ defmodule AcaiWeb.FeatureLiveTest do
     end
 
     # feature-view.IMPL_CARD.4-2
-    test "progress bar blue segment for implemented", %{conn: conn, user: user} do
+    test "progress bar blue segment for completed", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       spec = create_spec_for_feature(team, "my-feature")
       impl = create_implementation_for_spec(spec)
 
       req = create_requirement_for_spec(spec)
-      create_requirement_status(impl, req, status: "implemented")
+      create_requirement_status(impl, req, status: "completed")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
@@ -427,15 +427,15 @@ defmodule AcaiWeb.FeatureLiveTest do
       req4 = create_requirement_for_spec(spec)
       req5 = create_requirement_for_spec(spec)
 
-      # 2 accepted, 1 implemented, 2 null
+      # 2 accepted, 1 completed, 2 null
       create_requirement_status(impl, req1, status: "accepted")
       create_requirement_status(impl, req2, status: "accepted")
-      create_requirement_status(impl, req3, status: "implemented")
+      create_requirement_status(impl, req3, status: "completed")
       # req4 and req5 have no status
 
       counts = Implementations.get_requirement_status_counts(impl, 5)
       assert counts.accepted == 2
-      assert counts.implemented == 1
+      assert counts.completed == 1
       assert counts.null == 2
     end
   end

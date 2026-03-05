@@ -216,6 +216,42 @@ defmodule AcaiWeb.ImplementationLive do
         </.header>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <%!-- implementation-view.CANONICAL_SPEC: Canonical spec link --%>
+          <.info_card title="Canonical Spec">
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold text-base-content/50 uppercase">Feature</span>
+                <.link
+                  href={~p"/t/#{@team.name}/f/#{@feature_name}"}
+                  class="link link-primary flex items-center gap-2 font-medium"
+                >
+                  <.icon name="hero-document-text" class="size-4" />
+                  {@feature_name}
+                </.link>
+              </div>
+              <div class="text-sm text-base-content/70">
+                <p class="italic">{@spec.feature_description}</p>
+                <div class="mt-2 flex flex-col gap-1 font-mono text-xs">
+                  <div class="flex items-center gap-2">
+                    <span class="opacity-50">Path:</span>
+                    <span class="truncate">{@spec.path}</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="opacity-50">Repo:</span>
+                    <span class="truncate">{@spec.repo_uri}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </.info_card>
+
+          <%!-- implementation-view.LINKED_BRANCHES: Tracked branches --%>
+          <.info_card title="Tracked Branches">
+            <.tracked_branches_list branches={@tracked_branches} />
+          </.info_card>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <%!-- implementation-view.REQ_COVERAGE: Requirements coverage grid --%>
           <.coverage_section title="Requirements Coverage">
             <.req_coverage_grid
@@ -231,24 +267,6 @@ defmodule AcaiWeb.ImplementationLive do
               on_click="open_drawer"
             />
           </.coverage_section>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <%!-- implementation-view.CANONICAL_SPEC: Canonical spec link --%>
-          <.info_card title="Canonical Spec">
-            <.link
-              navigate={~p"/t/#{@team.name}/f/#{@feature_name}"}
-              class="link link-primary flex items-center gap-2"
-            >
-              <.icon name="hero-document-text" class="size-5" />
-              {@feature_name}
-            </.link>
-          </.info_card>
-
-          <%!-- implementation-view.LINKED_BRANCHES: Tracked branches --%>
-          <.info_card title="Tracked Branches">
-            <.tracked_branches_list branches={@tracked_branches} />
-          </.info_card>
         </div>
 
         <%!-- implementation-view.REQ_LIST: Requirements table --%>
@@ -277,19 +295,19 @@ defmodule AcaiWeb.ImplementationLive do
   defp breadcrumb(assigns) do
     ~H"""
     <nav class="flex items-center gap-2 text-sm text-base-content/70">
-      <.link navigate={~p"/t/#{@team.name}"} class="hover:text-primary">
+      <.link href={~p"/t/#{@team.name}"} class="hover:text-primary">
         {@team.name}
       </.link>
       <span class="text-base-content/40">/</span>
-      <.link navigate={~p"/t/#{@team.name}/p/#{@spec.feature_product}"} class="hover:text-primary">
+      <.link href={~p"/t/#{@team.name}/p/#{@spec.feature_product}"} class="hover:text-primary">
         {@spec.feature_product}
       </.link>
       <span class="text-base-content/40">/</span>
-      <.link navigate={~p"/t/#{@team.name}/f/#{@feature_name}"} class="hover:text-primary">
+      <.link href={~p"/t/#{@team.name}/f/#{@feature_name}"} class="hover:text-primary">
         {@feature_name}
       </.link>
       <span class="text-base-content/40">/</span>
-      <span class="text-base-content">{@implementation.name}</span>
+      <span class="text-base-content font-medium">{@implementation.name}</span>
     </nav>
     """
   end
@@ -327,26 +345,27 @@ defmodule AcaiWeb.ImplementationLive do
   # implementation-view.REQ_COVERAGE.2: Chip color based on status
   defp req_chip(assigns) do
     ~H"""
-    <span class={
-      [
-        "badge badge-lg cursor-pointer transition-all hover:scale-105",
-        # implementation-view.REQ_COVERAGE.2-1: Green for accepted
-        @requirement.status == "accepted" && "badge-success",
-        # implementation-view.REQ_COVERAGE.2-2: Blue for implemented
-        @requirement.status == "implemented" && "badge-info",
-        # implementation-view.REQ_COVERAGE.2-3: Gray for null/no status
-        (@requirement.status == nil || @requirement.status == "") && "badge-ghost"
-      ]
-    }>
-      {@requirement.acid}
-    </span>
+    <div
+      title={@requirement.acid}
+      class={
+        [
+          "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110",
+          # implementation-view.REQ_COVERAGE.2-1: Green for accepted
+          @requirement.status == "accepted" && "bg-success",
+          # implementation-view.REQ_COVERAGE.2-2: Blue for completed
+          @requirement.status == "completed" && "bg-info",
+          # implementation-view.REQ_COVERAGE.2-3: Gray for null/no status
+          (@requirement.status == nil || @requirement.status == "") && "bg-base-300"
+        ]
+      }
+    />
     """
   end
 
   # implementation-view.TEST_COVERAGE: Test coverage grid
   defp test_coverage_grid(assigns) do
     ~H"""
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap gap-1.5">
       <.link
         :for={req <- @requirements}
         phx-click={@on_click}
@@ -362,21 +381,22 @@ defmodule AcaiWeb.ImplementationLive do
   # implementation-view.TEST_COVERAGE.2: Chip color based on test references
   defp test_chip(assigns) do
     ~H"""
-    <span class={
-      [
-        "badge badge-lg cursor-pointer transition-all hover:scale-105",
-        # implementation-view.TEST_COVERAGE.2-1: Green if tests exist
-        @requirement.tests_count > 0 && "badge-success",
-        # implementation-view.TEST_COVERAGE.2-2: Gray if no tests
-        @requirement.tests_count == 0 && "badge-ghost"
-      ]
-    }>
-      {@requirement.acid}
-      <%!-- implementation-view.TEST_COVERAGE.3: Show count on green chips --%>
+    <div
+      title={"#{@requirement.acid} (#{@requirement.tests_count} tests)"}
+      class={
+        [
+          "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110 flex items-center justify-center text-[10px] font-bold text-white",
+          # implementation-view.TEST_COVERAGE.2-1: Green if tests exist
+          @requirement.tests_count > 0 && "bg-success",
+          # implementation-view.TEST_COVERAGE.2-2: Gray if no tests
+          @requirement.tests_count == 0 && "bg-base-300"
+        ]
+      }
+    >
       <%= if @requirement.tests_count > 0 do %>
-        <span class="ml-1 text-xs opacity-80">({@requirement.tests_count})</span>
+        {@requirement.tests_count}
       <% end %>
-    </span>
+    </div>
     """
   end
 
@@ -512,7 +532,7 @@ defmodule AcaiWeb.ImplementationLive do
       <span class={[
         "badge badge-sm",
         @status == "accepted" && "badge-success",
-        @status == "implemented" && "badge-info",
+        @status == "completed" && "badge-info",
         @status == "pending" && "badge-warning",
         @status == "blocked" && "badge-error"
       ]}>

@@ -41,7 +41,7 @@ components:
                 Generate at least 3 `Specs` for `testing-team` with varying states:
                 - One spec with a full set of requirements and multiple implementations
                 - One spec with pending requirements and no implementations
-                - One spec with a mix of implemented, partially implemented, and deprecated requirements
+                - One spec with a mix of completed, partially completed, and deprecated requirements
             2: |
                 Requirements for each spec must cover:
                 - Both `COMPONENT` and `CONSTRAINT` group types

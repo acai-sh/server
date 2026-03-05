@@ -25,8 +25,9 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
       {team, _role} = create_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 
-      assert has_element?(view, "a[href='/teams']")
-      assert has_element?(view, "img[src='/images/logo.svg']")
+      # logo moved into sidebar nav panel
+      assert has_element?(view, "#nav-panel a[href='/teams']")
+      assert has_element?(view, "#nav-panel img[src='/images/logo.svg']")
     end
 
     # nav.HEADER.2
@@ -75,12 +76,10 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team1.name}")
 
-      # Simulate selecting a different team via the select element's phx-change
-      # The select element has phx-change="select_team" and phx-target pointing to the component
-      # We need to trigger the change event with the team value
+      # Simulate selecting a different team via the form's phx-change
       assert {:error, {:live_redirect, %{to: redirect_path}}} =
                view
-               |> element("#team-selector")
+               |> element("form[phx-change='select_team']")
                |> render_change(%{"team" => team2.name})
 
       assert redirect_path == "/t/#{team2.name}"
@@ -128,8 +127,8 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 
-      assert has_element?(view, "button", "product-a")
-      assert has_element?(view, "button", "product-b")
+      assert has_element?(view, "a", "product-a")
+      assert has_element?(view, "a", "product-b")
     end
 
     # nav.PANEL.3-2
@@ -140,7 +139,7 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 
-      assert has_element?(view, "button", "my-product")
+      assert has_element?(view, "a", "my-product")
     end
   end
 
@@ -155,8 +154,8 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 
-      # Expand the product first
-      view |> element("button", "my-product") |> render_click()
+      # Expand the product first - target the expansion button by value
+      view |> element("button[phx-value-product='my-product']") |> render_click()
 
       assert has_element?(view, "a[href='/t/#{team.name}/f/#{spec.feature_name}']")
     end
@@ -171,8 +170,8 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 
       # Expand both products
-      view |> element("button", "product-a") |> render_click()
-      view |> element("button", "product-b") |> render_click()
+      view |> element("button[phx-value-product='product-a']") |> render_click()
+      view |> element("button[phx-value-product='product-b']") |> render_click()
 
       # Both features should be visible
       assert has_element?(view, "a", "feature-1")
@@ -197,7 +196,7 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 
       # The product should be visible
-      assert has_element?(view, "button", "my-product")
+      assert has_element?(view, "a", "my-product")
     end
 
     # nav.PANEL.5-2
@@ -214,7 +213,7 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 
       # Expand the product to see the feature
-      view |> element("button", "my-product") |> render_click()
+      view |> element("button[phx-value-product='my-product']") |> render_click()
 
       assert has_element?(view, "a[href='/t/#{team.name}/f/#{spec.feature_name}']")
     end
@@ -230,8 +229,8 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 
-      # The product button should exist
-      assert has_element?(view, "button", "my-product")
+      # The product link should exist
+      assert has_element?(view, "a", "my-product")
     end
   end
 

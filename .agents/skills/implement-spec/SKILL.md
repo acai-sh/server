@@ -1,6 +1,6 @@
 ---
 name: implement-spec
-description: Learn how to implement feature.yaml specs in the codebase
+description: Learn how to write code that satisfies requirements defined in feature.yaml specs
 ---
 
 We write and review high quality specs before assigning them for implementation. Specs are in `/features/**/*` in `feature.yaml` files

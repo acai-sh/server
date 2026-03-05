@@ -26,9 +26,9 @@ components:
             3: Renders the total count of requirements for the feature's spec
             4: Renders a progress bar broken into three segments, proportional to requirement status counts
             4-1: Green segment represents the proportion of requirement_statuses with status 'accepted'
-            4-2: Blue segment represents the proportion with status 'implemented'
+            4-2: Blue segment represents the proportion with status 'completed'
             4-3: Gray segment represents the proportion with a null status or no requirement_status row for this implementation
-            4-note: For example, 50 accepted + 25 implemented + 25 null out of 100 total renders as 50% green, 25% blue, 25% gray
+            4-note: For example, 50 accepted + 25 completed + 25 null out of 100 total renders as 50% green, 25% blue, 25% gray
 
 constraints:
     ROUTING:
