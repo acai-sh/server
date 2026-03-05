@@ -1,0 +1,65 @@
+feature:
+    name: nav
+    description: |
+        The persistent app shell navigation for authenticated team views (/t/:team_name/...).
+        Includes a collapsible sidebar panel, a slim top header bar, and contextual active-state
+        highlighting as the user drills into products, features, and implementations.
+    prerequisites:
+        - data-model.TEAMS
+        - data-model.SPECS
+        - data-model.IMPLS
+        - team-roles
+
+components:
+    HEADER:
+        name: Top header bar, visible on all authenticated /t/:team_name/* views
+        requirements:
+            1: Renders the application logo/wordmark, linking to /teams
+            2: Renders the current user's email address
+            3: Renders a link to User Settings (/users/settings)
+            4: Renders a Log Out button
+
+    PANEL:
+        name: Sidebar navigation panel for team-scoped views
+        description: |
+            A persistent left sidebar rendered on all /t/:team_name/* routes.
+            Organises navigation into two sections: top-level team navigation and a per-product drill-down.
+        requirements:
+            1: Renders a team dropdown selector at the top of the panel
+            1-1: The dropdown lists all teams the current user is a member of
+            1-2: Selecting a team navigates to /t/:team_name for that team
+            1-3: The currently active team is visually indicated in the dropdown
+
+            2: Renders a Home nav item linking to /t/:team_name (team overview)
+            3: Renders an Activity nav item linking to /t/:team_name/activities
+
+            4: Renders a "PRODUCTS" section header below the top-level nav items
+            4-1: Each product associated with the team is rendered as a collapsible item under the PRODUCTS header
+            4-2: A product's display name is derived from the feature_product field on its specs
+            4-3: Products with no specs are not shown
+
+            5: Each product item can be expanded to reveal the list of feature names within that product
+            5-1: Each feature name links to /t/:team_name/f/:feature-name
+            5-2: Only one product is expanded at a time; expanding another collapses the previous one
+
+            6: The panel automatically expands and highlights the correct product and feature based on the current URL
+            6-1: When viewing /t/:team_name/p/:product-name, the matching product item is expanded and highlighted
+            6-2: When viewing /t/:team_name/f/:feature-name, the matching product is expanded and the matching feature is highlighted
+            6-3: When viewing /t/:team_name/i/:implementation-name, the panel highlights the feature that owns that implementation
+            6-4: Highlighting propagates upward — the active product is also highlighted whenever any child feature or implementation is active
+
+            7: Renders a Team Settings link (/t/:team_name/settings) and a Tokens link (/t/:team_name/tokens) at the bottom of the panel
+
+    MOBILE:
+        name: Mobile navigation behaviour
+        requirements:
+            1: On small screens the sidebar is hidden by default and toggled via a hamburger button in the header
+            2: Opening the mobile panel overlays the content area; closing it restores the content
+            3: Navigating to any route closes the mobile panel automatically
+
+constraints:
+    AUTH:
+        name: Visibility and access
+        requirements:
+            1: The PANEL and team-specific HEADER elements are only rendered for authenticated users inside a /t/:team_name/* live_session
+            2: The panel only lists teams and products that the current_scope.user has access to; no cross-tenant data is ever rendered
