@@ -1,0 +1,9 @@
+feature:
+    name: index-view
+    description: The index route and view
+
+components:
+    REDIRECT:
+        requirements:
+            1: Visitors to the application root e.g. `app.acai.sh` are redirected to /teams.
+            1-note: /teams is protected so they may be redirected again to log in, that's intended behavior.
