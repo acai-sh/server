@@ -353,7 +353,7 @@ defmodule Acai.SeedsTest do
       assert count >= 3
     end
 
-    # SEED_DATA.MOCK_DATA.1 — spec with full requirements and multiple implementations
+    # SEED_DATA.MOCK_DATA.1
     test "spec_a has full requirements and multiple implementations", %{
       testing_team: testing_team
     } do
@@ -412,7 +412,7 @@ defmodule Acai.SeedsTest do
       assert impl_feat.id
     end
 
-    # SEED_DATA.MOCK_DATA.1 — spec with pending requirements and no implementations
+    # SEED_DATA.MOCK_DATA.1
     test "spec_b has requirements but no implementations", %{testing_team: testing_team} do
       spec_b = build_spec_b(testing_team)
 
@@ -444,7 +444,7 @@ defmodule Acai.SeedsTest do
       assert req_count >= 1
     end
 
-    # SEED_DATA.MOCK_DATA.1 — spec with mix of implemented/partial/deprecated
+    # SEED_DATA.MOCK_DATA.1
     test "spec_c has mixed-status and deprecated requirements", %{testing_team: testing_team} do
       spec_c = build_spec_c(testing_team)
 
@@ -513,7 +513,7 @@ defmodule Acai.SeedsTest do
       assert "partial" in status_values
     end
 
-    # SEED_DATA.MOCK_DATA.2 — both COMPONENT and CONSTRAINT group types
+    # SEED_DATA.MOCK_DATA.2
     test "requirements cover both COMPONENT and CONSTRAINT group types", %{
       testing_team: testing_team
     } do
@@ -551,7 +551,7 @@ defmodule Acai.SeedsTest do
       assert :CONSTRAINT in group_types
     end
 
-    # SEED_DATA.MOCK_DATA.2 — nested requirements via parent_local_id
+    # SEED_DATA.MOCK_DATA.2
     test "requirements include nested sub-requirements", %{testing_team: testing_team} do
       spec = build_spec_a(testing_team)
 
@@ -590,7 +590,7 @@ defmodule Acai.SeedsTest do
       assert nested_count >= 1
     end
 
-    # SEED_DATA.MOCK_DATA.2 — requirements with notes and replaced_by ACIDs
+    # SEED_DATA.MOCK_DATA.2
     test "requirements include notes and replaced_by ACIDs", %{testing_team: testing_team} do
       spec = build_spec_a(testing_team)
 
@@ -626,7 +626,7 @@ defmodule Acai.SeedsTest do
   describe "SEED_DATA.MOCK_DATA — implementations and tracked branches" do
     setup :build_users_and_teams
 
-    # SEED_DATA.MOCK_DATA.3 — at least one implementation with a linked TrackedBranch
+    # SEED_DATA.MOCK_DATA.3
     test "at least one implementation has a linked TrackedBranch", %{testing_team: testing_team} do
       spec =
         seed_spec(testing_team, %{
@@ -666,7 +666,7 @@ defmodule Acai.SeedsTest do
       assert branch_count >= 1
     end
 
-    # SEED_DATA.MOCK_DATA.3 — varying statuses for requirements within implementations
+    # SEED_DATA.MOCK_DATA.3
     test "requirement statuses include varying values (implemented, partial, pending)", %{
       testing_team: testing_team
     } do
@@ -750,7 +750,7 @@ defmodule Acai.SeedsTest do
   describe "SEED_DATA.MOCK_DATA — activity events" do
     setup :build_users_and_teams
 
-    # SEED_DATA.MOCK_DATA.4 — events for spec creation, requirement updates, implementation progress
+    # SEED_DATA.MOCK_DATA.4
     test "generates events for spec creation, requirement updates and implementation progress", %{
       owner: owner,
       developer: developer,
@@ -818,7 +818,7 @@ defmodule Acai.SeedsTest do
       assert "implementation.created" in event_types
     end
 
-    # SEED_DATA.MOCK_DATA.4 — events attributed to different team members
+    # SEED_DATA.MOCK_DATA.4
     test "events are attributed to both owner and developer actors", %{
       owner: owner,
       developer: developer,
@@ -869,7 +869,7 @@ defmodule Acai.SeedsTest do
   # ---------------------------------------------------------------------------
 
   describe "SEED_DATA.ENVIRONMENT — idempotency" do
-    # SEED_DATA.ENVIRONMENT.1 — verifies seed helpers run without error
+    # SEED_DATA.ENVIRONMENT.1
     test "seed helpers execute without errors" do
       assert %User{} = seed_user("owner@testing.team")
       assert %User{} = seed_user("developer@testing.team")
@@ -882,7 +882,7 @@ defmodule Acai.SeedsTest do
       assert testing_team.name == "testing-team"
     end
 
-    # SEED_DATA.ENVIRONMENT.2 — running seed helpers twice does not create duplicates
+    # SEED_DATA.ENVIRONMENT.2
     test "seed_user is idempotent — calling twice returns same user" do
       user_first = seed_user("idempotent@testing.team")
       user_second = seed_user("idempotent@testing.team")
@@ -899,7 +899,7 @@ defmodule Acai.SeedsTest do
       assert count == 1
     end
 
-    # SEED_DATA.ENVIRONMENT.2 — seed_team is idempotent
+    # SEED_DATA.ENVIRONMENT.2
     test "seed_team is idempotent — calling twice returns same team" do
       owner = seed_user("idempotent-owner@testing.team")
       team_first = seed_team("idempotent-team", owner)
@@ -917,7 +917,7 @@ defmodule Acai.SeedsTest do
       assert count == 1
     end
 
-    # SEED_DATA.ENVIRONMENT.2 — seed_role is idempotent
+    # SEED_DATA.ENVIRONMENT.2
     test "seed_role is idempotent — calling twice does not create duplicate roles" do
       owner = seed_user("idempotent-role-owner@testing.team")
       team = seed_team("idempotent-role-team", owner)
@@ -935,7 +935,7 @@ defmodule Acai.SeedsTest do
       assert count == 1
     end
 
-    # SEED_DATA.ENVIRONMENT.2 — seed_spec is idempotent
+    # SEED_DATA.ENVIRONMENT.2
     test "seed_spec is idempotent — calling twice returns same spec" do
       owner = seed_user("spec-idempotent@testing.team")
       team = seed_team("spec-idempotent-team", owner)
@@ -967,7 +967,7 @@ defmodule Acai.SeedsTest do
       assert count == 1
     end
 
-    # SEED_DATA.ENVIRONMENT.2 — seed_requirement is idempotent
+    # SEED_DATA.ENVIRONMENT.2
     test "seed_requirement is idempotent — calling twice returns same requirement" do
       owner = seed_user("req-idempotent@testing.team")
       team = seed_team("req-idempotent-team", owner)
@@ -1008,7 +1008,7 @@ defmodule Acai.SeedsTest do
       assert count == 1
     end
 
-    # SEED_DATA.ENVIRONMENT.2 — seed_impl is idempotent
+    # SEED_DATA.ENVIRONMENT.2
     test "seed_impl is idempotent — calling twice returns same implementation" do
       owner = seed_user("impl-idempotent@testing.team")
       team = seed_team("impl-idempotent-team", owner)
