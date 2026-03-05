@@ -190,4 +190,17 @@ defmodule Acai.Implementations do
 
     %{accepted: accepted, implemented: implemented, null: null}
   end
+
+  # requirement-details.DRAWER.4
+  @doc """
+  Gets the requirement_status for a specific requirement and implementation.
+  Returns nil if no status exists.
+  """
+  def get_requirement_status(%Requirement{} = requirement, %Implementation{} = implementation) do
+    Repo.one(
+      from rs in RequirementStatus,
+        where: rs.implementation_id == ^implementation.id,
+        where: rs.requirement_id == ^requirement.id
+    )
+  end
 end
