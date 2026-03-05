@@ -61,6 +61,9 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
       ]}
       phx-mounted={@visible && show_drawer(@id)}
       phx-remove={hide_drawer(@id)}
+      phx-window-keydown="close"
+      phx-target={@myself}
+      phx-key="Escape"
     >
       <%!-- requirement-details.DRAWER.6: Backdrop click dismisses drawer --%>
       <div

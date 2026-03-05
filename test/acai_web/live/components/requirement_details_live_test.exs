@@ -464,6 +464,23 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
       # Backdrop should have phx-click="close"
       assert html =~ "phx-click=\"close\""
     end
+
+    test "escape key dismisses drawer", %{user: user} do
+      %{requirement: requirement, implementation: implementation} = setup_data_chain()
+      create_team_with_owner(user)
+
+      assigns = %{
+        id: "test-drawer",
+        requirement: requirement,
+        implementation: implementation,
+        visible: true
+      }
+
+      html = render_drawer(assigns)
+      # Drawer should have phx-window-keydown="close" and phx-key="Escape"
+      assert html =~ "phx-window-keydown=\"close\""
+      assert html =~ "phx-key=\"Escape\""
+    end
   end
 
   describe "Data isolation tests" do
