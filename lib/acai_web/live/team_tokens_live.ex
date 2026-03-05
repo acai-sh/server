@@ -22,6 +22,14 @@ defmodule AcaiWeb.TeamTokensLive do
 
     # team-tokens.MAIN.1
     tokens = Teams.list_team_tokens(team)
+    inactive_tokens = Teams.list_inactive_team_tokens(team)
+
+    timezone_offset =
+      if connected?(socket) do
+        get_connect_params(socket)["timezone_offset"] || 0
+      else
+        0
+      end
 
     socket =
       socket
@@ -30,6 +38,10 @@ defmodule AcaiWeb.TeamTokensLive do
       |> assign(:tokens_empty?, tokens == [])
       # team-tokens.MAIN.1
       |> stream(:tokens, tokens)
+      # team-tokens.INACTIVE.1
+      |> stream(:inactive_tokens, inactive_tokens)
+      # team-tokens.INACTIVE.3
+      |> assign(:inactive_expanded, false)
       # team-tokens.MAIN.3
       |> assign(:show_create_modal, false)
       |> assign(:create_form, to_form(Teams.change_access_token(%AccessToken{}), as: :token))
@@ -38,6 +50,7 @@ defmodule AcaiWeb.TeamTokensLive do
       # team-tokens.MAIN.5
       |> assign(:show_revoke_modal, false)
       |> assign(:revoking_token, nil)
+      |> assign(:timezone_offset, timezone_offset)
 
     {:ok, socket}
   end
@@ -71,7 +84,7 @@ defmodule AcaiWeb.TeamTokensLive do
 
   def handle_event("validate", %{"token" => params}, socket) do
     changeset =
-      Teams.change_access_token(%AccessToken{}, params)
+      Teams.change_access_token(%AccessToken{}, params, socket.assigns.timezone_offset)
       |> Map.put(:action, :validate)
 
     {:noreply, assign(socket, :create_form, to_form(changeset, as: :token))}
@@ -80,15 +93,28 @@ defmodule AcaiWeb.TeamTokensLive do
   def handle_event("create_token", %{"token" => params}, socket) do
     # team-tokens.TATSEC.4
     if socket.assigns.can_manage_tokens? do
-      attrs = build_token_attrs(params)
-
-      case Teams.generate_token(socket.assigns.current_scope, socket.assigns.team, attrs) do
+      case Teams.generate_token(
+             socket.assigns.current_scope,
+             socket.assigns.team,
+             params,
+             socket.assigns.timezone_offset
+           ) do
         {:ok, token} ->
+          is_valid? = Teams.valid_token?(token)
+
           # team-tokens.MAIN.4
           socket =
+            if is_valid? do
+              socket
+              |> stream_insert(:tokens, token, at: 0)
+              |> assign(:tokens_empty?, false)
+            else
+              socket
+              |> stream_insert(:inactive_tokens, token, at: 0)
+            end
+
+          socket =
             socket
-            |> stream_insert(:tokens, token)
-            |> assign(:tokens_empty?, false)
             |> assign(:created_token, token.raw_token)
             |> assign(
               :create_form,
@@ -150,7 +176,9 @@ defmodule AcaiWeb.TeamTokensLive do
 
         socket =
           socket
-          |> stream_insert(:tokens, revoked_with_user)
+          |> stream_delete(:tokens, revoking_token)
+          |> stream_insert(:inactive_tokens, revoked_with_user, at: 0)
+          |> assign(:tokens_empty?, Teams.list_team_tokens(socket.assigns.team) == [])
           |> assign(:show_revoke_modal, false)
           |> assign(:revoking_token, nil)
 
@@ -161,30 +189,8 @@ defmodule AcaiWeb.TeamTokensLive do
     end
   end
 
-  # --- Private helpers ---
-
-  defp build_token_attrs(params) do
-    attrs = %{name: params["name"]}
-
-    case params["expires_at"] do
-      nil ->
-        attrs
-
-      "" ->
-        attrs
-
-      expires_str ->
-        case DateTime.from_iso8601(expires_str <> ":00Z") do
-          {:ok, dt, _} ->
-            Map.put(attrs, :expires_at, dt)
-
-          _ ->
-            case NaiveDateTime.from_iso8601(expires_str <> ":00") do
-              {:ok, naive} -> Map.put(attrs, :expires_at, DateTime.from_naive!(naive, "Etc/UTC"))
-              _ -> attrs
-            end
-        end
-    end
+  def handle_event("toggle_inactive", _params, socket) do
+    {:noreply, assign(socket, :inactive_expanded, not socket.assigns.inactive_expanded)}
   end
 
   @impl true
@@ -232,7 +238,6 @@ defmodule AcaiWeb.TeamTokensLive do
           <h2 class="text-base font-semibold">Tokens</h2>
 
           <div id="tokens-list" phx-update="stream" class="space-y-2">
-            <%!-- team-tokens.MAIN.1-1 --%>
             <div
               :for={{id, token} <- @streams.tokens}
               id={id}
@@ -247,11 +252,6 @@ defmodule AcaiWeb.TeamTokensLive do
                   <code class="font-mono text-xs bg-base-200 px-1.5 py-0.5 rounded">
                     {token.token_prefix}…
                   </code>
-                  <%= if not is_nil(token.revoked_at) do %>
-                    <span class="inline-flex items-center gap-1 text-xs font-medium text-error bg-error/10 px-2 py-0.5 rounded-full">
-                      <.icon name="hero-x-circle" class="size-3" /> Revoked
-                    </span>
-                  <% end %>
                 </div>
                 <div class="text-xs text-base-content/50 flex flex-wrap gap-x-3 gap-y-0.5">
                   <span>
@@ -274,7 +274,7 @@ defmodule AcaiWeb.TeamTokensLive do
                 id={"revoke-btn-#{token.id}"}
                 phx-click="open_revoke_modal"
                 phx-value-token_id={token.id}
-                disabled={not @can_manage_tokens? or not is_nil(token.revoked_at)}
+                disabled={not @can_manage_tokens?}
                 class="btn btn-sm btn-ghost text-error hover:bg-error/10"
               >
                 <.icon name="hero-x-circle" class="size-4" />
@@ -286,6 +286,74 @@ defmodule AcaiWeb.TeamTokensLive do
               No tokens yet. Create one to get started.
             </div>
           <% end %>
+        </div>
+
+        <%!-- team-tokens.INACTIVE.1 / INACTIVE.3 --%>
+        <div id="inactive-tokens-section" class="border-t border-base-300 pt-6">
+          <button
+            id="toggle-inactive-btn"
+            type="button"
+            phx-click="toggle_inactive"
+            class="flex items-center gap-2 text-sm font-semibold text-base-content/50 hover:text-base-content"
+          >
+            <.icon
+              name={if @inactive_expanded, do: "hero-chevron-down", else: "hero-chevron-right"}
+              class="size-4"
+            /> Inactive Tokens
+          </button>
+
+          <div id="inactive-tokens-container" class={if not @inactive_expanded, do: "hidden"}>
+            <div id="inactive-tokens-list" phx-update="stream" class="mt-4 space-y-2">
+              <div
+                id="inactive-tokens-empty-state"
+                class="hidden only:block text-xs text-base-content/30 py-2 italic"
+              >
+                No inactive tokens.
+              </div>
+              <div
+                :for={{id, token} <- @streams.inactive_tokens}
+                id={id}
+                class="rounded-xl border border-base-300 bg-base-50/50 px-4 py-3 flex items-center gap-4 opacity-70"
+              >
+                <div class="rounded-lg bg-base-300 p-2">
+                  <.icon name="hero-key" class="size-5 text-base-content/40" />
+                </div>
+                <div class="flex-1 min-w-0 space-y-0.5">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-semibold truncate text-base-content/60">{token.name}</span>
+                    <code class="font-mono text-xs bg-base-200/50 px-1.5 py-0.5 rounded text-base-content/50">
+                      {token.token_prefix}…
+                    </code>
+                    <%!-- team-tokens.INACTIVE.2 --%>
+                    <%= if not is_nil(token.revoked_at) do %>
+                      <span class="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-base-content/40 bg-base-300 px-2 py-0.5 rounded-full">
+                        Revoked
+                      </span>
+                    <% else %>
+                      <span class="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-warning/70 bg-warning/10 px-2 py-0.5 rounded-full">
+                        Expired
+                      </span>
+                    <% end %>
+                  </div>
+                  <div class="text-[11px] text-base-content/40 flex flex-wrap gap-x-3 gap-y-0.5">
+                    <span>
+                      Created by {token.user && token.user.email}
+                    </span>
+                    <%!-- team-tokens.INACTIVE.2 --%>
+                    <%= if not is_nil(token.revoked_at) do %>
+                      <span>
+                        Revoked on {Calendar.strftime(token.revoked_at, "%b %d, %Y")}
+                      </span>
+                    <% else %>
+                      <span>
+                        Expired on {Calendar.strftime(token.expires_at, "%b %d, %Y")}
+                      </span>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <%!-- team-tokens.USAGE.1 --%>
@@ -412,7 +480,7 @@ defmodule AcaiWeb.TeamTokensLive do
                   autocomplete="off"
                 />
                 <.input
-                  field={@create_form[:expires_at]}
+                  field={@create_form[:expires_at_local]}
                   type="datetime-local"
                   label="Expiration (optional)"
                 />

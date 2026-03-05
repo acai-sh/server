@@ -286,13 +286,27 @@ defmodule Acai.TeamsTest do
     end
 
     # team-tokens.MAIN.1
-    test "returns all tokens for the team regardless of user", %{
+    test "returns only active and non-expired tokens for the team regardless of user", %{
       team: team,
       token1: token1,
-      token2: token2
+      token2: token2,
+      owner: owner
     } do
+      # Add a revoked token
+      access_token_fixture(team, owner, %{name: "Revoked", revoked_at: DateTime.utc_now()})
+
+      # Add an expired token
+      expired_token = access_token_fixture(team, owner, %{name: "Expired"})
+      past = DateTime.utc_now() |> DateTime.add(-3600, :second)
+
+      Repo.update_all(
+        from(t in AccessToken, where: t.id == ^expired_token.id),
+        set: [expires_at: past]
+      )
+
       tokens = Teams.list_team_tokens(team)
       token_ids = Enum.map(tokens, & &1.id)
+      assert length(tokens) == 2
       assert token1.id in token_ids
       assert token2.id in token_ids
     end
@@ -332,6 +346,53 @@ defmodule Acai.TeamsTest do
       newer_idx = Enum.find_index(ids, &(&1 == newer.id))
       older_idx = Enum.find_index(ids, &(&1 == older.id))
       assert newer_idx < older_idx
+    end
+  end
+
+  describe "list_inactive_team_tokens/1" do
+    setup do
+      owner = user_fixture()
+      team = team_fixture()
+      user_team_role_fixture(team, owner, %{title: "owner"})
+
+      token1 = access_token_fixture(team, owner, %{name: "Active"})
+
+      token2 =
+        access_token_fixture(team, owner, %{name: "Revoked 1", revoked_at: DateTime.utc_now()})
+
+      token3 =
+        access_token_fixture(team, owner, %{name: "Revoked 2", revoked_at: DateTime.utc_now()})
+
+      token4 = access_token_fixture(team, owner, %{name: "Expired"})
+      past = DateTime.utc_now() |> DateTime.add(-3600, :second)
+
+      Repo.update_all(
+        from(t in AccessToken, where: t.id == ^token4.id),
+        set: [expires_at: past]
+      )
+
+      %{team: team, active: token1, revoked1: token2, revoked2: token3, expired: token4}
+    end
+
+    test "returns only revoked or expired tokens", %{
+      team: team,
+      active: active,
+      revoked1: r1,
+      revoked2: r2,
+      expired: expired
+    } do
+      tokens = Teams.list_inactive_team_tokens(team)
+      ids = Enum.map(tokens, & &1.id)
+      assert length(tokens) == 3
+      refute active.id in ids
+      assert r1.id in ids
+      assert r2.id in ids
+      assert expired.id in ids
+    end
+
+    test "preloads the user association", %{team: team} do
+      tokens = Teams.list_inactive_team_tokens(team)
+      assert Enum.all?(tokens, fn t -> not is_nil(t.user) and is_binary(t.user.email) end)
     end
   end
 

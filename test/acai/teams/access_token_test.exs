@@ -61,12 +61,13 @@ defmodule Acai.Teams.AccessTokenTest do
     # data-model.TOKENS.9
     test "accepts optional timestamp fields" do
       now = DateTime.utc_now(:second)
+      future = DateTime.add(now, 3600, :second)
 
       cs =
         AccessToken.changeset(
           %AccessToken{},
           Map.merge(@valid_attrs, %{
-            expires_at: now,
+            expires_at: future,
             revoked_at: now,
             last_used_at: now
           })

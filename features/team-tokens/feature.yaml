@@ -15,6 +15,7 @@ components:
             2: "User education explains that Team Access Tokens provide full read and write access to any resources in the team, except admin actions"
             3: Can create a new token, with name, optional expiration timestamp (date picker)
             3-1: Can not edit token scopes, it's the same set of scopes for all tokens
+            3-2: Time picker is local system clock, but gets offset to match UTC
             4: On creation, user is presented with the token, and educated that they will never be able to see it again
             4-1: Displayed token has a copy paste button and can be cleanly highlighted with click-drag or triple-mouse click
             5: Tokens can be revoked by clicking a revoke button
@@ -23,6 +24,12 @@ components:
     USAGE:
         requirements:
             1: Renders a mock Usage section with a "coming soon" placeholder.
+
+    INACTIVE:
+        requirements:
+            1: Renders an incative tokens section, collapsed by default
+            2: When opened it shows tokens with Expired and Revoked badges, with expiry date and revocation date
+            3: These tokens are excluded from the main list
 
 constraints:
     TATSEC:

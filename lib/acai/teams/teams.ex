@@ -222,19 +222,37 @@ defmodule Acai.Teams do
   # team-tokens.MAIN.1
   # team-tokens.TATSEC.5
   def list_team_tokens(%Team{} = team) do
+    now = DateTime.utc_now()
+
     Repo.all(
       from t in AccessToken,
-        where: t.team_id == ^team.id,
+        where:
+          t.team_id == ^team.id and is_nil(t.revoked_at) and
+            (is_nil(t.expires_at) or t.expires_at > ^now),
         order_by: [desc: t.inserted_at],
+        preload: [:user]
+    )
+  end
+
+  # team-tokens.INACTIVE.1
+  def list_inactive_team_tokens(%Team{} = team) do
+    now = DateTime.utc_now()
+
+    Repo.all(
+      from t in AccessToken,
+        where:
+          t.team_id == ^team.id and
+            (not is_nil(t.revoked_at) or (not is_nil(t.expires_at) and t.expires_at <= ^now)),
+        order_by: [desc: coalesce(t.revoked_at, t.expires_at)],
         preload: [:user]
     )
   end
 
   def get_access_token!(id), do: Repo.get!(AccessToken, id)
 
-  def create_access_token(current_scope, %Team{} = team, attrs) do
+  def create_access_token(current_scope, %Team{} = team, attrs, timezone_offset \\ 0) do
     %AccessToken{}
-    |> AccessToken.changeset(attrs)
+    |> AccessToken.changeset(attrs, timezone_offset)
     |> Ecto.Changeset.put_change(:team_id, team.id)
     |> Ecto.Changeset.put_change(:user_id, current_scope.user.id)
     |> Repo.insert()
@@ -248,7 +266,7 @@ defmodule Acai.Teams do
   # team-tokens.MAIN.3
   # team-tokens.TATSEC.1
   # team-tokens.TATSEC.2
-  def generate_token(current_scope, %Team{} = team, attrs) do
+  def generate_token(current_scope, %Team{} = team, attrs, timezone_offset \\ 0) do
     raw_bytes = :crypto.strong_rand_bytes(32)
     encoded = Base.url_encode64(raw_bytes, padding: false)
     raw_token = "at_" <> encoded
@@ -256,12 +274,20 @@ defmodule Acai.Teams do
     token_prefix = "at_" <> String.slice(encoded, 0, 6)
     token_hash = :crypto.hash(:sha256, raw_token) |> Base.encode16(case: :lower)
 
-    token_attrs =
-      attrs
-      |> Map.put(:token_hash, token_hash)
-      |> Map.put(:token_prefix, token_prefix)
+    is_string_keys = Enum.any?(attrs, fn {k, _} -> is_binary(k) end)
 
-    case create_access_token(current_scope, team, token_attrs) do
+    token_attrs =
+      if is_string_keys do
+        attrs
+        |> Map.put("token_hash", token_hash)
+        |> Map.put("token_prefix", token_prefix)
+      else
+        attrs
+        |> Map.put(:token_hash, token_hash)
+        |> Map.put(:token_prefix, token_prefix)
+      end
+
+    case create_access_token(current_scope, team, token_attrs, timezone_offset) do
       {:ok, token} ->
         token_with_user = Repo.preload(token, :user)
         {:ok, %{token_with_user | raw_token: raw_token}}
@@ -300,8 +326,8 @@ defmodule Acai.Teams do
     not_revoked and not_expired
   end
 
-  def change_access_token(%AccessToken{} = token, attrs \\ %{}) do
-    AccessToken.changeset(token, attrs)
+  def change_access_token(%AccessToken{} = token, attrs \\ %{}, timezone_offset \\ 0) do
+    AccessToken.changeset(token, attrs, timezone_offset)
   end
 
   # --- Private helpers ---

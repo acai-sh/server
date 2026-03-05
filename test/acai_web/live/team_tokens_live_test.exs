@@ -4,6 +4,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
   import Phoenix.LiveViewTest
   import Acai.AccountsFixtures
   import Acai.DataModelFixtures
+  import Ecto.Query
 
   alias Acai.Repo
   alias Acai.Teams.AccessToken
@@ -38,12 +39,12 @@ defmodule AcaiWeb.TeamTokensLiveTest do
       team = setup_team_with_owner(user)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       assert has_element?(view, "#token-education")
-      assert has_element?(view, "#token-education", "tats:admin")
-      assert has_element?(view, "#token-education", "team:admin")
+      assert has_element?(view, "#token-education", "manage users")
+      assert has_element?(view, "#token-education", "other access tokens")
     end
 
     # team-tokens.MAIN.1
-    test "lists all tokens for the team including those created by other users", %{
+    test "lists only active and non-expired tokens for the team", %{
       conn: conn,
       user: user
     } do
@@ -51,12 +52,26 @@ defmodule AcaiWeb.TeamTokensLiveTest do
       other_user = user_fixture()
       user_team_role_fixture(team, other_user, %{title: "developer"})
 
-      token1 = access_token_fixture(team, user, %{name: "My Token"})
-      token2 = access_token_fixture(team, other_user, %{name: "Their Token"})
+      token1 = access_token_fixture(team, user, %{name: "Active Token"})
+
+      _token2 =
+        access_token_fixture(team, other_user, %{
+          name: "Revoked Token",
+          revoked_at: DateTime.utc_now()
+        })
+
+      token3 = access_token_fixture(team, other_user, %{name: "Expired Token"})
+      past = DateTime.utc_now() |> DateTime.add(-3600, :second)
+
+      Repo.update_all(
+        from(t in AccessToken, where: t.id == ^token3.id),
+        set: [expires_at: past]
+      )
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       assert has_element?(view, "#tokens-list", token1.name)
-      assert has_element?(view, "#tokens-list", token2.name)
+      refute has_element?(view, "#tokens-list", "Revoked Token")
+      refute has_element?(view, "#tokens-list", "Expired Token")
     end
 
     # team-tokens.MAIN.1-1
@@ -270,8 +285,8 @@ defmodule AcaiWeb.TeamTokensLiveTest do
       refute has_element?(view, "#revoke-token-modal")
     end
 
-    # team-tokens.MAIN.5
-    test "confirming revocation marks the token as revoked in the stream", %{
+    # team-tokens.MAIN.5 / INACTIVE.1
+    test "confirming revocation transfers the token to the inactive stream", %{
       conn: conn,
       user: user
     } do
@@ -279,39 +294,91 @@ defmodule AcaiWeb.TeamTokensLiveTest do
       token = access_token_fixture(team, user, %{name: "To Revoke"})
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
+      assert has_element?(view, "#tokens-list", token.name)
+
       view |> element("#revoke-btn-#{token.id}") |> render_click()
       view |> element("#confirm-revoke-btn") |> render_click()
 
       refute has_element?(view, "#revoke-token-modal")
+      refute has_element?(view, "#tokens-list", token.name)
 
-      persisted = Repo.get!(AccessToken, token.id)
-      assert not is_nil(persisted.revoked_at)
+      # Should be in inactive list (expand it first)
+      view |> element("#toggle-inactive-btn") |> render_click()
+      assert has_element?(view, "#inactive-tokens-list", token.name)
     end
+  end
 
-    # team-tokens.MAIN.5
-    test "revoked token shows revoked badge in the list", %{conn: conn, user: user} do
+  describe "inactive tokens section (INACTIVE)" do
+    setup :register_and_log_in_user
+
+    # team-tokens.INACTIVE.1
+    test "revoked tokens appear in the separate inactive tokens list", %{conn: conn, user: user} do
       team = setup_team_with_owner(user)
-      token = access_token_fixture(team, user, %{name: "Badge Token"})
-
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
-      view |> element("#revoke-btn-#{token.id}") |> render_click()
-      view |> element("#confirm-revoke-btn") |> render_click()
-
-      assert has_element?(view, "#tokens-list", "Revoked")
-    end
-
-    test "revoke button is disabled for already-revoked tokens", %{conn: conn, user: user} do
-      team = setup_team_with_owner(user)
-      now = DateTime.utc_now(:second)
 
       token =
-        access_token_fixture(team, user, %{
-          name: "Already Revoked",
-          revoked_at: now
-        })
+        access_token_fixture(team, user, %{name: "Old Token", revoked_at: DateTime.utc_now()})
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
-      assert has_element?(view, "#revoke-btn-#{token.id}[disabled]")
+
+      # Toggle expanded to see them
+      view |> element("#toggle-inactive-btn") |> render_click()
+
+      refute has_element?(view, "#tokens-list", token.name)
+      assert has_element?(view, "#inactive-tokens-list", token.name)
+    end
+
+    # team-tokens.INACTIVE.1
+    test "expired tokens appear in the separate inactive tokens list", %{conn: conn, user: user} do
+      team = setup_team_with_owner(user)
+
+      token = access_token_fixture(team, user, %{name: "Expired Token"})
+      past = DateTime.utc_now() |> DateTime.add(-3600, :second)
+
+      Repo.update_all(
+        from(t in AccessToken, where: t.id == ^token.id),
+        set: [expires_at: past]
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
+
+      # Toggle expanded to see them
+      view |> element("#toggle-inactive-btn") |> render_click()
+
+      refute has_element?(view, "#tokens-list", token.name)
+      assert has_element?(view, "#inactive-tokens-list", token.name)
+      assert has_element?(view, "#inactive-tokens-list", "Expired")
+    end
+
+    # team-tokens.INACTIVE.2
+    test "revoked tokens show a 'Revoked' badge and the revocation date", %{
+      conn: conn,
+      user: user
+    } do
+      team = setup_team_with_owner(user)
+      now = DateTime.utc_now(:second)
+      _token = access_token_fixture(team, user, %{name: "Date Test", revoked_at: now})
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
+      view |> element("#toggle-inactive-btn") |> render_click()
+
+      assert has_element?(view, "#inactive-tokens-list", "Revoked")
+      assert has_element?(view, "#inactive-tokens-list", Calendar.strftime(now, "%b %d, %Y"))
+    end
+
+    # team-tokens.INACTIVE.3
+    test "inactive section is collapsed by default and can be toggled", %{conn: conn, user: user} do
+      team = setup_team_with_owner(user)
+      access_token_fixture(team, user, %{name: "Collapsible", revoked_at: DateTime.utc_now()})
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
+
+      assert has_element?(view, "#inactive-tokens-container.hidden")
+
+      view |> element("#toggle-inactive-btn") |> render_click()
+      refute has_element?(view, "#inactive-tokens-container.hidden")
+
+      view |> element("#toggle-inactive-btn") |> render_click()
+      assert has_element?(view, "#inactive-tokens-container.hidden")
     end
   end
 end

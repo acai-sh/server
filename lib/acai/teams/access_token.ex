@@ -41,6 +41,7 @@ defmodule Acai.Teams.AccessToken do
 
     # Virtual field — not persisted, used transiently when creating a new token
     field :raw_token, :string, virtual: true
+    field :expires_at_local, :naive_datetime, virtual: true
 
     timestamps(type: :utc_datetime)
   end
@@ -48,11 +49,44 @@ defmodule Acai.Teams.AccessToken do
   @required_fields [:name, :token_hash, :token_prefix, :scopes]
 
   @doc false
-  def changeset(token, attrs) do
+  def changeset(token, attrs, timezone_offset \\ 0) do
     token
-    |> cast(attrs, @required_fields ++ [:expires_at, :revoked_at, :last_used_at])
+    |> cast(
+      attrs,
+      @required_fields ++ [:expires_at, :expires_at_local, :revoked_at, :last_used_at]
+    )
     |> validate_required(@required_fields)
+    |> compute_expires_at(timezone_offset)
+    # data-model.TOKENS.7-1
+    |> validate_not_expired()
     # data-model.TOKENS.4-1
     |> unique_constraint(:token_hash)
+  end
+
+  defp compute_expires_at(changeset, timezone_offset) do
+    case get_change(changeset, :expires_at_local) do
+      nil ->
+        changeset
+
+      local ->
+        # JS getTimezoneOffset() is minutes *behind* UTC.
+        # So UTC time = local time + offset.
+        utc_dt =
+          local
+          |> DateTime.from_naive!("Etc/UTC")
+          |> DateTime.add(timezone_offset, :minute)
+
+        put_change(changeset, :expires_at, utc_dt)
+    end
+  end
+
+  defp validate_not_expired(changeset) do
+    expires_at = get_field(changeset, :expires_at)
+
+    if expires_at && DateTime.compare(DateTime.utc_now(), expires_at) == :gt do
+      add_error(changeset, :expires_at_local, "must be in the future")
+    else
+      changeset
+    end
   end
 end
