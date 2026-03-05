@@ -15,7 +15,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
   describe "unauthenticated access" do
     test "redirects to log-in", %{conn: conn} do
       team = team_fixture()
-      {:error, {:redirect, %{to: path}}} = live(conn, ~p"/t/#{team.id}/settings")
+      {:error, {:redirect, %{to: path}}} = live(conn, ~p"/t/#{team.name}/settings")
       assert path == ~p"/users/log-in"
     end
   end
@@ -28,8 +28,8 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "developer"})
 
-      {:error, {:live_redirect, %{to: path}}} = live(conn, ~p"/t/#{team.id}/settings")
-      assert path == "/t/#{team.id}"
+      {:error, {:live_redirect, %{to: path}}} = live(conn, ~p"/t/#{team.name}/settings")
+      assert path == "/t/#{team.name}"
     end
 
     # team-settings.AUTH.2
@@ -37,21 +37,21 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "readonly"})
 
-      {:error, {:live_redirect, %{to: path}}} = live(conn, ~p"/t/#{team.id}/settings")
-      assert path == "/t/#{team.id}"
+      {:error, {:live_redirect, %{to: path}}} = live(conn, ~p"/t/#{team.name}/settings")
+      assert path == "/t/#{team.name}"
     end
 
     # team-settings.AUTH.2
     test "redirects a user with no role away from settings", %{conn: conn} do
       team = team_fixture()
-      {:error, {:live_redirect, %{to: path}}} = live(conn, ~p"/t/#{team.id}/settings")
-      assert path == "/t/#{team.id}"
+      {:error, {:live_redirect, %{to: path}}} = live(conn, ~p"/t/#{team.name}/settings")
+      assert path == "/t/#{team.name}"
     end
 
     # team-settings.AUTH.1
     test "owner can access the settings page", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, _view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, _view, _html} = live(conn, ~p"/t/#{team.name}/settings")
     end
   end
 
@@ -61,21 +61,21 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
     # team-settings.MAIN.1
     test "renders the current team name", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
       assert has_element?(view, "h1", team.name)
     end
 
     # team-settings.MAIN.2
     test "renders the Rename Team button", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
       assert has_element?(view, "#rename-team-btn")
     end
 
     # team-settings.MAIN.3
     test "renders the Delete Team button", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
       assert has_element?(view, "#delete-team-btn")
     end
   end
@@ -86,7 +86,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
     # team-settings.MAIN.2
     test "clicking Rename Team button opens the rename modal", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       refute has_element?(view, "#rename-modal")
       view |> element("#rename-team-btn") |> render_click()
@@ -95,7 +95,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
 
     test "closing the rename modal hides it", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#rename-team-btn") |> render_click()
       assert has_element?(view, "#rename-modal")
@@ -106,7 +106,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
 
     test "cancel button closes the rename modal", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#rename-team-btn") |> render_click()
       view |> element("#cancel-rename-btn") |> render_click()
@@ -119,7 +119,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       user: user
     } do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#rename-team-btn") |> render_click()
 
@@ -130,7 +130,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
     # team-settings.RENAME.2
     test "rename modal renders Save and Cancel buttons", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#rename-team-btn") |> render_click()
 
@@ -145,7 +145,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       user: user
     } do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#rename-team-btn") |> render_click()
 
@@ -160,7 +160,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
     # team-settings.RENAME.3-1
     test "shows inline error when name contains invalid characters", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#rename-team-btn") |> render_click()
 
@@ -175,7 +175,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
     # team-settings.RENAME.3-1
     test "shows inline error when name is blank", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#rename-team-btn") |> render_click()
 
@@ -191,7 +191,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
     test "shows inline error when name is already taken", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
       other_team = team_fixture()
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#rename-team-btn") |> render_click()
 
@@ -210,7 +210,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
     # team-settings.MAIN.3
     test "clicking Delete Team button opens the delete modal", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       refute has_element?(view, "#delete-modal")
       view |> element("#delete-team-btn") |> render_click()
@@ -219,7 +219,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
 
     test "closing the delete modal hides it", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#delete-team-btn") |> render_click()
       assert has_element?(view, "#delete-modal")
@@ -231,7 +231,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
     # team-settings.DELETE.4
     test "cancel button dismisses the delete modal without deleting", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#delete-team-btn") |> render_click()
       view |> element("#cancel-delete-btn") |> render_click()
@@ -243,7 +243,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
     # team-settings.DELETE.1
     test "delete modal educates user about permanent cascade-deletion", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#delete-team-btn") |> render_click()
 
@@ -257,7 +257,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
     # team-settings.DELETE.2
     test "delete modal renders a confirmation text input", %{conn: conn, user: user} do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#delete-team-btn") |> render_click()
       assert has_element?(view, "#confirm-team-name-input")
@@ -269,7 +269,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       user: user
     } do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#delete-team-btn") |> render_click()
       assert has_element?(view, "#confirm-delete-team-btn[disabled]")
@@ -281,7 +281,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       user: user
     } do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#delete-team-btn") |> render_click()
 
@@ -298,7 +298,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       user: user
     } do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#delete-team-btn") |> render_click()
 
@@ -315,7 +315,7 @@ defmodule AcaiWeb.TeamSettingsLiveTest do
       user: user
     } do
       team = create_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/settings")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/settings")
 
       view |> element("#delete-team-btn") |> render_click()
 

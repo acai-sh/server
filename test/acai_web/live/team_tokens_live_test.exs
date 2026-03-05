@@ -17,7 +17,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
   describe "unauthenticated access" do
     test "redirects to log-in", %{conn: conn} do
       team = team_fixture()
-      {:error, {:redirect, %{to: path}}} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:error, {:redirect, %{to: path}}} = live(conn, ~p"/t/#{team.name}/tokens")
       assert path == ~p"/users/log-in"
     end
   end
@@ -29,14 +29,14 @@ defmodule AcaiWeb.TeamTokensLiveTest do
     test "authenticated team member can view the tokens page", %{conn: conn, user: user} do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "readonly"})
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       assert has_element?(view, "#tokens-list")
     end
 
     # team-tokens.MAIN.2
     test "renders the token education section", %{conn: conn, user: user} do
       team = setup_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       assert has_element?(view, "#token-education")
       assert has_element?(view, "#token-education", "tats:admin")
       assert has_element?(view, "#token-education", "team:admin")
@@ -54,7 +54,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
       token1 = access_token_fixture(team, user, %{name: "My Token"})
       token2 = access_token_fixture(team, other_user, %{name: "Their Token"})
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       assert has_element?(view, "#tokens-list", token1.name)
       assert has_element?(view, "#tokens-list", token2.name)
     end
@@ -64,7 +64,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
       team = setup_team_with_owner(user)
       token = access_token_fixture(team, user, %{name: "CLI Token", token_prefix: "at_abc1"})
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       assert has_element?(view, "#tokens-list", token.name)
       assert has_element?(view, "#tokens-list", token.token_prefix)
       assert has_element?(view, "#tokens-list", user.email)
@@ -73,7 +73,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
     # team-tokens.USAGE.1
     test "renders the usage coming soon section", %{conn: conn, user: user} do
       team = setup_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       assert has_element?(view, "#usage-section")
       assert has_element?(view, "#usage-section", "Coming soon")
     end
@@ -86,7 +86,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
     test "create token button is disabled for developer role", %{conn: conn, user: user} do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "developer"})
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       assert has_element?(view, "#create-token-btn[disabled]")
     end
 
@@ -94,14 +94,14 @@ defmodule AcaiWeb.TeamTokensLiveTest do
     test "create token button is disabled for readonly role", %{conn: conn, user: user} do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "readonly"})
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       assert has_element?(view, "#create-token-btn[disabled]")
     end
 
     # team-tokens.TATSEC.4
     test "create token button is enabled for owner", %{conn: conn, user: user} do
       team = setup_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       refute has_element?(view, "#create-token-btn[disabled]")
     end
   end
@@ -112,7 +112,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
     # team-tokens.MAIN.3
     test "owner can open the create token modal", %{conn: conn, user: user} do
       team = setup_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
 
       refute has_element?(view, "#create-token-modal")
       view |> element("#create-token-btn") |> render_click()
@@ -121,7 +121,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
 
     test "closing the modal hides it", %{conn: conn, user: user} do
       team = setup_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       view |> element("#create-token-btn") |> render_click()
 
       assert has_element?(view, "#create-token-modal")
@@ -132,7 +132,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
     # team-tokens.MAIN.3
     test "modal shows name input and expiry date picker", %{conn: conn, user: user} do
       team = setup_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       view |> element("#create-token-btn") |> render_click()
 
       assert has_element?(view, "#create-token-form input[type='text']")
@@ -142,7 +142,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
     # team-tokens.MAIN.3-1
     test "modal does not show a scopes selector", %{conn: conn, user: user} do
       team = setup_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       view |> element("#create-token-btn") |> render_click()
 
       refute has_element?(view, "#create-token-form select")
@@ -151,7 +151,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
 
     test "submitting with empty name shows validation error", %{conn: conn, user: user} do
       team = setup_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       view |> element("#create-token-btn") |> render_click()
 
       view
@@ -164,7 +164,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
     # team-tokens.MAIN.4
     test "submitting a valid token shows the raw token reveal area", %{conn: conn, user: user} do
       team = setup_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       view |> element("#create-token-btn") |> render_click()
 
       view
@@ -179,7 +179,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
     # team-tokens.MAIN.4-1
     test "token reveal area has a copy button", %{conn: conn, user: user} do
       team = setup_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       view |> element("#create-token-btn") |> render_click()
 
       view
@@ -192,7 +192,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
     # team-tokens.MAIN.4
     test "created token appears in the token list", %{conn: conn, user: user} do
       team = setup_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       view |> element("#create-token-btn") |> render_click()
 
       view
@@ -205,7 +205,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
     # team-tokens.MAIN.4
     test "dismissing the token reveal closes the modal", %{conn: conn, user: user} do
       team = setup_team_with_owner(user)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       view |> element("#create-token-btn") |> render_click()
 
       view
@@ -230,7 +230,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
       user_team_role_fixture(team, owner, %{title: "owner"})
       token = access_token_fixture(team, owner, %{name: "Test"})
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       assert has_element?(view, "#revoke-btn-#{token.id}[disabled]")
     end
 
@@ -242,7 +242,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
       user_team_role_fixture(team, owner, %{title: "owner"})
       token = access_token_fixture(team, owner, %{name: "Test"})
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       assert has_element?(view, "#revoke-btn-#{token.id}[disabled]")
     end
 
@@ -251,7 +251,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
       team = setup_team_with_owner(user)
       token = access_token_fixture(team, user, %{name: "Revoke Me"})
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
 
       refute has_element?(view, "#revoke-token-modal")
       view |> element("#revoke-btn-#{token.id}") |> render_click()
@@ -262,7 +262,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
       team = setup_team_with_owner(user)
       token = access_token_fixture(team, user, %{name: "Cancel Revoke"})
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       view |> element("#revoke-btn-#{token.id}") |> render_click()
 
       assert has_element?(view, "#revoke-token-modal")
@@ -278,7 +278,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
       team = setup_team_with_owner(user)
       token = access_token_fixture(team, user, %{name: "To Revoke"})
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       view |> element("#revoke-btn-#{token.id}") |> render_click()
       view |> element("#confirm-revoke-btn") |> render_click()
 
@@ -293,7 +293,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
       team = setup_team_with_owner(user)
       token = access_token_fixture(team, user, %{name: "Badge Token"})
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       view |> element("#revoke-btn-#{token.id}") |> render_click()
       view |> element("#confirm-revoke-btn") |> render_click()
 
@@ -310,7 +310,7 @@ defmodule AcaiWeb.TeamTokensLiveTest do
           revoked_at: now
         })
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.id}/tokens")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/tokens")
       assert has_element?(view, "#revoke-btn-#{token.id}[disabled]")
     end
   end

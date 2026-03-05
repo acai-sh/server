@@ -12,7 +12,7 @@ components:
             1-1: On click, opens a Create Team modal
             2: Renders a list of teams for which the user has a role as cards
             2-1: Show a call to action placeholder if the user has not yet created their first team
-            2-2: On click of the team card, it navigates to /t/:team_id
+            2-2: On click of the team card, it navigates to /t/:team_name
             3: This is the view that a new user sees when they first create an account
 
     CREATE:
@@ -21,7 +21,7 @@ components:
             1: Shows error messages if team name is rejected or invalid or fails to create
             2: Renders an input for the team name
             3: Renders a submit button
-            3-1: On submit, navigates the user to their newly created team at /t/:team_id
+            3-1: On submit, navigates the user to their newly created team at /t/:team_name
 
 constraints:
     ENG:

@@ -62,11 +62,11 @@ defmodule AcaiWeb.Router do
       on_mount: [{AcaiWeb.UserAuth, :ensure_authenticated}] do
       live "/teams", TeamsLive
       # team-view.MAIN.1
-      live "/t/:team_id", TeamLive
+      live "/t/:team_name", TeamLive
       # team-settings.AUTH.1
-      live "/t/:team_id/settings", TeamSettingsLive
+      live "/t/:team_name/settings", TeamSettingsLive
       # team-tokens.MAIN.1
-      live "/t/:team_id/tokens", TeamTokensLive
+      live "/t/:team_name/tokens", TeamTokensLive
     end
 
     get "/users/settings", UserSettingsController, :edit

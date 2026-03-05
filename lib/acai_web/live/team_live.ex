@@ -5,8 +5,8 @@ defmodule AcaiWeb.TeamLive do
   alias Acai.Teams.Permissions
 
   @impl true
-  def mount(%{"team_id" => team_id}, _session, socket) do
-    team = Teams.get_team!(team_id)
+  def mount(%{"team_name" => team_name}, _session, socket) do
+    team = Teams.get_team_by_name!(team_name)
     current_user = socket.assigns.current_scope.user
 
     members = Teams.list_team_members(team)
@@ -248,14 +248,14 @@ defmodule AcaiWeb.TeamLive do
           <:subtitle>Team dashboard</:subtitle>
           <:actions>
             <%!-- team-view.MAIN.3 --%>
-            <.button id="team-settings-btn" navigate={"/t/#{@team.id}/settings"}>
+            <.button id="team-settings-btn" navigate={"/t/#{@team.name}/settings"}>
               <.icon name="hero-cog-6-tooth" class="size-4 mr-1" /> Settings
             </.button>
           </:actions>
         </.header>
 
         <%!-- team-view.MAIN.2 --%>
-        <.link navigate={"/t/#{@team.id}/tokens"} class="block group" id="access-tokens-card">
+        <.link navigate={"/t/#{@team.name}/tokens"} class="block group" id="access-tokens-card">
           <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer">
             <div class="card-body flex-row items-center gap-4">
               <div class="rounded-lg bg-primary/10 p-3">

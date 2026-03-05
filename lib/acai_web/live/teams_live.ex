@@ -50,7 +50,7 @@ defmodule AcaiWeb.TeamsLive do
     case Teams.create_team(socket.assigns.current_scope, params) do
       {:ok, team} ->
         # team-list.CREATE.3-1
-        {:noreply, push_navigate(socket, to: "/t/#{team.id}")}
+        {:noreply, push_navigate(socket, to: "/t/#{team.name}")}
 
       {:error, changeset} ->
         # team-list.CREATE.1
@@ -108,7 +108,7 @@ defmodule AcaiWeb.TeamsLive do
         >
           <div :for={{id, team} <- @streams.teams} id={id}>
             <%!-- team-list.MAIN.2-2 --%>
-            <.link navigate={"/t/#{team.id}"} class="block group">
+            <.link navigate={"/t/#{team.name}"} class="block group">
               <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer">
                 <div class="card-body gap-3">
                   <div class="flex items-center gap-3">

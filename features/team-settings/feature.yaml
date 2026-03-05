@@ -1,6 +1,6 @@
 feature:
     name: team-settings
-    description: The /t/:team_id/settings view where a team owner can rename the team or delete it.
+    description: The /t/:team_name/settings view where a team owner can rename the team or delete it.
     prerequisites:
         - data-model.TEAMS
         - data-model.ROLES
@@ -9,7 +9,7 @@ feature:
 
 components:
     MAIN:
-        name: Main requirements for the /t/:team_id/settings view
+        name: Main requirements for the /t/:team_name/settings view
         requirements:
             1: Renders the current team name.
             2: Renders a 'Rename Team' button that opens the Rename Team modal (team-settings.RENAME).
@@ -36,5 +36,5 @@ components:
 constraints:
     AUTH:
         requirements:
-            1: The /t/:team_id/settings route is only accessible to users with the 'team:admin' scope (owner role).
+            1: The /t/:team_name/settings route is only accessible to users with the 'team:admin' scope (owner role).
             2: Users without 'team:admin' scope must be redirected away from this route.

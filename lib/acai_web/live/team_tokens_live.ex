@@ -5,8 +5,8 @@ defmodule AcaiWeb.TeamTokensLive do
   alias Acai.Teams.{AccessToken, Permissions}
 
   @impl true
-  def mount(%{"team_id" => team_id}, _session, socket) do
-    team = Teams.get_team!(team_id)
+  def mount(%{"team_name" => team_name}, _session, socket) do
+    team = Teams.get_team_by_name!(team_name)
     current_user = socket.assigns.current_scope.user
 
     members = Teams.list_team_members(team)

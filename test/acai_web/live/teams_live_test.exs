@@ -60,13 +60,13 @@ defmodule AcaiWeb.TeamsLiveTest do
     end
 
     # team-list.MAIN.2-2
-    test "team card links to /t/:team_id", %{conn: conn, user: user} do
+    test "team card links to /t/:team_name", %{conn: conn, user: user} do
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "owner"})
 
       {:ok, view, _html} = live(conn, ~p"/teams")
 
-      assert has_element?(view, "a[href='/t/#{team.id}']")
+      assert has_element?(view, "a[href='/t/#{team.name}']")
     end
 
     test "does not show teams the user has no role in", %{conn: conn} do
@@ -161,7 +161,7 @@ defmodule AcaiWeb.TeamsLiveTest do
     end
 
     # team-list.CREATE.3-1 / team-list.ENG.1
-    test "successful submission navigates to /t/:team_id and assigns owner role", %{
+    test "successful submission navigates to /t/:team_name and assigns owner role", %{
       conn: conn,
       user: user,
       scope: scope
@@ -177,7 +177,7 @@ defmodule AcaiWeb.TeamsLiveTest do
 
       team = Teams.list_teams(scope) |> List.first()
       assert team.name == "my-new-team"
-      assert redirect_path == "/t/#{team.id}"
+      assert redirect_path == "/t/#{team.name}"
 
       # team-list.ENG.1
       [role] = Teams.list_user_team_roles(scope, team)

@@ -1,6 +1,6 @@
 feature:
     name: team-view
-    description: The /t/:team_id view where a user can invite team members, manage their roles, and see a list of products owned by the team
+    description: The /t/:team_name view where a user can invite team members, manage their roles, and see a list of products owned by the team
     prerequisites:
         - data-model.TEAMS
         - data-model.ROLES
@@ -8,11 +8,11 @@ feature:
 
 components:
     MAIN:
-        name: Main requirements for the /t/:team_id view
+        name: Main requirements for the /t/:team_name view
         requirements:
             1: Renders the team name
-            2: Renders an Access Tokens card that takes the user to `/t/:team_id/tokens` (see TOKENS)
-            3: Renders a Team Settings button that navigates the user to `/t/:team_id/settings`
+            2: Renders an Access Tokens card that takes the user to `/t/:team_name/tokens` (see TOKENS)
+            3: Renders a Team Settings button that navigates the user to `/t/:team_name/settings`
 
     MEMBERS:
         name: A component that lists team members

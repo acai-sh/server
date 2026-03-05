@@ -16,6 +16,7 @@ defmodule Acai.Teams do
   end
 
   def get_team!(id), do: Repo.get!(Team, id)
+  def get_team_by_name!(name), do: Repo.get_by!(Team, name: name)
 
   def create_team(current_scope, attrs) do
     %Team{}
