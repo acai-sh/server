@@ -2,7 +2,7 @@
 name: review-task
 description: "My job is to review and (if accepted) merge the task branch into the feature branch"
 mode: subagent
-model: opencode/claude-sonnet-4-6
+model: opencode/gpt-5.3-codex
 permission:
   edit: allow
   bash:

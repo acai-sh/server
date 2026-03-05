@@ -2,7 +2,7 @@
 name: implement-task
 description: "My job is to develop and implement code to complete predefined tasks."
 mode: all
-model: opencode/claude-sonnet-4-6
+model: opencode/gemini-3-flash
 permission:
   edit: allow
   bash:
