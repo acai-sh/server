@@ -202,11 +202,9 @@ services:
             URL_SCHEME: http
         volumes:
             - ..:/app
-        # start the mix dev server
-        command: sh -c "mix deps.get && mix compile && mix phx.server"
         stdin_open: true
         tty: true
-        user: "vscode"
+        user: "dev"
         # No explicit network needed here, Compose V2 creates a default one
 
 volumes:

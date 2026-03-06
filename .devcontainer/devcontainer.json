@@ -1,18 +1,9 @@
-// .devcontainer/devcontainer.json
 {
-    "name": "acai", // Descriptive name for the container environment
-    // Configure using Docker Compose
-    "dockerComposeFile": [
-        "../infra/docker-compose.yml" // Path relative to this json file
-    ],
-    // Exclude production app
+    "name": "acai",
+    "dockerComposeFile": ["../infra/docker-compose.yml"],
     "runServices": ["db", "devcontainer", "caddy"],
-    // The service defined in docker-compose.yml that VS Code should attach to
     "service": "devcontainer",
-    // The path within the container that VS Code should open as the workspace, defined in Dockerfile (WORKDIR)
     "workspaceFolder": "/app",
-    // installs claude cli
-    "postCreateCommand": "bash -lc './.devcontainer/postcreate.sh'",
-    // Run VS Code Server and terminal as non-root user
-    "remoteUser": "vscode"
+    "remoteUser": "dev",
+    "postCreateCommand": "bash ./.devcontainer/postcreate.sh"
 }

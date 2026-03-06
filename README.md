@@ -30,13 +30,13 @@ The server also hosts a dashboard, which presents a simple and intuitive heirarc
 
 Otherwise, choose from one of the deployment options below.
 
-### Devcontainers
+### Devcontainers & DevPods
 
-This is the easiest way to host a local instance, and also the preferred pathway for contributors.
+This is the easiest way to host a local instance (or multiple in parallel)
 
 **Prerequisites**   
 * [ ] Docker Desktop or Podman
-* [ ] (Optional) DevPod client
+* [ ] DevPod CLI
 
 **Steps:**  
 1.  Create `/infra/.env` with:
@@ -44,8 +44,10 @@ This is the easiest way to host a local instance, and also the preferred pathway
     CADDYFILE=devcontainer
     POSTGRES_DB=acai_dev
     ```
-2. Open in VSCode / Zed / DevPod 🎉
-3. Access app in `localhost:4000` by default.
+2. `devpod up .` (from repo root)
+3. `ssh server.devpod`
+4. `mix phx.server`
+4. Access app in `localhost:4000` by default  
 
 #### Parallel Devcontainers
 
@@ -54,14 +56,14 @@ This is very useful for running multiple agents in parallel. Each container has 
 1. Clone the project again for each additional instance you wish to run.
 ```
 projects/
-├── acai-server-1/
+├── server/
 │   └── infra/
 │       ├── .env
-├── acai-server-2/
+├── server-2/
 │   └── infra/
 │       ├── .env
 ```
-2. Configure the .env in each to avoid clashes. See `.env.example` for more info.
+2. Configure the .env in each to avoid clashes; add these to `.env`;
 ```sh
 INSTANCE_NAME=acai-devpod-2 # Prevent instance name conflict
 URL_PORT=4002       # App accessible at localhost:4002 (Default is 4000 if omitted)

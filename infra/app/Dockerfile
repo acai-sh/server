@@ -33,7 +33,7 @@ WORKDIR /app
 
 FROM builder AS dev
 # non-root user to reference in docker-compose.yml and devcontainer.json
-ARG USERNAME=vscode
+ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
@@ -48,32 +48,26 @@ RUN groupadd --gid $USER_GID $USERNAME \
     postgresql-client-17 \
     && rm -rf /var/lib/apt/lists/*
 
-# Set the locale
-RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen \
-    && locale-gen
-
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE=en_US:en
-ENV LC_ALL=en_US.UTF-8
-
-# Configure homebrew as root, assign ownership to vscode user
-# You can only install as sudo, not as root, but my vscode user doesn't have sudo.
+# Configure homebrew as root, assign ownership to dev user
+# You can only install as sudo, not as root, but my dev user doesn't have sudo.
 RUN mkdir -p /home/linuxbrew/.linuxbrew \
     && chown -R $USERNAME:$USERNAME /home/linuxbrew/.linuxbrew
+
+ENV LANG=C.UTF-8
+ENV ELIXIR_ERL_OPTIONS="+fnu"
 
 USER $USERNAME
 
 # INSTALL HOMEBREW
-RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# RUN brew install gh
 
 # CONFIGURE PATH'
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:${PATH}"
 
-# INSTALL AI
-# gemini takes too long to instal... but if you run out of useage for the others, here it is:
-# RUN brew install gemini-cli
-RUN brew install anomalyco/tap/opencode
-RUN brew install gh
+# install opencode
+RUN curl -fsSL https://opencode.ai/install | bash
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~
 #    📦 RELEASE STAGE
