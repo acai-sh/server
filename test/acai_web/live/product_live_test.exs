@@ -29,7 +29,7 @@ defmodule AcaiWeb.ProductLiveTest do
   end
 
   # Helper to create an implementation for a spec
-  defp create_implementation_for_spec(spec, opts \\ []) do
+  defp create_implementation_for_spec(spec, opts) do
     implementation_fixture(spec, %{
       name: Keyword.get(opts, :name, "Impl-#{System.unique_integer([:positive])}"),
       is_active: Keyword.get(opts, :is_active, true)

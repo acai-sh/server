@@ -168,7 +168,18 @@ defmodule AcaiWeb.ImplementationLive do
   end
 
   def handle_event("close_drawer", _params, socket) do
-    {:noreply, assign(socket, :drawer_visible, false)}
+    {:noreply,
+     socket
+     |> assign(:drawer_visible, false)
+     |> assign(:selected_requirement_id, nil)}
+  end
+
+  @impl true
+  def handle_info("drawer_closed", socket) do
+    {:noreply,
+     socket
+     |> assign(:selected_requirement_id, nil)
+     |> assign(:drawer_visible, false)}
   end
 
   defp sort_requirements(requirements, by, dir) do
@@ -212,9 +223,9 @@ defmodule AcaiWeb.ImplementationLive do
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <%!-- implementation-view.CANONICAL_SPEC.1 --%>
-          <.info_card title="Feature Spec">
+          <.info_card title="Target Spec">
             <div class="flex flex-col gap-2">
-              <div class="flex items-center">
+              <div class="flex items-center sm:absolute top-4 right-6">
                 <.link
                   navigate={~p"/t/#{@team.name}/f/#{@feature_name}"}
                   class="link link-primary flex items-center gap-2 font-medium"
@@ -224,15 +235,12 @@ defmodule AcaiWeb.ImplementationLive do
                 </.link>
               </div>
               <div class="text-sm text-base-content/70">
-                <p class="italic">{@spec.feature_description}</p>
                 <div class="mt-2 flex flex-col gap-1 font-mono text-xs">
                   <div class="flex items-center gap-2">
-                    <span class="opacity-50">Path:</span>
-                    <span class="truncate">{@spec.path}</span>
+                    <span class="truncate">{@spec.repo_uri}</span>
                   </div>
                   <div class="flex items-center gap-2">
-                    <span class="opacity-50">Repo:</span>
-                    <span class="truncate">{@spec.repo_uri}</span>
+                    <span class="truncate">{@spec.path}</span>
                   </div>
                 </div>
               </div>

@@ -50,7 +50,7 @@ defmodule AcaiWeb.FeatureLiveTest do
   end
 
   # Helper to create a requirement status
-  defp create_requirement_status(impl, requirement, opts \\ []) do
+  defp create_requirement_status(impl, requirement, opts) do
     requirement_status_fixture(impl, requirement, %{
       status: Keyword.get(opts, :status, nil),
       is_active: true,
@@ -245,7 +245,7 @@ defmodule AcaiWeb.FeatureLiveTest do
       req1 = create_requirement_for_spec(spec)
       req2 = create_requirement_for_spec(spec)
       req3 = create_requirement_for_spec(spec)
-      req4 = create_requirement_for_spec(spec)
+      _req4 = create_requirement_for_spec(spec)
 
       # 2 accepted, 1 completed, 1 null
       create_requirement_status(impl, req1, status: "accepted")
@@ -293,7 +293,7 @@ defmodule AcaiWeb.FeatureLiveTest do
     test "progress bar gray segment for null status", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       spec = create_spec_for_feature(team, "my-feature")
-      impl = create_implementation_for_spec(spec)
+      _impl = create_implementation_for_spec(spec)
 
       # Create requirement with no status
       create_requirement_for_spec(spec)
@@ -437,8 +437,8 @@ defmodule AcaiWeb.FeatureLiveTest do
       req1 = create_requirement_for_spec(spec)
       req2 = create_requirement_for_spec(spec)
       req3 = create_requirement_for_spec(spec)
-      req4 = create_requirement_for_spec(spec)
-      req5 = create_requirement_for_spec(spec)
+      _req4 = create_requirement_for_spec(spec)
+      _req5 = create_requirement_for_spec(spec)
 
       # 2 accepted, 1 completed, 2 null
       create_requirement_status(impl, req1, status: "accepted")

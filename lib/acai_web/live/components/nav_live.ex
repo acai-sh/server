@@ -242,13 +242,13 @@ defmodule AcaiWeb.Live.Components.NavLive do
     ~H"""
     <div>
       <%!-- nav.PANEL.3-2: Product display name --%>
-      <div class="flex items-center group -ml-2">
+      <div class="flex items-center group">
         <%!-- nav.PANEL.3-3, nav.PANEL.4-3: Product item links to overview --%>
         <.link
           navigate={~p"/t/#{@team.name}/p/#{@product}"}
           class={
             [
-              "flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors min-h-10",
+              "flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors min-h-10 min-w-0",
               # nav.PANEL.5-4: Active product highlighted
               @active_product == @product && "bg-primary/10 text-primary",
               @active_product != @product &&
@@ -256,8 +256,8 @@ defmodule AcaiWeb.Live.Components.NavLive do
             ]
           }
         >
-          <.icon name="hero-circle-stack" class="size-4" />
-          <span>{@product}</span>
+          <.icon name="hero-circle-stack" class="size-4 flex-shrink-0" />
+          <span class="truncate">{@product}</span>
         </.link>
 
         <%!-- nav.PANEL.4-3: Separate toggle button --%>
@@ -298,7 +298,7 @@ defmodule AcaiWeb.Live.Components.NavLive do
       navigate={~p"/t/#{@team.name}/f/#{@spec.feature_name}"}
       class={
         [
-          "flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm transition-colors",
+          "flex items-center gap-3 px-3 py-1.5 rounded-lg text-xs transition-colors",
           # nav.PANEL.5-2: Active feature highlighted
           @active_feature == @spec.feature_name && "bg-primary/10 text-primary font-medium",
           @active_feature != @spec.feature_name &&

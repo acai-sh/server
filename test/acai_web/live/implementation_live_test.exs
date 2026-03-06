@@ -48,7 +48,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
   end
 
   # Helper to create a requirement status
-  defp create_requirement_status(impl, requirement, opts \\ []) do
+  defp create_requirement_status(impl, requirement, opts) do
     requirement_status_fixture(impl, requirement, %{
       status: Keyword.get(opts, :status, nil),
       is_active: true,
@@ -62,7 +62,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
   end
 
   # Helper to create a code reference
-  defp create_code_reference(requirement, branch, opts \\ []) do
+  defp create_code_reference(requirement, branch, opts) do
     code_reference_fixture(requirement, branch, %{
       path: Keyword.get(opts, :path, "lib/my_app/my_module.ex:42"),
       is_test: Keyword.get(opts, :is_test, false)
@@ -669,6 +669,33 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       # Drawer should be hidden
       refute has_element?(view, ".translate-x-0")
+    end
+
+    test "same requirement can be opened multiple times", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      spec = create_spec_for_feature(team, "my-feature")
+      impl = create_implementation_for_spec(spec)
+      req = create_requirement_for_spec(spec, definition: "Test requirement")
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+
+      # Open drawer for first time
+      view |> render_click("open_drawer", %{"requirement_id" => req.id})
+      assert has_element?(view, ".translate-x-0")
+      assert has_element?(view, "h2", req.acid)
+
+      # Close drawer
+      view
+      |> element("button[aria-label='Close drawer']")
+      |> render_click()
+
+      refute has_element?(view, ".translate-x-0")
+
+      # Open same requirement again - should work
+      view |> render_click("open_drawer", %{"requirement_id" => req.id})
+      assert has_element?(view, ".translate-x-0")
+      assert has_element?(view, "h2", req.acid)
     end
   end
 end

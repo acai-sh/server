@@ -58,6 +58,8 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   @impl true
   def handle_event("close", _params, socket) do
     # requirement-details.DRAWER.6: Drawer can be dismissed
+    # Send event to parent to reset selected_requirement_id
+    send(self(), "drawer_closed")
     {:noreply, assign(socket, :visible, false)}
   end
 
