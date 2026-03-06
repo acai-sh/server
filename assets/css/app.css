@@ -33,9 +33,9 @@
     --color-base-200: oklch(28% 0.019 320.9);
     --color-base-300: oklch(26.346% 0.018 320);
     --color-base-content: oklch(82.901% 0.031 222.959);
-    --color-primary: oklch(60.7% 0.191 338.16);
+    --color-primary: oklch(0.52 0.23 327);
     --color-primary-content: oklch(100% 0 0);
-    --color-secondary: oklch(74.5% 0.113 0);
+    --color-secondary: oklch(70% 0.04 256.788);
     --color-secondary-content: oklch(14.675% 0.033 35.353);
     --color-accent: oklch(41% 0.146 27.6);
     --color-accent-content: oklch(100% 0.026 122.5);
@@ -66,10 +66,10 @@
     color-scheme: "light";
     /* Acai.sh Light Theme */
     --color-base-100: oklch(99.5% 0.003 328.6);
-    --color-base-200: oklch(96% 0.012 291.4);
-    --color-base-300: oklch(91.4% 0.027 291.4);
+    --color-base-200: oklch(97% 0.012 291.4);
+    --color-base-300: oklch(0.94 0.027 291.4);
     --color-base-content: oklch(14.6% 0.011 328);
-    --color-primary: oklch(33.15% 0.17 334.6);
+    --color-primary: oklch(0.5 0.17 335);
     --color-primary-content: oklch(100% 0 0);
     --color-secondary: oklch(7.28% 0.024 330.4); /* #1a0416 - Primary Dark */
     --color-secondary-content: oklch(98% 0.002 247.839);

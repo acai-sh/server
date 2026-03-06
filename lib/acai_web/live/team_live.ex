@@ -293,7 +293,7 @@ defmodule AcaiWeb.TeamLive do
                   <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer h-full">
                     <div class="card-body p-5">
                       <div class="flex items-center gap-3">
-                        <div class="rounded-lg bg-primary/10 p-2">
+                        <div class="rounded-lg bg-base-300 p-2">
                           <.icon name="hero-cube" class="size-5 text-primary" />
                         </div>
                         <%!-- team-view.PRODUCTS.2 --%>
@@ -375,7 +375,7 @@ defmodule AcaiWeb.TeamLive do
         <.link navigate={"/t/#{@team.name}/tokens"} class="block group" id="access-tokens-card">
           <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer">
             <div class="card-body flex-row items-center gap-4">
-              <div class="rounded-lg bg-primary/10 p-3">
+              <div class="rounded-lg bg-base-300 p-3">
                 <.icon name="hero-key" class="size-6 text-primary" />
               </div>
               <div class="flex-1">

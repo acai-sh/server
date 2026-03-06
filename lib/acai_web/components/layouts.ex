@@ -92,9 +92,9 @@ defmodule AcaiWeb.Layouts do
               <div class="dropdown dropdown-end">
                 <label
                   tabindex="0"
-                  class="btn btn-ghost btn-circle avatar border-none hover:bg-primary/10"
+                  class="btn btn-ghost btn-circle avatar border-none hover:bg-base-300"
                 >
-                  <div class="w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div class="w-10 rounded-full bg-base-300 flex items-center justify-center">
                     <.icon name="hero-user" class="size-5 text-primary" />
                   </div>
                 </label>
@@ -241,7 +241,7 @@ defmodule AcaiWeb.Layouts do
           <div class="dropdown dropdown-end">
             <label
               tabindex="0"
-              class="btn btn-ghost btn-circle avatar border-none hover:bg-primary/10 flex"
+              class="btn btn-ghost btn-circle avatar border-none hover:bg-base-300 flex"
             >
               <div class="avatar avatar-placeholder">
                 <div class="bg-primary text-neutral-content w-8 rounded-full">

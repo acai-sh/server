@@ -250,7 +250,7 @@ defmodule AcaiWeb.TeamTokensLive do
               id={id}
               class="rounded-xl border border-base-300 bg-base-100 px-4 py-3 flex items-center gap-4"
             >
-              <div class="rounded-lg bg-primary/10 p-2">
+              <div class="rounded-lg bg-base-300 p-2">
                 <.icon name="hero-key" class="size-5 text-primary" />
               </div>
               <div class="flex-1 min-w-0 space-y-0.5">

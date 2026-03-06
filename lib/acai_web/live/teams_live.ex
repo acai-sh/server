@@ -112,7 +112,7 @@ defmodule AcaiWeb.TeamsLive do
               <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer">
                 <div class="card-body py-4 flex-row items-center justify-between gap-4">
                   <div class="flex items-center gap-4">
-                    <div class="rounded-lg bg-primary/10 p-2">
+                    <div class="rounded-lg bg-base-300 p-2">
                       <.icon name="hero-user-group" class="size-6 text-primary" />
                     </div>
                     <h2 class="card-title text-lg group-hover:text-primary transition-colors">
@@ -125,6 +125,62 @@ defmodule AcaiWeb.TeamsLive do
                 </div>
               </div>
             </.link>
+          </div>
+        </div>
+
+        <%!-- More Resources section --%>
+        <div class="space-y-4">
+          <div>
+            <h2 class="text-base font-semibold">More Resources</h2>
+            <p class="text-sm text-base-content/60">Documentation and guides</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <a
+              href="https://acai.sh"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-secondary/40 transition-all duration-200 cursor-pointer group"
+            >
+              <div class="card-body flex-row items-center gap-4">
+                <div class="rounded-lg bg-secondary/10 p-3">
+                  <.icon name="hero-book-open" class="size-6 text-secondary" />
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-semibold text-base group-hover:text-secondary transition-colors">
+                    Docs
+                  </h3>
+                  <p class="text-sm text-base-content/60">Documentation and guides</p>
+                </div>
+                <.icon
+                  name="hero-arrow-top-right-on-square"
+                  class="size-5 text-base-content/40 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
+                />
+              </div>
+            </a>
+
+            <a
+              href="https://acai.sh/quickstart"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-secondary/40 transition-all duration-200 cursor-pointer group"
+            >
+              <div class="card-body flex-row items-center gap-4">
+                <div class="rounded-lg bg-secondary/10 p-3">
+                  <.icon name="hero-rocket-launch" class="size-6 text-secondary" />
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-semibold text-base group-hover:text-secondary transition-colors">
+                    Getting Started
+                  </h3>
+                  <p class="text-sm text-base-content/60">Quick start guide</p>
+                </div>
+                <.icon
+                  name="hero-arrow-top-right-on-square"
+                  class="size-5 text-base-content/40 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
+                />
+              </div>
+            </a>
           </div>
         </div>
       </div>

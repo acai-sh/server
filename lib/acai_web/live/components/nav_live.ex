@@ -150,18 +150,24 @@ defmodule AcaiWeb.Live.Components.NavLive do
           </span>
         </div>
 
-        <%!-- nav.PANEL.3-1: Each product as collapsible item --%>
-        <div :for={{product, specs} <- @products_data} class="space-y-1">
-          <.product_item
-            product={product}
-            specs={specs}
-            team={@team}
-            expanded={MapSet.member?(@expanded_products, product)}
-            active_product={@active_product}
-            active_feature={@active_feature}
-            myself={@myself}
-          />
-        </div>
+        <%= if Enum.empty?(@products_data) do %>
+          <div class="px-3 py-4 text-xs text-base-content/50 leading-relaxed">
+            No products found. Push a spec using the CLI to get started.
+          </div>
+        <% else %>
+          <%!-- nav.PANEL.3-1: Each product as collapsible item --%>
+          <div :for={{product, specs} <- @products_data} class="space-y-1">
+            <.product_item
+              product={product}
+              specs={specs}
+              team={@team}
+              expanded={MapSet.member?(@expanded_products, product)}
+              active_product={@active_product}
+              active_feature={@active_feature}
+              myself={@myself}
+            />
+          </div>
+        <% end %>
       </nav>
 
       <%!-- nav.PANEL.6: Bottom navigation links --%>
@@ -219,7 +225,7 @@ defmodule AcaiWeb.Live.Components.NavLive do
       navigate={@navigate}
       class={[
         "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-        @active && "bg-primary/10 text-primary",
+        @active && "bg-base-300 text-primary",
         !@active && "text-base-content/70 hover:bg-base-200 hover:text-base-content"
       ]}
     >
@@ -250,7 +256,7 @@ defmodule AcaiWeb.Live.Components.NavLive do
             [
               "flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors min-h-10 min-w-0",
               # nav.PANEL.5-4: Active product highlighted
-              @active_product == @product && "bg-primary/10 text-primary",
+              @active_product == @product && "bg-base-300 text-primary",
               @active_product != @product &&
                 "text-base-content/70 hover:bg-base-200 hover:text-base-content"
             ]
@@ -265,7 +271,7 @@ defmodule AcaiWeb.Live.Components.NavLive do
           type="button"
           class={[
             "px-2 py-2 rounded-lg transition-colors text-base-content/40 hover:text-base-content hover:bg-base-200 min-h-10",
-            @active_product == @product && "bg-primary/10 text-primary/60 hover:text-primary"
+            @active_product == @product && "bg-base-300 text-primary/60 hover:text-primary"
           ]}
           phx-click="toggle_product"
           phx-value-product={@product}
@@ -300,7 +306,7 @@ defmodule AcaiWeb.Live.Components.NavLive do
         [
           "flex items-center gap-3 px-3 py-1.5 rounded-lg text-xs transition-colors",
           # nav.PANEL.5-2: Active feature highlighted
-          @active_feature == @spec.feature_name && "bg-primary/10 text-primary font-medium",
+          @active_feature == @spec.feature_name && "bg-base-300 text-primary font-medium",
           @active_feature != @spec.feature_name &&
             "text-base-content/60 hover:bg-base-200 hover:text-base-content"
         ]

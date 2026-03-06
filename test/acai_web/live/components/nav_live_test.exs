@@ -110,7 +110,7 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
 
       # The home link should have the active class
       html = render(view)
-      assert html =~ "bg-primary/10 text-primary"
+      assert html =~ "bg-base-300 text-primary"
     end
   end
 
