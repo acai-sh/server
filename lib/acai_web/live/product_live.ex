@@ -70,13 +70,21 @@ defmodule AcaiWeb.ProductLive do
       current_path={@current_path}
     >
       <div class="space-y-6">
-        <%!-- product-view.MAIN.1 --%>
-        <.header>
-          {@product_name}
-          <:subtitle>Product features</:subtitle>
-        </.header>
+        <%!-- product-view.MAIN.1: Page header --%>
+        <.content_header
+          page_title="Product Overview"
+          resource_name={@product_name}
+          resource_icon="hero-circle-stack"
+          breadcrumb_items={[
+            %{label: "Overview", navigate: ~p"/t/#{@team.name}", icon: "hero-home"},
+            %{label: @product_name}
+          ]}
+        />
 
-        <%!-- product-view.MAIN.2 --%>
+        <%!-- product-view.MAIN.3: Section header --%>
+        <h2 class="text-lg font-semibold">Features:</h2>
+
+        <%!-- product-view.MAIN.4 --%>
         <%= if @features_empty? do %>
           <%!-- product-view.MAIN.2-1: Empty state --%>
           <div class="text-center py-12">
@@ -113,7 +121,7 @@ defmodule AcaiWeb.ProductLive do
                       </p>
                     </div>
                     <div class="flex-shrink-0">
-                      <.icon name="hero-document-text" class="size-5 text-base-content/40" />
+                      <.icon name="hero-cube" class="size-5 text-base-content/40" />
                     </div>
                   </div>
                   <%!-- product-view.FEATURE_CARD.3 --%>

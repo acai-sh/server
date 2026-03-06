@@ -66,6 +66,7 @@ defmodule AcaiWeb.FeatureLive do
           |> assign(:feature_name, actual_feature_name)
           # feature-view.MAIN.2
           |> assign(:feature_description, first_spec.feature_description)
+          |> assign(:product_name, first_spec.feature_product)
           |> assign(:implementations_empty?, implementation_cards == [])
           # feature-view.MAIN.3
           |> stream(:implementations, implementation_cards)
@@ -85,22 +86,27 @@ defmodule AcaiWeb.FeatureLive do
       team={@team}
       current_path={@current_path}
     >
-      <div class="space-y-6">
-        <%!-- feature-view.MAIN.1 --%>
-        <.header>
-          {@feature_name}
-          <:subtitle>Feature implementations</:subtitle>
-        </.header>
+      <div class="space-y-8">
+        <%!-- feature-view.MAIN.1: Page header --%>
+        <.content_header
+          page_title="Feature Overview"
+          resource_name={@feature_name}
+          resource_icon="hero-cube"
+          resource_description={@feature_description}
+          breadcrumb_items={[
+            %{label: "Overview", navigate: ~p"/t/#{@team.name}", icon: "hero-home"},
+            %{label: @product_name, navigate: ~p"/t/#{@team.name}/p/#{@product_name}"},
+            %{label: @feature_name}
+          ]}
+        />
 
-        <%!-- feature-view.MAIN.2 --%>
-        <p :if={@feature_description} class="text-base-content/70">
-          {@feature_description}
-        </p>
+        <%!-- feature-view.MAIN.3: Section header --%>
+        <h2 class="text-lg font-semibold mb-4">Feature Implementations</h2>
 
-        <%!-- feature-view.MAIN.3 --%>
+        <%!-- feature-view.MAIN.4 --%>
         <%= if @implementations_empty? do %>
-          <%!-- feature-view.MAIN.3-1: Empty state --%>
-          <div class="text-center py-12">
+          <%!-- feature-view.MAIN.4-1: Empty state --%>
+          <div class="text-center py-12 rounded-xl border-2 border-dashed border-base-300">
             <.icon name="hero-code-bracket" class="size-12 text-base-content/30 mx-auto mb-4" />
             <p class="text-base-content/60">No implementations found for this feature</p>
           </div>

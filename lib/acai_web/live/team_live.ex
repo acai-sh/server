@@ -254,38 +254,22 @@ defmodule AcaiWeb.TeamLive do
       current_path={@current_path}
     >
       <div class="space-y-10">
-        <%!-- team-view.MAIN.1 --%>
-        <.header>
-          {@team.name}
-          <:subtitle>Team dashboard</:subtitle>
+        <%!-- team-view.MAIN.0: Page header --%>
+        <.content_header
+          page_title="Team Overview"
+          resource_name={@team.name}
+          resource_icon="hero-user-group"
+          breadcrumb_items={[
+            %{label: "Overview", navigate: ~p"/t/#{@team.name}", icon: "hero-home"}
+          ]}
+        >
           <:actions>
             <%!-- team-view.MAIN.3 --%>
             <.button id="team-settings-btn" navigate={"/t/#{@team.name}/settings"}>
               <.icon name="hero-cog-6-tooth" class="size-4 mr-1" /> Settings
             </.button>
           </:actions>
-        </.header>
-
-        <%!-- team-view.MAIN.2 --%>
-        <.link navigate={"/t/#{@team.name}/tokens"} class="block group" id="access-tokens-card">
-          <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer">
-            <div class="card-body flex-row items-center gap-4">
-              <div class="rounded-lg bg-primary/10 p-3">
-                <.icon name="hero-key" class="size-6 text-primary" />
-              </div>
-              <div class="flex-1">
-                <h3 class="font-semibold text-base group-hover:text-primary transition-colors">
-                  Access Tokens
-                </h3>
-                <p class="text-sm text-base-content/60">Manage API tokens for this team</p>
-              </div>
-              <.icon
-                name="hero-arrow-right"
-                class="size-5 text-base-content/40 group-hover:translate-x-1 transition-transform"
-              />
-            </div>
-          </div>
-        </.link>
+        </.content_header>
 
         <%!-- team-view.PRODUCTS.1 --%>
         <div class="space-y-4">
@@ -294,26 +278,35 @@ defmodule AcaiWeb.TeamLive do
             <p class="text-sm text-base-content/60">Overview of products owned by this team</p>
           </div>
 
-          <div id="products-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div :for={product <- @products}>
-              <%!-- team-view.PRODUCTS.3 --%>
-              <.link navigate={"/t/#{@team.name}/p/#{product}"} class="block group">
-                <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer h-full">
-                  <div class="card-body p-5">
-                    <div class="flex items-center gap-3">
-                      <div class="rounded-lg bg-primary/10 p-2">
-                        <.icon name="hero-cube" class="size-5 text-primary" />
+          <%= if @products == [] do %>
+            <div class="text-center py-12 rounded-xl border-2 border-dashed border-base-300">
+              <.icon name="hero-folder-open" class="size-12 text-base-content/30 mx-auto mb-4" />
+              <p class="text-base-content/60">
+                This team does not have any products. Push a spec using the CLI.
+              </p>
+            </div>
+          <% else %>
+            <div id="products-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div :for={product <- @products}>
+                <%!-- team-view.PRODUCTS.3 --%>
+                <.link navigate={"/t/#{@team.name}/p/#{product}"} class="block group">
+                  <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer h-full">
+                    <div class="card-body p-5">
+                      <div class="flex items-center gap-3">
+                        <div class="rounded-lg bg-primary/10 p-2">
+                          <.icon name="hero-cube" class="size-5 text-primary" />
+                        </div>
+                        <%!-- team-view.PRODUCTS.2 --%>
+                        <h3 class="font-semibold text-base group-hover:text-primary transition-colors">
+                          {product}
+                        </h3>
                       </div>
-                      <%!-- team-view.PRODUCTS.2 --%>
-                      <h3 class="font-semibold text-base group-hover:text-primary transition-colors">
-                        {product}
-                      </h3>
                     </div>
                   </div>
-                </div>
-              </.link>
+                </.link>
+              </div>
             </div>
-          </div>
+          <% end %>
         </div>
 
         <%!-- team-view.MEMBERS.1 --%>
@@ -377,6 +370,27 @@ defmodule AcaiWeb.TeamLive do
             </div>
           </div>
         </div>
+
+        <%!-- team-view.MAIN.2 --%>
+        <.link navigate={"/t/#{@team.name}/tokens"} class="block group" id="access-tokens-card">
+          <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer">
+            <div class="card-body flex-row items-center gap-4">
+              <div class="rounded-lg bg-primary/10 p-3">
+                <.icon name="hero-key" class="size-6 text-primary" />
+              </div>
+              <div class="flex-1">
+                <h3 class="font-semibold text-base group-hover:text-primary transition-colors">
+                  Access Tokens
+                </h3>
+                <p class="text-sm text-base-content/60">Manage API tokens for this team</p>
+              </div>
+              <.icon
+                name="hero-arrow-right"
+                class="size-5 text-base-content/40 group-hover:translate-x-1 transition-transform"
+              />
+            </div>
+          </div>
+        </.link>
       </div>
 
       <%!-- team-view.INVITE.1 / team-view.INVITE.2 / team-view.INVITE.3 --%>

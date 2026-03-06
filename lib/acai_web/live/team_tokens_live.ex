@@ -224,16 +224,16 @@ defmodule AcaiWeb.TeamTokensLive do
         <%!-- team-tokens.MAIN.2 --%>
         <div
           id="token-education"
-          class="rounded-xl border border-warning/30 bg-warning p-4 text-sm text-warning-content"
+          class="rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm"
         >
           <div class="flex gap-3">
-            <.icon name="hero-information-circle" class="size-5 shrink-0 text-warning-content mt-0.5" />
+            <.icon name="hero-information-circle" class="size-5 shrink-0 text-warning mt-0.5" />
             <div class="space-y-1">
-              <p class="font-semibold">About Team Access Tokens</p>
-              <p>
+              <p class="font-semibold text-warning">About Team Access Tokens</p>
+              <p class="text-base-content/70">
                 Tokens grant full read and write access to all team resources, except they can not be used to manage users or other access tokens.
               </p>
-              <p>
+              <p class="text-base-content/70">
                 When a user is removed from the team, any tokens they created are revoked.
               </p>
             </div>

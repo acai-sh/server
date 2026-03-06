@@ -194,31 +194,32 @@ defmodule AcaiWeb.ImplementationLive do
       current_path={@current_path}
     >
       <div class="space-y-6">
-        <%!-- implementation-view.MAIN.1: Page header with implementation name --%>
-        <.header>
-          {@implementation.name}
-          <:subtitle>
-            <%!-- implementation-view.MAIN.2: Breadcrumb --%>
-            <.breadcrumb
-              team={@team}
-              spec={@spec}
-              feature_name={@feature_name}
-              implementation={@implementation}
-            />
-          </:subtitle>
-        </.header>
+        <%!-- implementation-view.MAIN.1: Page header --%>
+        <.content_header
+          page_title="Implementation"
+          resource_name={@implementation.name}
+          resource_icon="hero-code-bracket"
+          breadcrumb_items={[
+            %{label: "Overview", navigate: ~p"/t/#{@team.name}", icon: "hero-home"},
+            %{
+              label: @spec.feature_product,
+              navigate: ~p"/t/#{@team.name}/p/#{@spec.feature_product}"
+            },
+            %{label: @feature_name, navigate: ~p"/t/#{@team.name}/f/#{@feature_name}"},
+            %{label: @implementation.name}
+          ]}
+        />
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <%!-- implementation-view.CANONICAL_SPEC: Canonical spec link --%>
-          <.info_card title="Canonical Spec">
+          <%!-- implementation-view.CANONICAL_SPEC.1 --%>
+          <.info_card title="Feature Spec">
             <div class="flex flex-col gap-2">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-semibold text-base-content/50 uppercase">Feature</span>
+              <div class="flex items-center">
                 <.link
                   navigate={~p"/t/#{@team.name}/f/#{@feature_name}"}
                   class="link link-primary flex items-center gap-2 font-medium"
                 >
-                  <.icon name="hero-document-text" class="size-4" />
+                  <.icon name="hero-cube" class="size-4" />
                   {@feature_name}
                 </.link>
               </div>
@@ -281,27 +282,6 @@ defmodule AcaiWeb.ImplementationLive do
         />
       </div>
     </Layouts.app>
-    """
-  end
-
-  # implementation-view.MAIN.2: Breadcrumb component
-  defp breadcrumb(assigns) do
-    ~H"""
-    <nav class="flex items-center gap-2 text-sm text-base-content/70">
-      <.link navigate={~p"/t/#{@team.name}"} class="hover:text-primary">
-        {@team.name}
-      </.link>
-      <span class="text-base-content/40">/</span>
-      <.link navigate={~p"/t/#{@team.name}/p/#{@spec.feature_product}"} class="hover:text-primary">
-        {@spec.feature_product}
-      </.link>
-      <span class="text-base-content/40">/</span>
-      <.link navigate={~p"/t/#{@team.name}/f/#{@feature_name}"} class="hover:text-primary">
-        {@feature_name}
-      </.link>
-      <span class="text-base-content/40">/</span>
-      <span class="text-base-content font-medium">{@implementation.name}</span>
-    </nav>
     """
   end
 
@@ -398,7 +378,7 @@ defmodule AcaiWeb.ImplementationLive do
     ~H"""
     <div class="card bg-base-100 border border-base-300 shadow-sm">
       <div class="card-body">
-        <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider mb-3">
+        <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
           {@title}
         </h3>
         {render_slot(@inner_block)}

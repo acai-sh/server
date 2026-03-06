@@ -96,7 +96,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
     end
 
     # implementation-view.MAIN.2
-    test "renders breadcrumb with team, product, and feature links", %{conn: conn, user: user} do
+    test "renders breadcrumb with overview, product, and feature links", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       spec = create_spec_for_feature(team, "my-feature", product: "MyProduct")
       impl = create_implementation_for_spec(spec, name: "Production")
@@ -104,8 +104,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
 
-      # Check breadcrumb links exist
-      assert has_element?(view, "a[href='/t/#{team.name}']", team.name)
+      # Check breadcrumb links exist (home icon for overview, then product and feature)
+      assert has_element?(view, "a[href='/t/#{team.name}'] span.hero-home")
       assert has_element?(view, "a[href='/t/#{team.name}/p/MyProduct']", "MyProduct")
       assert has_element?(view, "a[href='/t/#{team.name}/f/my-feature']", "my-feature")
     end

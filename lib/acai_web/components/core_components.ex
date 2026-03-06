@@ -311,12 +311,16 @@ defmodule AcaiWeb.CoreComponents do
   slot :inner_block, required: true
   slot :subtitle
   slot :actions
+  slot :icon
 
   def header(assigns) do
     ~H"""
     <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-4"]}>
       <div>
-        <h1 class="text-lg font-semibold leading-8">
+        <h1 class="text-lg font-semibold leading-8 flex items-center gap-2">
+          <span :if={@icon != []} class="flex items-center">
+            {render_slot(@icon)}
+          </span>
           {render_slot(@inner_block)}
         </h1>
         <p :if={@subtitle != []} class="text-sm text-base-content/70">
@@ -494,5 +498,80 @@ defmodule AcaiWeb.CoreComponents do
   """
   def translate_errors(errors, field) when is_list(errors) do
     for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
+  end
+
+  @doc """
+  Renders a unified content area header with breadcrumb, page title, resource name, and optional description.
+
+  ## Examples
+
+      <.content_header
+        page_title="Feature Overview"
+        resource_name={@feature_name}
+        resource_icon="hero-cube"
+        resource_description={@feature_description}
+        breadcrumb_items={[
+          %{label: "Overview", navigate: "/t/my-team"},
+          %{label: @product_name, navigate: "/t/my-team/p/my-product"},
+          %{label: @feature_name}
+        ]}
+      >
+        <:actions>
+          <.button>Settings</.button>
+        </:actions>
+      </.content_header>
+  """
+  attr :page_title, :string, required: true, doc: "the static page title (e.g., 'Team Overview')"
+  attr :resource_name, :string, required: true, doc: "the resource name to display"
+  attr :resource_icon, :string, default: nil, doc: "optional icon name for the resource"
+  attr :resource_description, :string, default: nil, doc: "optional description text"
+
+  attr :breadcrumb_items, :list,
+    default: [],
+    doc: "list of breadcrumb items with :label, optional :navigate, and optional :icon"
+
+  slot :actions, doc: "optional slot for action buttons"
+
+  def content_header(assigns) do
+    ~H"""
+    <div class="space-y-6">
+      <%= if @breadcrumb_items != [] do %>
+        <nav class="flex items-center gap-2 text-sm text-base-content/70">
+          <%= for {item, index} <- Enum.with_index(@breadcrumb_items) do %>
+            <%= if item[:navigate] do %>
+              <.link navigate={item[:navigate]} class="hover:text-primary flex items-center">
+                <%= if item[:icon] do %>
+                  <.icon name={item[:icon]} class="size-4" />
+                <% else %>
+                  {item[:label]}
+                <% end %>
+              </.link>
+            <% else %>
+              <span class="text-base-content font-medium">{item[:label]}</span>
+            <% end %>
+            <%= if index < length(@breadcrumb_items) - 1 do %>
+              <span class="text-base-content/40">/</span>
+            <% end %>
+          <% end %>
+        </nav>
+      <% end %>
+
+      <h1 class="text-2xl font-bold">{@page_title}</h1>
+
+      <.header>
+        <:icon :if={@resource_icon}>
+          <.icon name={@resource_icon} class="size-6 text-primary" />
+        </:icon>
+        {@resource_name}
+        <:actions :if={@actions != []}>
+          {render_slot(@actions)}
+        </:actions>
+      </.header>
+
+      <p :if={@resource_description} class="text-base-content/70 -mt-4">
+        {@resource_description}
+      </p>
+    </div>
+    """
   end
 end
