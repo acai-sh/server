@@ -72,72 +72,76 @@ defmodule AcaiWeb.Layouts do
 
   def default_layout(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300 bg-base-100 min-h-16">
-      <div class="flex-1">
-        <a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <img src={~p"/images/logo.svg"} width="32" />
-          <span class="text-lg font-bold">Acai</span>
-        </a>
-      </div>
-      <div class="flex-none flex items-center gap-4">
-        <.theme_toggle />
+    <div class="flex flex-col min-h-screen">
+      <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300 bg-base-100 min-h-16">
+        <div class="flex-1">
+          <a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <img src={~p"/images/logo.svg"} width="32" />
+            <span class="text-lg font-bold">Acai</span>
+          </a>
+        </div>
+        <div class="flex-none flex items-center gap-4">
+          <.theme_toggle />
 
-        <%= if @current_scope do %>
-          <div class="flex items-center gap-3 ml-2">
-            <span class="text-sm text-base-content/70 hidden sm:inline">
-              {@current_scope.user.email}
-            </span>
+          <%= if @current_scope do %>
+            <div class="flex items-center gap-3 ml-2">
+              <span class="text-sm text-base-content/70 hidden sm:inline">
+                {@current_scope.user.email}
+              </span>
 
-            <div class="dropdown dropdown-end">
-              <label
-                tabindex="0"
-                class="btn btn-ghost btn-circle avatar border-none hover:bg-primary/10"
-              >
-                <div class="w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <.icon name="hero-user" class="size-5 text-primary" />
-                </div>
-              </label>
-              <ul
-                tabindex="0"
-                class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300 mt-2"
-              >
-                <li>
-                  <.link href={~p"/users/settings"} class="flex items-center gap-2">
-                    <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
-                  </.link>
-                </li>
-                <li class="menu-title px-4 py-2">
-                  <span class="text-xs text-base-content/50 truncate">
-                    {@current_scope.user.email}
-                  </span>
-                </li>
-                <div class="divider my-0"></div>
-                <li>
-                  <.link
-                    href={~p"/users/log-out"}
-                    method="delete"
-                    class="flex items-center gap-2 text-error"
-                  >
-                    <.icon name="hero-arrow-right-on-rectangle" class="size-4" /> Log out
-                  </.link>
-                </li>
-              </ul>
+              <div class="dropdown dropdown-end">
+                <label
+                  tabindex="0"
+                  class="btn btn-ghost btn-circle avatar border-none hover:bg-primary/10"
+                >
+                  <div class="w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <.icon name="hero-user" class="size-5 text-primary" />
+                  </div>
+                </label>
+                <ul
+                  tabindex="0"
+                  class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-300 mt-2"
+                >
+                  <li>
+                    <.link href={~p"/users/settings"} class="flex items-center gap-2">
+                      <.icon name="hero-cog-6-tooth" class="size-4" /> Settings
+                    </.link>
+                  </li>
+                  <li class="menu-title px-4 py-2">
+                    <span class="text-xs text-base-content/50 truncate">
+                      {@current_scope.user.email}
+                    </span>
+                  </li>
+                  <div class="divider my-0"></div>
+                  <li>
+                    <.link
+                      href={~p"/users/log-out"}
+                      method="delete"
+                      class="flex items-center gap-2 text-error"
+                    >
+                      <.icon name="hero-arrow-right-on-rectangle" class="size-4" /> Log out
+                    </.link>
+                  </li>
+                </ul>
+              </div>
             </div>
-          </div>
-        <% else %>
-          <ul class="menu menu-horizontal px-1 gap-2">
-            <li><.link href={~p"/users/log-in"} class="btn btn-ghost btn-sm">Log in</.link></li>
-            <li><.link href={~p"/users/register"} class="btn btn-primary btn-sm">Register</.link></li>
-          </ul>
-        <% end %>
-      </div>
-    </header>
+          <% else %>
+            <ul class="menu menu-horizontal px-1 gap-2">
+              <li><.link href={~p"/users/log-in"} class="btn btn-ghost btn-sm">Log in</.link></li>
+              <li>
+                <.link href={~p"/users/register"} class="btn btn-primary btn-sm">Register</.link>
+              </li>
+            </ul>
+          <% end %>
+        </div>
+      </header>
 
-    <main class="px-4 py-12 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-4xl space-y-4">
-        {render_slot(@inner_block)}
-      </div>
-    </main>
+      <main class="flex-grow px-4 py-12 sm:px-6 lg:px-8 bg-base-200">
+        <div class="mx-auto max-w-4xl space-y-4">
+          {render_slot(@inner_block)}
+        </div>
+      </main>
+    </div>
     """
   end
 
@@ -190,7 +194,7 @@ defmodule AcaiWeb.Layouts do
         <.nav_header current_scope={@current_scope} team={@team} />
 
         <%!-- Main content --%>
-        <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-base-200">
           <div class="mx-auto max-w-6xl space-y-4">
             {render_slot(@inner_block)}
           </div>

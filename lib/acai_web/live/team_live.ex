@@ -266,6 +266,27 @@ defmodule AcaiWeb.TeamLive do
           </:actions>
         </.header>
 
+        <%!-- team-view.MAIN.2 --%>
+        <.link navigate={"/t/#{@team.name}/tokens"} class="block group" id="access-tokens-card">
+          <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer">
+            <div class="card-body flex-row items-center gap-4">
+              <div class="rounded-lg bg-primary/10 p-3">
+                <.icon name="hero-key" class="size-6 text-primary" />
+              </div>
+              <div class="flex-1">
+                <h3 class="font-semibold text-base group-hover:text-primary transition-colors">
+                  Access Tokens
+                </h3>
+                <p class="text-sm text-base-content/60">Manage API tokens for this team</p>
+              </div>
+              <.icon
+                name="hero-arrow-right"
+                class="size-5 text-base-content/40 group-hover:translate-x-1 transition-transform"
+              />
+            </div>
+          </div>
+        </.link>
+
         <%!-- team-view.PRODUCTS.1 --%>
         <div class="space-y-4">
           <div>
@@ -294,27 +315,6 @@ defmodule AcaiWeb.TeamLive do
             </div>
           </div>
         </div>
-
-        <%!-- team-view.MAIN.2 --%>
-        <.link navigate={"/t/#{@team.name}/tokens"} class="block group" id="access-tokens-card">
-          <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer">
-            <div class="card-body flex-row items-center gap-4">
-              <div class="rounded-lg bg-primary/10 p-3">
-                <.icon name="hero-key" class="size-6 text-primary" />
-              </div>
-              <div class="flex-1">
-                <h3 class="font-semibold text-base group-hover:text-primary transition-colors">
-                  Access Tokens
-                </h3>
-                <p class="text-sm text-base-content/60">Manage API tokens for this team</p>
-              </div>
-              <.icon
-                name="hero-arrow-right"
-                class="size-5 text-base-content/40 group-hover:translate-x-1 transition-transform"
-              />
-            </div>
-          </div>
-        </.link>
 
         <%!-- team-view.MEMBERS.1 --%>
         <div class="space-y-4">
