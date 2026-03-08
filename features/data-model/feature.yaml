@@ -79,10 +79,14 @@ components:
             8: feature_name is the string defined under feature.name.
             8-1: feature_name field only supports alphanumeric chars, hyphens, and underscores (safe to use in URL path).
             9: feature_description is the string defined under feature.description. Optional.
+            10: raw_content is a text field storing the original feature.yaml contents. Optional.
+            10-note: Enables dashboard editing, export, and round-trip workflows while preserving comments and formatting.
             11: feature_version is the string defined under feature.version. Optional.
             12: feature_product is the string defined under feature.product.
             12-1: feature_product field is url-safe (alphanumeric chars, hyphens, and underscores)
-            13: Composite Unique Constraint enforces (team_id, repo_uri, branch_name, path) to prevent the same spec being inserted twice. If two users tweak same spec on same branch, last write wins.
+            13: Composite Unique Constraint enforces (team_id, repo_uri, branch_name, path) - same spec on same branch overwrites (last write wins).
+            14: Composite Unique Constraint enforces (team_id, feature_name, feature_version) - prevents duplicate versions across different branches, forcing version bumps when branching specs.
+            15: Index on (team_id, feature_name) to support spec lookups by feature name within a team.
 
     REQS:
         name: requirements table
@@ -126,7 +130,7 @@ components:
         description: Tracks where a requirement is actively referenced in external codebase repositories.
         requirements:
             1: id field is a UUIDv7 Primary Key.
-            2: requirement_id is a Foreign Key to requirements table. NOT CASCADE - preserved for stale ref detection.
+            2: requirement_id is a Foreign Key to requirements table. NOT CASCADE - preserved for audit if requirement is deleted.
             3: repo_uri is a text field.
             4:
                 requirement: branch_name is a text field.
@@ -134,10 +138,11 @@ components:
                 note: this was a mistake, we should have done a foreign key (See data-model.REFS.10)
             5: last_seen_commit is a text field.
             6: acid_string is a text field logging the exact reference found in the code.
-            7: last_seen_at is a timestamp updated on each CLI push where the reference is still present, enabling stale ref detection. Optional.
+            7: last_seen_at is a timestamp updated on each CLI push where the reference is still present. Optional.
             8: path is a string containing the file path from repo root and the line of code
             9: is_test is a boolean
-            10: branch_id is a Foreign Key to branches table
+            10: branch_id is a Foreign Key to tracked_branches table
+            10-note: Re-tracking a branch will re-discover references on next CLI push.
     EVENTS:
         name: activity_events table
         description: Append-only log of meaningful domain events, used to power activity feeds scoped to a team, implementation, or individual requirement.
