@@ -2,12 +2,18 @@
 
 This package, the Acai Server, is a self-hostable monolith intended to be deployed on a VPS like Hetzner, or ran locally as as devcontainer. It contains several containerized services, which are orchestrated with `docker-compose`.
 
-- `app` - The Frontend and the JSON API, built with Elixir & Phoenix. This is what you see when you visit [https://www.acai.sh](https://www.acai.sh)  
+- `app` - The Frontend and the JSON REST API, built with Elixir & Phoenix. This is what you see when you visit [https://www.acai.sh](https://www.acai.sh)  
 - `db` - Postgres 18, managed via Ecto migrations
 - `backup` - Backup automation service, built with Restic, targeting an S3 bucket of your choice  
 - `caddy` - Reverse proxy, routing external traffic to the internal app container  
 
 The project directories follow the conventional Phoenix layout, with the addition of an `infra` folder that contains all docker configurations.
+
+## Quickstart
+
+> 👉 Want to start shipping ASAP? Just trying it out? **Use our [hosted service instead.](https://app.acai.sh)**
+
+Otherwise, choose from one of the deployment options below.
 
 ## Product Overview
 
@@ -18,17 +24,24 @@ The toolkit supports a specific software development workflow;
 3. The Acai CLI parses your `feature.yaml` files and scans your codebase to find id references in comments and in tests.
 4. Data is pushed to the server, so that many collaborators (humans and agents) can share progress, and review/accept/reject implementations.
 
-The server also hosts a dashboard, which presents a simple and intuitive heirarchy;
+The server also hosts a dashboard, which presents a simple and intuitive heirarchy.
 - Teams that have many Products
 - Products that have many Features
 - Features that have many Implementations
 - Implementation are linked to a single canonical Spec file, and one or more git branches (where requirements are turned into code!)
 
-## Quickstart
-
-> 👉 Want to start shipping ASAP? Just trying it out? **Use our [hosted service instead.](https://app.acai.sh)**
-
-Otherwise, choose from one of the deployment options below.
+Under-the-hood, this is the data model;
+- teams: Top-level tenant for RBAC and billing.
+- users: Pre-existing table for identity, session tokens, and mailer logic.
+- access_tokens: Cryptographically hashed tokens granting scoped API access to a team.
+- user_team_roles: Join table linking users to teams with specific titles.
+- specs: Metadata and tracking for a feature.yaml file at a specific repo path.
+- implementations: Specific variants of a feature, such as "Production" or "Prototype".
+- tracked_branches: Links specific repository branches to an implementation.
+- requirements: The parsed, definition-only content and ACIDs from a spec file.
+- requirement_statuses: Per-implementation state (e.g., status, commit) for each requirement.
+- code_references: Tracks where a requirement ACID is actively referenced in external code.
+- activity_events: Append-only log of domain events for activity feeds and auditing
 
 ### Devcontainers & DevPods
 

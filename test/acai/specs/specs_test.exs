@@ -15,6 +15,53 @@ defmodule Acai.SpecsTest do
     %{team: team, spec: spec, req: req, impl: impl, branch: branch}
   end
 
+  describe "batch_count_requirements/1" do
+    # feature-view.PERFORMANCE.1
+    test "returns empty map for empty list" do
+      assert Specs.batch_count_requirements([]) == %{}
+    end
+
+    test "returns map of spec_id => requirement count" do
+      team = team_fixture()
+      spec1 = spec_fixture(team)
+
+      spec2 =
+        spec_fixture(team, %{feature_name: "other-feature", path: "features/other/feature.yaml"})
+
+      requirement_fixture(spec1)
+      requirement_fixture(spec1, %{local_id: "2"})
+      requirement_fixture(spec2)
+
+      counts = Specs.batch_count_requirements([spec1, spec2])
+
+      assert Map.get(counts, spec1.id) == 2
+      assert Map.get(counts, spec2.id) == 1
+    end
+
+    test "returns no entry for specs with no requirements" do
+      team = team_fixture()
+      spec = spec_fixture(team)
+
+      counts = Specs.batch_count_requirements([spec])
+
+      assert Map.get(counts, spec.id) == nil
+    end
+  end
+
+  describe "get_requirement!/1" do
+    # requirement-details.DRAWER.5-1
+    test "returns the requirement by id" do
+      %{req: req} = setup_ref_chain()
+      assert Specs.get_requirement!(req.id).id == req.id
+    end
+
+    test "raises when not found" do
+      assert_raise Ecto.NoResultsError, fn ->
+        Specs.get_requirement!(Acai.UUIDv7.autogenerate())
+      end
+    end
+  end
+
   describe "list_code_references/1" do
     test "returns empty list when no refs exist" do
       %{req: req} = setup_ref_chain()

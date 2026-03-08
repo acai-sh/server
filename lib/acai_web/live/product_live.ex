@@ -21,6 +21,9 @@ defmodule AcaiWeb.ProductLive do
         {:ok, socket}
 
       {actual_product_name, specs} ->
+        # product-view.PERFORMANCE.1: Batch count active implementations (query 2)
+        impl_counts_by_spec = Implementations.batch_count_active_implementations_for_specs(specs)
+
         # Group specs by feature_name to get distinct features
         # Each feature_name can have multiple specs (different versions/branches)
         # We show one card per distinct feature_name
@@ -30,10 +33,10 @@ defmodule AcaiWeb.ProductLive do
           |> Enum.map(fn {feature_name, feature_specs} ->
             # Get the first spec for display info (they share the same feature_name)
             first_spec = List.first(feature_specs)
-            # Count all active implementations across all specs for this feature
+            # Count all active implementations across all specs for this feature (from batch)
             impl_count =
               feature_specs
-              |> Enum.map(&Implementations.count_active_implementations/1)
+              |> Enum.map(fn spec -> Map.get(impl_counts_by_spec, spec.id, 0) end)
               |> Enum.sum()
 
             %{

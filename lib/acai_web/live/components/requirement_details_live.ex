@@ -40,7 +40,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
         socket
       ) do
     if requirement_id do
-      requirement = Specs.get_requirement_with_refs!(requirement_id)
+      requirement = Specs.get_requirement!(requirement_id)
       update(Map.merge(assigns, %{requirement: requirement}), socket)
     else
       # No requirement selected, just update visibility and set requirement to nil

@@ -52,7 +52,22 @@ defmodule Acai.Specs do
     )
   end
 
-  def get_requirement!(id), do: Repo.get!(Requirement, id)
+  # feature-view.PERFORMANCE.1
+  @doc """
+  Batch counts requirements for a list of specs.
+  Returns a map of spec_id => count.
+  """
+  def batch_count_requirements(specs) when is_list(specs) do
+    spec_ids = Enum.map(specs, & &1.id)
+
+    Repo.all(
+      from r in Requirement,
+        where: r.spec_id in ^spec_ids,
+        group_by: r.spec_id,
+        select: {r.spec_id, count()}
+    )
+    |> Map.new()
+  end
 
   def create_requirement(%Spec{} = spec, attrs) do
     %Requirement{}
@@ -159,9 +174,9 @@ defmodule Acai.Specs do
 
   # requirement-details.DRAWER.5-1
   @doc """
-  Gets a requirement by ID with preloaded associations.
+  Gets a requirement by ID.
   """
-  def get_requirement_with_refs!(id) do
+  def get_requirement!(id) do
     Repo.get!(Requirement, id)
   end
 

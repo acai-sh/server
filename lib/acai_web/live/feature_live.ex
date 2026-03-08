@@ -24,25 +24,44 @@ defmodule AcaiWeb.FeatureLive do
         # Get the first spec for display info (they share the same feature_name)
         first_spec = List.first(specs)
 
-        # feature-view.MAIN.3: Get all active implementations for these specs
+        # feature-view.PERFORMANCE.1: Batch count requirements per spec (query 2)
+        spec_requirement_counts = Specs.batch_count_requirements(specs)
+
+        # feature-view.MAIN.3: Get all active implementations for these specs (query 3)
         implementations = Implementations.list_active_implementations_for_specs(specs)
 
-        # Build implementation cards with progress data
+        # feature-view.PERFORMANCE.1: Batch count tracked branches (query 4)
+        tracked_branch_counts = Implementations.batch_count_tracked_branches(implementations)
+
+        # feature-view.PERFORMANCE.1: Build impl_id => requirement_count map for batch status
+        impl_requirements_map =
+          implementations
+          |> Enum.map(fn impl ->
+            {impl.id, Map.get(spec_requirement_counts, impl.spec_id, 0)}
+          end)
+          |> Map.new()
+
+        # feature-view.PERFORMANCE.1: Batch get status counts (query 5)
+        status_counts_by_impl =
+          Implementations.batch_get_requirement_status_counts(impl_requirements_map)
+
+        # Build implementation cards with pre-fetched data
         implementation_cards =
           implementations
           |> Enum.map(fn impl ->
-            # feature-view.IMPL_CARD.2: Count tracked branches
-            tracked_branch_count = Implementations.count_tracked_branches(impl)
+            # feature-view.IMPL_CARD.2: Count tracked branches (from batch)
+            tracked_branch_count = Map.get(tracked_branch_counts, impl.id, 0)
 
-            # Get the spec for this implementation to count requirements
-            impl_spec = Enum.find(specs, &(&1.id == impl.spec_id))
+            # feature-view.IMPL_CARD.3: Count total requirements (from batch)
+            total_requirements = Map.get(spec_requirement_counts, impl.spec_id, 0)
 
-            # feature-view.IMPL_CARD.3: Count total requirements for the spec
-            total_requirements = Specs.count_requirements(impl_spec)
-
-            # feature-view.IMPL_CARD.4: Get status counts for progress bar
+            # feature-view.IMPL_CARD.4: Get status counts (from batch)
             status_counts =
-              Implementations.get_requirement_status_counts(impl, total_requirements)
+              Map.get(status_counts_by_impl, impl.id, %{
+                accepted: 0,
+                completed: 0,
+                null: total_requirements
+              })
 
             # Build the slug for navigation (impl_name+uuid_without_dashes)
             # feature-view.MAIN.4
