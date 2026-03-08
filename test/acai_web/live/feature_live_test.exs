@@ -17,6 +17,7 @@ defmodule AcaiWeb.FeatureLiveTest do
 
   # Helper to create a spec with a specific feature
   # Uses unique path to avoid unique constraint violation
+  # data-model.SPECS.14: same feature_name requires different version within a team
   defp create_spec_for_feature(team, feature_name, opts \\ []) do
     unique_id = System.unique_integer([:positive])
 
@@ -24,6 +25,7 @@ defmodule AcaiWeb.FeatureLiveTest do
       feature_product: Keyword.get(opts, :product, "TestProduct"),
       feature_name: feature_name,
       feature_description: Keyword.get(opts, :description, "Description for #{feature_name}"),
+      feature_version: Keyword.get(opts, :version),
       path: "features/#{feature_name}-#{unique_id}/feature.yaml"
     })
   end
@@ -380,8 +382,8 @@ defmodule AcaiWeb.FeatureLiveTest do
 
     test "get_specs_by_feature_name returns correct feature and specs", %{user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec1 = create_spec_for_feature(team, "MyFeature")
-      spec2 = create_spec_for_feature(team, "MyFeature", product: "OtherProduct")
+      spec1 = create_spec_for_feature(team, "MyFeature", version: "1.0.0")
+      spec2 = create_spec_for_feature(team, "MyFeature", version: "2.0.0")
 
       {feature_name, specs} = Specs.get_specs_by_feature_name(team, "myfeature")
       assert feature_name == "MyFeature"

@@ -26,8 +26,10 @@ defmodule Acai.Specs.Spec do
     # data-model.SPECS.8
     # data-model.SPECS.8-1
     field :feature_name, :string
-    # data-model.SPECS.10
+    # data-model.SPECS.9
     field :feature_description, :string
+    # data-model.SPECS.10
+    field :raw_content, :string
     # data-model.SPECS.11
     field :feature_version, :string
     # data-model.SPECS.12
@@ -47,7 +49,7 @@ defmodule Acai.Specs.Spec do
     :feature_product
   ]
 
-  @optional_fields [:feature_description, :feature_version]
+  @optional_fields [:feature_description, :feature_version, :raw_content]
 
   @doc false
   def changeset(spec, attrs) do
@@ -62,5 +64,9 @@ defmodule Acai.Specs.Spec do
     |> check_constraint(:feature_product, name: :feature_product_url_safe)
     # data-model.SPECS.13
     |> unique_constraint([:team_id, :repo_uri, :branch_name, :path])
+    # data-model.SPECS.14
+    |> unique_constraint([:team_id, :feature_name, :feature_version],
+      name: :specs_team_feature_version_unique_idx
+    )
   end
 end

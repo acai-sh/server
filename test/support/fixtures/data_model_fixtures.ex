@@ -59,7 +59,7 @@ defmodule Acai.DataModelFixtures do
         path: "features/example/feature.yaml",
         last_seen_commit: "abc123",
         parsed_at: DateTime.utc_now(:second),
-        feature_name: "example-feature",
+        feature_name: "example-feature-#{System.unique_integer([:positive])}",
         feature_product: "acai",
         feature_description: "An example feature"
       })
