@@ -1,0 +1,29 @@
+feature:
+    name: impl-refs
+    description: /implementations/:implementation_id/references for viewing code references across tracked branches
+    product: api
+
+components:
+    LIST:
+        name: List references
+        description: Retrieve code references from all tracked branches for an implementation
+        requirements:
+            1: GET returns array of code_references for all tracked branches belonging to this implementation
+            2: Accepts optional query param ?acid=feature.COMP.1 to filter by specific requirement
+            3: Each reference includes id, acid, acid_string, repo_uri, branch_name, path, last_seen_at, last_seen_commit, is_test
+            4: Ordered by last_seen_at DESC (most recently seen first)
+            5: Returns empty array if implementation has no tracked branches
+
+constraints:
+    AUTH:
+        name: Authentication and authorization
+        requirements:
+            1: All endpoints require valid Bearer token (rejects revoked or expired tokens)
+            2: Read operations require impls:read scope
+            3: Token's team_id must match implementation.team_id - returns 404 if mismatch (not 403, to avoid leaking existence)
+
+    VALIDATION:
+        name: Input validation
+        requirements:
+            1: ACID query param must be a valid ACID format if provided
+            2: Returns 400 for malformed ACID format
