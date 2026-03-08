@@ -36,3 +36,14 @@ constraints:
         requirements:
             1: The :feature_name URL segment resolves by matching feature_name on the team's specs (case-insensitive)
             2: If no matching feature is found for the team, the user is redirected to /t/:team_name
+
+    PERFORMANCE:
+        name: Query efficiency
+        requirements:
+            1: Page load executes at most 5 database queries regardless of implementation count.
+            1-note: |
+                1) Fetch all specs for the feature_name
+                2) Fetch all active implementations for those specs
+                3) Batch-count tracked branches across all implementations
+                4) Batch-count requirements per spec
+                5) Batch-aggregate requirement status counts across all implementations

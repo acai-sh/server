@@ -28,3 +28,11 @@ constraints:
         requirements:
             1: The :product_name URL segment resolves by matching feature_product on the team's specs (case-insensitive)
             2: If no matching product is found for the team, the user is redirected to /t/:team_name
+
+    PERFORMANCE:
+        name: Query efficiency
+        requirements:
+            1: Page load executes at most 2 database queries regardless of feature count.
+            1-note: |
+                1) Fetch all specs for the product
+                2) Batch-count active implementations across all specs
