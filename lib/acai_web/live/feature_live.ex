@@ -37,9 +37,9 @@ defmodule AcaiWeb.FeatureLive do
         implementations = Acai.Repo.preload(implementations, :product)
 
         # data-model.SPEC_IMPL_STATES: Get status counts from spec_impl_states JSONB
-        # For each implementation, aggregate status counts across all specs
+        # For each implementation, aggregate status counts for only the relevant specs
         status_counts_by_impl =
-          Implementations.batch_get_spec_impl_state_counts(implementations)
+          Implementations.batch_get_spec_impl_state_counts(implementations, specs)
 
         # Total requirements across all specs for this feature
         total_requirements =

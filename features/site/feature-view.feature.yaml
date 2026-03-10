@@ -15,7 +15,7 @@ components:
         requirements:
             1: Renders feature name and description from the spec.
             2: Renders a grid of cards, one per active implementation of this feature.
-            3: Each card shows implementation name, product name, and completion percentage.
+            3: Each card shows implementation name, product name, and a progress bar colored by status, where if 100% are "accepted" the bar is 100% green.
             4: Each card links to /t/:team_name/i/:impl_name-:impl_id/f/:feature_name.
             5: Empty state shown if no implementations exist.
 

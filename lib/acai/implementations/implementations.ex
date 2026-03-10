@@ -238,18 +238,30 @@ defmodule Acai.Implementations do
   end
 
   @doc """
-  Batch gets spec_impl_state counts for multiple implementations.
+  Batch gets spec_impl_state counts for multiple implementations and optional specs.
   Returns a map of implementation_id => %{pending: count, in_progress: count, blocked: count, completed: count, rejected: count}
+
+  When specs are provided, only counts states for those specs. Otherwise counts all states.
   """
-  def batch_get_spec_impl_state_counts(implementations) when is_list(implementations) do
+  def batch_get_spec_impl_state_counts(implementations, specs \\ nil)
+      when is_list(implementations) do
     impl_ids = Enum.map(implementations, & &1.id)
+    spec_ids = if specs, do: Enum.map(specs, & &1.id), else: nil
 
     states =
-      Repo.all(
-        from sis in SpecImplState,
-          where: sis.implementation_id in ^impl_ids,
-          select: {sis.implementation_id, sis.states}
-      )
+      if spec_ids do
+        Repo.all(
+          from sis in SpecImplState,
+            where: sis.implementation_id in ^impl_ids and sis.spec_id in ^spec_ids,
+            select: {sis.implementation_id, sis.states}
+        )
+      else
+        Repo.all(
+          from sis in SpecImplState,
+            where: sis.implementation_id in ^impl_ids,
+            select: {sis.implementation_id, sis.states}
+        )
+      end
 
     states_by_impl = Map.new(states)
 

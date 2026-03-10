@@ -125,7 +125,7 @@ components:
             4: states is a JSONB column storing ACID statuses.
             4-1: states format is an object keyed by full ACID string.
             4-2: Each ACID entry contains status (string), comment (string, optional), metadata (object, optional), updated_at (timestamp).
-            4-3: Valid status values are pending, in_progress, blocked, completed, rejected.
+            4-3: Valid status values are null (no status), assigned, blocked, completed, rejected, accepted.
             5: Composite Unique Constraint enforces (implementation_id, spec_id).
             6: GIN Index on (states) for querying by ACID key within the JSONB.
 

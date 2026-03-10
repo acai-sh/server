@@ -144,7 +144,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
       <div
         id={"#{@id}-panel"}
         class={[
-          "fixed right-0 top-0 h-full w-full max-w-md bg-base-100 shadow-xl",
+          "fixed right-0 top-0 h-full w-full max-w-md lg:max-w-2xl bg-base-100 shadow-xl",
           "transform transition-transform duration-300 ease-in-out",
           "flex flex-col",
           @visible && "translate-x-0",
@@ -251,15 +251,14 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
                 <%!-- data-model.SPEC_IMPL_REFS: refs are stored as JSONB keyed by ACID --%>
                 <div :for={{branch, refs} <- @refs_by_branch} class="space-y-2">
                   <%!-- Group header shows repo_uri and branch_name --%>
-                  <div class="flex items-center gap-2 text-sm font-medium text-base-content/80">
-                    <.icon name="hero-git-branch" class="size-4" />
-                    <span>{branch.repo_uri}</span>
-                    <span class="text-base-content/40">/</span>
-                    <span class="text-primary">{branch.branch_name}</span>
+                  <div class="flex items-center gap-2 text-sm font-medium text-base-content/80 min-w-0">
+                    <span class="truncate">{branch.repo_uri}</span>
+                    <span class="text-base-content/40 flex-shrink-0">/</span>
+                    <span class="text-primary flex-shrink-0">{branch.branch_name}</span>
                   </div>
 
                   <%!-- References list --%>
-                  <ul class="ml-6 space-y-1">
+                  <ul class="space-y-1">
                     <li :for={ref <- refs} class="flex items-center gap-2">
                       <%!-- requirement-details.DRAWER.5-5: Test references visually distinguished --%>
                       <%= if ref["is_test"] do %>
@@ -278,7 +277,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
                         target="_blank"
                         rel="noopener noreferrer"
                         class={[
-                          "text-sm hover:underline",
+                          "text-sm hover:underline break-all",
                           ref["is_test"] && "text-info",
                           !ref["is_test"] && "text-base-content/80 hover:text-primary"
                         ]}
