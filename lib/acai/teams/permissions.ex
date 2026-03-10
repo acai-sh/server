@@ -8,7 +8,8 @@ defmodule Acai.Teams.Permissions do
   @valid_roles ~w(readonly developer owner)
 
   # team-roles.SCOPES.3
-  @all_scopes ~w(specs:read specs:write refs:read refs:write impls:read impls:write team:read team:admin tats:admin)
+  # data-model.TOKENS.6-1
+  @all_scopes ~w(specs:read specs:write states:read states:write refs:read refs:write impls:read impls:write team:read team:admin tats:admin)
 
   # team-roles.MODULE.2
   @role_scopes %{
@@ -17,7 +18,7 @@ defmodule Acai.Teams.Permissions do
     # team-roles.SCOPES.5
     "developer" => @all_scopes -- ~w(team:admin tats:admin),
     # team-roles.SCOPES.6
-    "readonly" => ~w(specs:read refs:read impls:read team:read)
+    "readonly" => ~w(specs:read states:read refs:read impls:read team:read)
   }
 
   @doc """

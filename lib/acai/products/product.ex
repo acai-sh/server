@@ -21,7 +21,7 @@ defmodule Acai.Products.Product do
     timestamps(type: :utc_datetime)
   end
 
-  @required_fields [:name]
+  @required_fields [:name, :team_id]
   @optional_fields [:description, :is_active]
 
   @doc false

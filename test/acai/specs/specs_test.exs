@@ -4,243 +4,437 @@ defmodule Acai.SpecsTest do
   import Acai.DataModelFixtures
 
   alias Acai.Specs
+  alias Acai.Specs.{Spec, SpecImplState, SpecImplRef}
 
-  # Shared setup: team -> spec -> requirement -> implementation -> branch
-  defp setup_ref_chain(_ctx \\ %{}) do
+  # Shared setup: team -> product -> spec -> implementation
+  defp setup_spec_chain(_ctx \\ %{}) do
     team = team_fixture()
-    spec = spec_fixture(team)
-    req = requirement_fixture(spec)
-    impl = implementation_fixture(spec)
-    branch = tracked_branch_fixture(impl)
-    %{team: team, spec: spec, req: req, impl: impl, branch: branch}
+    product = product_fixture(team)
+    spec = spec_fixture(product)
+    impl = implementation_fixture(product)
+    %{team: team, product: product, spec: spec, impl: impl}
   end
 
-  describe "batch_count_requirements/1" do
-    # feature-view.PERFORMANCE.1
-    test "returns empty map for empty list" do
-      assert Specs.batch_count_requirements([]) == %{}
+  describe "list_specs/2" do
+    test "returns empty list when no specs exist" do
+      team = team_fixture()
+      current_scope = %{user: %{id: 1}}
+      assert Specs.list_specs(current_scope, team) == []
     end
 
-    test "returns map of spec_id => requirement count" do
+    test "returns specs for the team" do
       team = team_fixture()
-      spec1 = spec_fixture(team)
+      product = product_fixture(team)
+      spec = spec_fixture(product)
+      current_scope = %{user: %{id: 1}}
 
-      spec2 =
-        spec_fixture(team, %{feature_name: "other-feature", path: "features/other/feature.yaml"})
-
-      requirement_fixture(spec1)
-      requirement_fixture(spec1, %{local_id: "2"})
-      requirement_fixture(spec2)
-
-      counts = Specs.batch_count_requirements([spec1, spec2])
-
-      assert Map.get(counts, spec1.id) == 2
-      assert Map.get(counts, spec2.id) == 1
+      assert [^spec] = Specs.list_specs(current_scope, team)
     end
 
-    test "returns no entry for specs with no requirements" do
-      team = team_fixture()
-      spec = spec_fixture(team)
+    test "does not return specs from other teams" do
+      team1 = team_fixture()
+      team2 = team_fixture()
+      product1 = product_fixture(team1)
+      product_fixture(team2)
+      spec_fixture(product1)
+      current_scope = %{user: %{id: 1}}
 
-      counts = Specs.batch_count_requirements([spec])
-
-      assert Map.get(counts, spec.id) == nil
+      assert Specs.list_specs(current_scope, team2) == []
     end
   end
 
-  describe "get_requirement!/1" do
-    # requirement-details.DRAWER.5-1
-    test "returns the requirement by id" do
-      %{req: req} = setup_ref_chain()
-      assert Specs.get_requirement!(req.id).id == req.id
+  describe "list_specs_for_product/1" do
+    test "returns specs for the product" do
+      team = team_fixture()
+      product = product_fixture(team)
+      spec = spec_fixture(product)
+
+      assert [^spec] = Specs.list_specs_for_product(product)
+    end
+
+    test "does not return specs from other products" do
+      team = team_fixture()
+      product1 = product_fixture(team, %{name: "product-1"})
+      product2 = product_fixture(team, %{name: "product-2"})
+      spec_fixture(product1)
+
+      assert Specs.list_specs_for_product(product2) == []
+    end
+  end
+
+  describe "get_spec!/1" do
+    test "returns the spec by id" do
+      %{spec: spec} = setup_spec_chain()
+      assert Specs.get_spec!(spec.id).id == spec.id
     end
 
     test "raises when not found" do
       assert_raise Ecto.NoResultsError, fn ->
-        Specs.get_requirement!(Acai.UUIDv7.autogenerate())
+        Specs.get_spec!(Acai.UUIDv7.autogenerate())
       end
     end
   end
 
-  describe "list_code_references/1" do
-    test "returns empty list when no refs exist" do
-      %{req: req} = setup_ref_chain()
-      assert Specs.list_code_references(req) == []
-    end
-
-    test "returns refs for the given requirement" do
-      %{req: req, branch: branch} = setup_ref_chain()
-
-      {:ok, ref} =
-        Specs.create_code_reference(req, branch, %{
-          repo_uri: "github.com/acai-sh/server",
-          last_seen_commit: "abc123",
-          acid_string: "example-feature.COMP.1",
-          path: "lib/my_app/foo.ex:10",
-          is_test: false
-        })
-
-      assert [^ref] = Specs.list_code_references(req)
-    end
-
-    test "does not return refs belonging to a different requirement" do
-      %{spec: spec, branch: branch, req: req} = setup_ref_chain()
-      other_req = requirement_fixture(spec, %{local_id: "2"})
-
-      {:ok, _other_ref} =
-        Specs.create_code_reference(other_req, branch, %{
-          repo_uri: "github.com/acai-sh/server",
-          last_seen_commit: "abc123",
-          acid_string: "example-feature.COMP.2",
-          path: "lib/my_app/bar.ex:20",
-          is_test: false
-        })
-
-      assert Specs.list_code_references(req) == []
-    end
-  end
-
-  describe "get_code_reference!/1" do
-    test "returns the code reference by id" do
-      %{req: req, branch: branch} = setup_ref_chain()
-
-      {:ok, ref} =
-        Specs.create_code_reference(req, branch, %{
-          repo_uri: "github.com/acai-sh/server",
-          last_seen_commit: "abc123",
-          acid_string: "example-feature.COMP.1",
-          path: "lib/my_app/foo.ex:10",
-          is_test: false
-        })
-
-      assert Specs.get_code_reference!(ref.id).id == ref.id
-    end
-
-    test "raises when not found" do
-      assert_raise Ecto.NoResultsError, fn ->
-        Specs.get_code_reference!(Acai.UUIDv7.autogenerate())
-      end
-    end
-  end
-
-  describe "create_code_reference/3" do
-    test "creates a code reference linked to the requirement and branch" do
-      %{req: req, branch: branch} = setup_ref_chain()
-
-      assert {:ok, ref} =
-               Specs.create_code_reference(req, branch, %{
-                 repo_uri: "github.com/acai-sh/server",
-                 last_seen_commit: "abc123",
-                 acid_string: "example-feature.COMP.1",
-                 path: "lib/my_app/foo.ex:10",
-                 is_test: false
-               })
-
-      assert ref.requirement_id == req.id
-      assert ref.branch_id == branch.id
-      assert ref.path == "lib/my_app/foo.ex:10"
-      assert ref.is_test == false
-    end
-
-    test "creates a test reference when is_test is true" do
-      %{req: req, branch: branch} = setup_ref_chain()
-
-      assert {:ok, ref} =
-               Specs.create_code_reference(req, branch, %{
-                 repo_uri: "github.com/acai-sh/server",
-                 last_seen_commit: "abc123",
-                 acid_string: "example-feature.COMP.1",
-                 path: "test/my_app/foo_test.exs:55",
-                 is_test: true
-               })
-
-      assert ref.is_test == true
-    end
-
-    test "returns error changeset when attrs are invalid" do
-      %{req: req, branch: branch} = setup_ref_chain()
-
-      assert {:error, changeset} = Specs.create_code_reference(req, branch, %{})
-      refute changeset.valid?
-    end
-
-    test "returns error on duplicate (requirement_id, branch_id, path)" do
-      %{req: req, branch: branch} = setup_ref_chain()
+  describe "create_spec/4" do
+    test "creates a spec linked to the team and product" do
+      team = team_fixture()
+      product = product_fixture(team)
+      current_scope = %{user: %{id: 1}}
 
       attrs = %{
         repo_uri: "github.com/acai-sh/server",
+        branch_name: "main",
         last_seen_commit: "abc123",
-        acid_string: "example-feature.COMP.1",
-        path: "lib/my_app/foo.ex:10",
-        is_test: false
+        parsed_at: DateTime.utc_now(),
+        feature_name: "new-feature"
       }
 
-      assert {:ok, _} = Specs.create_code_reference(req, branch, attrs)
-      assert {:error, cs} = Specs.create_code_reference(req, branch, attrs)
-      assert %{requirement_id: [_ | _]} = errors_on(cs)
+      assert {:ok, %Spec{} = spec} = Specs.create_spec(current_scope, team, product, attrs)
+      assert spec.feature_name == "new-feature"
+      assert spec.team_id == team.id
+      assert spec.product_id == product.id
+    end
+
+    test "returns error changeset when attrs are invalid" do
+      team = team_fixture()
+      product = product_fixture(team)
+      current_scope = %{user: %{id: 1}}
+
+      assert {:error, changeset} = Specs.create_spec(current_scope, team, product, %{})
+      refute changeset.valid?
     end
   end
 
-  describe "upsert_code_reference/3" do
-    @attrs %{
-      repo_uri: "github.com/acai-sh/server",
-      last_seen_commit: "abc123",
-      acid_string: "example-feature.COMP.1",
-      path: "lib/my_app/foo.ex:10",
-      is_test: false
-    }
+  describe "update_spec/2" do
+    test "updates the spec" do
+      %{spec: spec} = setup_spec_chain()
+      attrs = %{feature_description: "Updated description", feature_version: "2.0.0"}
 
-    test "inserts a new code reference when none exists" do
-      %{req: req, branch: branch} = setup_ref_chain()
-
-      assert {:ok, ref} = Specs.upsert_code_reference(req, branch, @attrs)
-      assert ref.requirement_id == req.id
-      assert ref.branch_id == branch.id
-      assert ref.last_seen_commit == "abc123"
+      assert {:ok, %Spec{} = updated} = Specs.update_spec(spec, attrs)
+      assert updated.feature_description == "Updated description"
+      assert updated.feature_version == "2.0.0"
     end
 
-    test "updates mutable fields on conflict without changing the id" do
-      %{req: req, branch: branch} = setup_ref_chain()
-
-      {:ok, original} = Specs.upsert_code_reference(req, branch, @attrs)
-
-      updated_attrs = Map.merge(@attrs, %{last_seen_commit: "def456", is_test: true})
-      {:ok, updated} = Specs.upsert_code_reference(req, branch, updated_attrs)
-
-      # id is preserved
-      assert updated.id == original.id
-      # mutable fields are updated
-      assert updated.last_seen_commit == "def456"
-      assert updated.is_test == true
-    end
-
-    test "two different paths for the same requirement and branch are stored separately" do
-      %{req: req, branch: branch} = setup_ref_chain()
-
-      {:ok, _ref1} = Specs.upsert_code_reference(req, branch, @attrs)
-
-      {:ok, _ref2} =
-        Specs.upsert_code_reference(req, branch, Map.put(@attrs, :path, "lib/my_app/bar.ex:99"))
-
-      assert length(Specs.list_code_references(req)) == 2
+    test "returns error changeset when attrs are invalid" do
+      %{spec: spec} = setup_spec_chain()
+      assert {:error, changeset} = Specs.update_spec(spec, %{feature_name: ""})
+      refute changeset.valid?
     end
   end
 
-  describe "change_code_reference/2" do
-    test "returns a changeset for a code reference" do
-      %{req: req, branch: branch} = setup_ref_chain()
-      ref = code_reference_fixture(req, branch)
-
-      cs = Specs.change_code_reference(ref, %{last_seen_commit: "newcommit"})
-      assert cs.changes == %{last_seen_commit: "newcommit"}
+  describe "change_spec/2" do
+    test "returns a changeset for the spec" do
+      %{spec: spec} = setup_spec_chain()
+      cs = Specs.change_spec(spec, %{feature_name: "new-name"})
+      assert cs.changes == %{feature_name: "new-name"}
     end
 
     test "returns a blank changeset with no attrs" do
-      %{req: req, branch: branch} = setup_ref_chain()
-      ref = code_reference_fixture(req, branch)
-
-      cs = Specs.change_code_reference(ref)
+      %{spec: spec} = setup_spec_chain()
+      cs = Specs.change_spec(spec)
       assert cs.changes == %{}
+    end
+  end
+
+  describe "list_specs_grouped_by_product/1" do
+    test "returns empty map when no specs exist" do
+      team = team_fixture()
+      assert Specs.list_specs_grouped_by_product(team) == %{}
+    end
+
+    test "returns specs grouped by product name" do
+      team = team_fixture()
+      product1 = product_fixture(team, %{name: "product-a"})
+      product2 = product_fixture(team, %{name: "product-b"})
+      spec1 = spec_fixture(product1, %{feature_name: "feature-1"})
+      spec2 = spec_fixture(product1, %{feature_name: "feature-2"})
+      spec3 = spec_fixture(product2, %{feature_name: "feature-3"})
+
+      grouped = Specs.list_specs_grouped_by_product(team)
+
+      assert length(Map.get(grouped, "product-a", [])) == 2
+      assert length(Map.get(grouped, "product-b", [])) == 1
+      # Compare by ID since the product association is preloaded in grouped specs
+      grouped_ids = Enum.map(grouped["product-a"], & &1.id)
+      assert spec1.id in grouped_ids
+      assert spec2.id in grouped_ids
+      assert spec3.id in Enum.map(grouped["product-b"], & &1.id)
+    end
+
+    test "does not include specs from other teams" do
+      team1 = team_fixture()
+      team2 = team_fixture()
+      product = product_fixture(team1, %{name: "shared-name"})
+      spec_fixture(product)
+
+      assert Specs.list_specs_grouped_by_product(team2) == %{}
+    end
+  end
+
+  describe "get_spec_by_feature_name/2" do
+    test "returns the spec by feature_name for the team" do
+      team = team_fixture()
+      product = product_fixture(team)
+      spec = spec_fixture(product, %{feature_name: "my-feature"})
+
+      assert Specs.get_spec_by_feature_name(team, "my-feature").id == spec.id
+    end
+
+    test "returns nil when no spec found" do
+      team = team_fixture()
+      assert Specs.get_spec_by_feature_name(team, "nonexistent") == nil
+    end
+
+    test "does not return specs from other teams" do
+      team1 = team_fixture()
+      team2 = team_fixture()
+      product = product_fixture(team1)
+      spec_fixture(product, %{feature_name: "my-feature"})
+
+      assert Specs.get_spec_by_feature_name(team2, "my-feature") == nil
+    end
+  end
+
+  describe "get_specs_by_feature_name/2" do
+    test "returns specs and actual feature_name for the team" do
+      team = team_fixture()
+      product = product_fixture(team)
+      spec = spec_fixture(product, %{feature_name: "my-feature"})
+
+      assert {"my-feature", [^spec]} = Specs.get_specs_by_feature_name(team, "my-feature")
+    end
+
+    test "is case-insensitive" do
+      team = team_fixture()
+      product = product_fixture(team)
+      spec = spec_fixture(product, %{feature_name: "My-Feature"})
+
+      assert {"My-Feature", [^spec]} = Specs.get_specs_by_feature_name(team, "my-feature")
+    end
+
+    test "returns nil when no spec found" do
+      team = team_fixture()
+      assert Specs.get_specs_by_feature_name(team, "nonexistent") == nil
+    end
+  end
+
+  describe "get_specs_by_product_name/2" do
+    test "returns specs and actual product name for the team" do
+      team = team_fixture()
+      product = product_fixture(team, %{name: "my-product"})
+      spec = spec_fixture(product)
+
+      assert {"my-product", [^spec]} = Specs.get_specs_by_product_name(team, "my-product")
+    end
+
+    test "is case-insensitive" do
+      team = team_fixture()
+      product = product_fixture(team, %{name: "My-Product"})
+      spec_fixture(product)
+
+      assert {"My-Product", [_]} = Specs.get_specs_by_product_name(team, "my-product")
+    end
+
+    test "returns nil when no product found" do
+      team = team_fixture()
+      assert Specs.get_specs_by_product_name(team, "nonexistent") == nil
+    end
+  end
+
+  # --- SpecImplState tests ---
+
+  describe "get_spec_impl_state/2" do
+    test "returns the state for spec and implementation" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      state = spec_impl_state_fixture(spec, impl)
+
+      assert Specs.get_spec_impl_state(spec, impl).id == state.id
+    end
+
+    test "returns nil when no state exists" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      assert Specs.get_spec_impl_state(spec, impl) == nil
+    end
+  end
+
+  describe "create_spec_impl_state/3" do
+    test "creates a state for spec and implementation" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      attrs = %{
+        states: %{
+          "test.COMP.1" => %{"status" => "pending", "comment" => "Test"}
+        }
+      }
+
+      assert {:ok, %SpecImplState{} = state} = Specs.create_spec_impl_state(spec, impl, attrs)
+      assert state.spec_id == spec.id
+      assert state.implementation_id == impl.id
+      assert state.states["test.COMP.1"]["status"] == "pending"
+    end
+
+    test "returns error changeset when attrs are invalid" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      assert {:error, changeset} = Specs.create_spec_impl_state(spec, impl, %{states: nil})
+      refute changeset.valid?
+    end
+  end
+
+  describe "update_spec_impl_state/2" do
+    test "updates the state" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      state = spec_impl_state_fixture(spec, impl)
+
+      new_states = %{
+        "test.COMP.1" => %{"status" => "completed", "comment" => "Done"}
+      }
+
+      assert {:ok, %SpecImplState{} = updated} =
+               Specs.update_spec_impl_state(state, %{states: new_states})
+
+      assert updated.states["test.COMP.1"]["status"] == "completed"
+    end
+  end
+
+  describe "upsert_spec_impl_state/3" do
+    test "inserts a new state when none exists" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      attrs = %{
+        states: %{
+          "test.COMP.1" => %{"status" => "in_progress"}
+        }
+      }
+
+      assert {:ok, %SpecImplState{} = state} = Specs.upsert_spec_impl_state(spec, impl, attrs)
+      assert state.spec_id == spec.id
+      assert state.implementation_id == impl.id
+    end
+
+    test "updates existing state on conflict" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      {:ok, original} =
+        Specs.upsert_spec_impl_state(spec, impl, %{states: %{"a" => %{"status" => "pending"}}})
+
+      {:ok, updated} =
+        Specs.upsert_spec_impl_state(spec, impl, %{states: %{"a" => %{"status" => "completed"}}})
+
+      assert updated.id == original.id
+      assert updated.states["a"]["status"] == "completed"
+    end
+  end
+
+  # --- SpecImplRef tests ---
+
+  describe "get_spec_impl_ref/2" do
+    test "returns the ref for spec and implementation" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      ref_record = spec_impl_ref_fixture(spec, impl)
+
+      assert Specs.get_spec_impl_ref(spec, impl).id == ref_record.id
+    end
+
+    test "returns nil when no ref exists" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      assert Specs.get_spec_impl_ref(spec, impl) == nil
+    end
+  end
+
+  describe "create_spec_impl_ref/3" do
+    test "creates a ref for spec and implementation" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      attrs = %{
+        refs: %{
+          "test.COMP.1" => [
+            %{
+              "repo" => "github.com/org/repo",
+              "path" => "lib/foo.ex",
+              "loc" => "10:5",
+              "is_test" => false
+            }
+          ]
+        },
+        agent: "github-action",
+        commit: "abc123",
+        pushed_at: DateTime.utc_now()
+      }
+
+      assert {:ok, %SpecImplRef{} = ref_record} = Specs.create_spec_impl_ref(spec, impl, attrs)
+      assert ref_record.spec_id == spec.id
+      assert ref_record.implementation_id == impl.id
+      assert ref_record.agent == "github-action"
+    end
+
+    test "returns error changeset when attrs are invalid" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      assert {:error, changeset} = Specs.create_spec_impl_ref(spec, impl, %{refs: nil})
+      refute changeset.valid?
+    end
+  end
+
+  describe "update_spec_impl_ref/2" do
+    test "updates the ref" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      ref_record = spec_impl_ref_fixture(spec, impl)
+
+      new_refs = %{
+        "test.COMP.1" => [
+          %{
+            "repo" => "github.com/org/repo",
+            "path" => "lib/bar.ex",
+            "loc" => "20:10",
+            "is_test" => true
+          }
+        ]
+      }
+
+      assert {:ok, %SpecImplRef{} = updated} =
+               Specs.update_spec_impl_ref(ref_record, %{refs: new_refs})
+
+      assert updated.refs["test.COMP.1"] |> hd() |> Map.get("path") == "lib/bar.ex"
+    end
+  end
+
+  describe "upsert_spec_impl_ref/3" do
+    test "inserts a new ref when none exists" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      attrs = %{
+        refs: %{"a" => [%{"path" => "lib/foo.ex"}]},
+        agent: "cli",
+        commit: "def456",
+        pushed_at: DateTime.utc_now()
+      }
+
+      assert {:ok, %SpecImplRef{} = ref_record} = Specs.upsert_spec_impl_ref(spec, impl, attrs)
+      assert ref_record.spec_id == spec.id
+      assert ref_record.implementation_id == impl.id
+    end
+
+    test "updates existing ref on conflict" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      {:ok, original} =
+        Specs.upsert_spec_impl_ref(spec, impl, %{
+          refs: %{"a" => [%{"path" => "lib/foo.ex"}]},
+          agent: "cli",
+          commit: "abc",
+          pushed_at: DateTime.utc_now()
+        })
+
+      {:ok, updated} =
+        Specs.upsert_spec_impl_ref(spec, impl, %{
+          refs: %{"a" => [%{"path" => "lib/bar.ex"}]},
+          agent: "github-action",
+          commit: "def",
+          pushed_at: DateTime.utc_now()
+        })
+
+      assert updated.id == original.id
+      assert updated.agent == "github-action"
+      assert updated.refs["a"] |> hd() |> Map.get("path") == "lib/bar.ex"
     end
   end
 end

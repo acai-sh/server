@@ -7,7 +7,17 @@ defmodule Acai.Implementations.ImplementationTest do
 
   describe "changeset/2" do
     test "valid with required fields" do
-      cs = Implementation.changeset(%Implementation{}, %{name: "Production", is_active: true})
+      team = team_fixture()
+      product = product_fixture(team)
+
+      cs =
+        Implementation.changeset(%Implementation{}, %{
+          name: "Production",
+          is_active: true,
+          product_id: product.id,
+          team_id: team.id
+        })
+
       assert cs.valid?
     end
 
@@ -20,11 +30,16 @@ defmodule Acai.Implementations.ImplementationTest do
 
     # data-model.IMPLS.4
     test "accepts optional description" do
+      team = team_fixture()
+      product = product_fixture(team)
+
       cs =
         Implementation.changeset(%Implementation{}, %{
           name: "Production",
           is_active: true,
-          description: "The main production implementation."
+          description: "The main production implementation.",
+          product_id: product.id,
+          team_id: team.id
         })
 
       assert cs.valid?
@@ -40,22 +55,43 @@ defmodule Acai.Implementations.ImplementationTest do
       assert Implementation.__schema__(:primary_key) == [:id]
       assert Implementation.__schema__(:type, :id) == Acai.UUIDv7
     end
+
+    # data-model.IMPLS.7
+    test "accepts optional parent_implementation_id" do
+      team = team_fixture()
+      product = product_fixture(team)
+      parent = implementation_fixture(product, %{name: "parent"})
+
+      cs =
+        Implementation.changeset(%Implementation{}, %{
+          name: "child",
+          is_active: true,
+          product_id: product.id,
+          team_id: team.id,
+          parent_implementation_id: parent.id
+        })
+
+      assert cs.valid?
+    end
   end
 
   describe "database constraints" do
-    # data-model.IMPLS.7
-    test "composite unique constraint on (spec_id, name)" do
+    # data-model.IMPLS.8
+    test "composite unique constraint on (product_id, name)" do
       team = team_fixture()
-      spec = spec_fixture(team)
-      implementation_fixture(spec, %{name: "Production"})
+      product = product_fixture(team)
+      implementation_fixture(product, %{name: "Production"})
 
       {:error, cs} =
-        Implementation.changeset(%Implementation{}, %{name: "Production", is_active: true})
-        |> Ecto.Changeset.put_change(:spec_id, spec.id)
-        |> Ecto.Changeset.put_change(:team_id, spec.team_id)
+        Implementation.changeset(%Implementation{}, %{
+          name: "Production",
+          is_active: true,
+          product_id: product.id,
+          team_id: team.id
+        })
         |> Acai.Repo.insert()
 
-      assert %{spec_id: [_ | _]} = errors_on(cs)
+      assert %{product_id: [_ | _]} = errors_on(cs)
     end
   end
 end

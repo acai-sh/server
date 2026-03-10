@@ -50,7 +50,8 @@ defmodule Acai.Specs.Spec do
     :last_seen_commit,
     :parsed_at,
     :feature_name,
-    :product_id
+    :product_id,
+    :team_id
   ]
 
   @optional_fields [

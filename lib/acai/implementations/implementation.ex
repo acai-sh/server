@@ -25,7 +25,7 @@ defmodule Acai.Implementations.Implementation do
     timestamps(type: :utc_datetime)
   end
 
-  @required_fields [:name, :is_active, :product_id]
+  @required_fields [:name, :is_active, :product_id, :team_id]
   @optional_fields [:description, :parent_implementation_id]
 
   @doc false

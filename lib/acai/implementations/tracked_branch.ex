@@ -21,7 +21,7 @@ defmodule Acai.Implementations.TrackedBranch do
     timestamps(type: :utc_datetime)
   end
 
-  @required_fields [:repo_uri, :branch_name, :last_seen_commit]
+  @required_fields [:repo_uri, :branch_name, :last_seen_commit, :implementation_id]
 
   @doc false
   def changeset(tracked_branch, attrs) do

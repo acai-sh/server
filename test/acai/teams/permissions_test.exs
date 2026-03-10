@@ -3,6 +3,8 @@ defmodule Acai.Teams.PermissionsTest do
 
   alias Acai.Teams.Permissions
 
+  @all_scopes ~w(specs:read specs:write states:read states:write refs:read refs:write impls:read impls:write team:read team:admin tats:admin)
+
   describe "valid_roles/0" do
     # team-roles.SCOPES.1
     test "returns the three supported roles" do
@@ -16,28 +18,21 @@ defmodule Acai.Teams.PermissionsTest do
     test "owner has all scopes" do
       scopes = Permissions.scopes_for("owner")
 
-      assert "specs:read" in scopes
-      assert "specs:write" in scopes
-      assert "refs:read" in scopes
-      assert "refs:write" in scopes
-      assert "impls:read" in scopes
-      assert "impls:write" in scopes
-      assert "team:read" in scopes
-      assert "team:admin" in scopes
-      assert "tats:admin" in scopes
+      for scope <- @all_scopes do
+        assert scope in scopes, "expected owner to have #{scope}"
+      end
     end
 
     # team-roles.SCOPES.5
     test "developer has all scopes except team:admin and tats:admin" do
       scopes = Permissions.scopes_for("developer")
 
-      assert "specs:read" in scopes
-      assert "specs:write" in scopes
-      assert "refs:read" in scopes
-      assert "refs:write" in scopes
-      assert "impls:read" in scopes
-      assert "impls:write" in scopes
-      assert "team:read" in scopes
+      expected_scopes = @all_scopes -- ~w(team:admin tats:admin)
+
+      for scope <- expected_scopes do
+        assert scope in scopes, "expected developer to have #{scope}"
+      end
+
       refute "team:admin" in scopes
       refute "tats:admin" in scopes
     end
@@ -46,8 +41,13 @@ defmodule Acai.Teams.PermissionsTest do
     test "readonly only has read scopes" do
       scopes = Permissions.scopes_for("readonly")
 
-      assert scopes == ~w(specs:read refs:read impls:read team:read)
+      assert "specs:read" in scopes
+      assert "states:read" in scopes
+      assert "refs:read" in scopes
+      assert "impls:read" in scopes
+      assert "team:read" in scopes
       refute "specs:write" in scopes
+      refute "states:write" in scopes
       refute "refs:write" in scopes
       refute "impls:write" in scopes
       refute "team:admin" in scopes
@@ -63,10 +63,7 @@ defmodule Acai.Teams.PermissionsTest do
     # team-roles.MODULE.1
     # team-roles.SCOPES.4
     test "owner has permission for every scope" do
-      all_scopes =
-        ~w(specs:read specs:write refs:read refs:write impls:read impls:write team:read team:admin tats:admin)
-
-      for scope <- all_scopes do
+      for scope <- @all_scopes do
         assert Permissions.has_permission?("owner", scope),
                "expected owner to have #{scope}"
       end
@@ -85,9 +82,22 @@ defmodule Acai.Teams.PermissionsTest do
       assert Permissions.has_permission?("developer", "specs:write")
     end
 
+    test "developer has states:read and states:write" do
+      assert Permissions.has_permission?("developer", "states:read")
+      assert Permissions.has_permission?("developer", "states:write")
+    end
+
     # team-roles.SCOPES.6
     test "readonly has specs:read" do
       assert Permissions.has_permission?("readonly", "specs:read")
+    end
+
+    test "readonly has states:read" do
+      assert Permissions.has_permission?("readonly", "states:read")
+    end
+
+    test "readonly does not have states:write" do
+      refute Permissions.has_permission?("readonly", "states:write")
     end
 
     test "readonly does not have specs:write" do

@@ -5,11 +5,13 @@ defmodule Acai.DataModelFixtures do
 
   alias Acai.Repo
   alias Acai.Teams.{Team, UserTeamRole, AccessToken}
-  alias Acai.Specs.{Spec, Requirement, CodeReference}
-  alias Acai.Implementations.{Implementation, TrackedBranch, RequirementStatus}
-  alias Acai.Events.ActivityEvent
+  alias Acai.Products.Product
+  alias Acai.Specs.{Spec, SpecImplState, SpecImplRef}
+  alias Acai.Implementations.{Implementation, TrackedBranch}
 
   def unique_team_name, do: "team-#{System.unique_integer([:positive])}"
+  def unique_product_name, do: "product-#{System.unique_integer([:positive])}"
+  def unique_feature_name, do: "feature-#{System.unique_integer([:positive])}"
 
   def team_fixture(attrs \\ %{}) do
     {:ok, team} =
@@ -40,7 +42,17 @@ defmodule Acai.DataModelFixtures do
         name: "Test Token",
         token_hash: "hash-#{System.unique_integer([:positive])}",
         token_prefix: "at_test",
-        scopes: ["specs:read", "specs:write"]
+        scopes: [
+          "specs:read",
+          "specs:write",
+          "states:read",
+          "states:write",
+          "refs:read",
+          "refs:write",
+          "impls:read",
+          "impls:write",
+          "team:read"
+        ]
       })
       |> then(&AccessToken.changeset(%AccessToken{}, &1))
       |> Ecto.Changeset.put_change(:team_id, team.id)
@@ -50,8 +62,26 @@ defmodule Acai.DataModelFixtures do
     token
   end
 
-  def spec_fixture(team, attrs \\ %{}) do
-    {:ok, spec} =
+  def product_fixture(team, attrs \\ %{}) do
+    attrs =
+      attrs
+      |> Enum.into(%{
+        name: unique_product_name(),
+        description: "Test product description",
+        is_active: true
+      })
+      |> Map.put(:team_id, team.id)
+
+    {:ok, product} =
+      Product.changeset(%Product{}, attrs)
+      |> Repo.insert()
+
+    # Reload to ensure all fields are populated
+    Repo.get!(Product, product.id)
+  end
+
+  def spec_fixture(product, attrs \\ %{}) do
+    attrs =
       attrs
       |> Enum.into(%{
         repo_uri: "github.com/acai-sh/server",
@@ -59,106 +89,104 @@ defmodule Acai.DataModelFixtures do
         path: "features/example/feature.yaml",
         last_seen_commit: "abc123",
         parsed_at: DateTime.utc_now(:second),
-        feature_name: "example-feature-#{System.unique_integer([:positive])}",
-        feature_product: "acai",
-        feature_description: "An example feature"
+        feature_name: unique_feature_name(),
+        feature_description: "An example feature",
+        feature_version: "1.0.0",
+        raw_content: "feature:\n  name: example",
+        requirements: %{}
       })
-      |> then(&Spec.changeset(%Spec{}, &1))
-      |> Ecto.Changeset.put_change(:team_id, team.id)
+      |> Map.put(:product_id, product.id)
+      |> Map.put(:team_id, product.team_id)
+
+    {:ok, spec} =
+      Spec.changeset(%Spec{}, attrs)
       |> Repo.insert()
 
     spec
   end
 
-  def requirement_fixture(spec, attrs \\ %{}) do
-    {:ok, req} =
+  def implementation_fixture(product, attrs \\ %{}) do
+    attrs =
       attrs
       |> Enum.into(%{
-        group_key: "COMP",
-        group_type: :COMPONENT,
-        local_id: "1",
-        definition: "Some requirement definition.",
-        is_deprecated: false,
-        feature_name: "example-feature",
-        replaced_by: []
+        name: "Production",
+        description: "Main production environment",
+        is_active: true
       })
-      |> then(&Requirement.changeset(%Requirement{}, &1))
-      |> Ecto.Changeset.put_change(:spec_id, spec.id)
-      |> Repo.insert()
+      |> Map.put(:product_id, product.id)
+      |> Map.put(:team_id, product.team_id)
 
-    # Reload to get the generated acid column
-    Repo.get!(Requirement, req.id)
-  end
-
-  def code_reference_fixture(requirement, branch, attrs \\ %{}) do
-    {:ok, ref} =
-      attrs
-      |> Enum.into(%{
-        repo_uri: "github.com/acai-sh/server",
-        last_seen_commit: "abc123",
-        acid_string: "example-feature.COMP.1",
-        path: "lib/my_app/my_module.ex:42",
-        is_test: false
-      })
-      |> then(&CodeReference.changeset(%CodeReference{}, &1))
-      |> Ecto.Changeset.put_change(:requirement_id, requirement.id)
-      |> Ecto.Changeset.put_change(:branch_id, branch.id)
-      |> Repo.insert()
-
-    ref
-  end
-
-  def implementation_fixture(spec, attrs \\ %{}) do
     {:ok, impl} =
-      attrs
-      |> Enum.into(%{name: "Production", is_active: true})
-      |> then(&Implementation.changeset(%Implementation{}, &1))
-      |> Ecto.Changeset.put_change(:spec_id, spec.id)
-      |> Ecto.Changeset.put_change(:team_id, spec.team_id)
+      Implementation.changeset(%Implementation{}, attrs)
       |> Repo.insert()
 
     impl
   end
 
   def tracked_branch_fixture(implementation, attrs \\ %{}) do
-    {:ok, branch} =
+    attrs =
       attrs
       |> Enum.into(%{
         repo_uri: "github.com/acai-sh/server",
-        branch_name: "main"
+        branch_name: "main",
+        last_seen_commit: "abc123def456"
       })
-      |> then(&TrackedBranch.changeset(%TrackedBranch{}, &1))
-      |> Ecto.Changeset.put_change(:implementation_id, implementation.id)
+      |> Map.put(:implementation_id, implementation.id)
+
+    {:ok, branch} =
+      TrackedBranch.changeset(%TrackedBranch{}, attrs)
       |> Repo.insert()
 
     branch
   end
 
-  def requirement_status_fixture(implementation, requirement, attrs \\ %{}) do
-    {:ok, status} =
-      attrs
-      |> Enum.into(%{is_active: true, last_seen_commit: "abc123"})
-      |> then(&RequirementStatus.changeset(%RequirementStatus{}, &1))
-      |> Ecto.Changeset.put_change(:implementation_id, implementation.id)
-      |> Ecto.Changeset.put_change(:requirement_id, requirement.id)
-      |> Repo.insert()
-
-    status
-  end
-
-  def activity_event_fixture(team, attrs \\ %{}) do
-    {:ok, event} =
+  def spec_impl_state_fixture(spec, implementation, attrs \\ %{}) do
+    attrs =
       attrs
       |> Enum.into(%{
-        event_type: "spec.created",
-        subject_type: "spec",
-        subject_id: Acai.UUIDv7.autogenerate(),
-        payload: %{"key" => "value"}
+        states: %{
+          "test-feature.COMP.1" => %{
+            "status" => "pending",
+            "comment" => "Initial state",
+            "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+          }
+        }
       })
-      |> then(&ActivityEvent.changeset(%ActivityEvent{}, &1))
-      |> Ecto.Changeset.put_change(:team_id, team.id)
+      |> Map.put(:spec_id, spec.id)
+      |> Map.put(:implementation_id, implementation.id)
+
+    {:ok, state} =
+      SpecImplState.changeset(%SpecImplState{}, attrs)
       |> Repo.insert()
 
-    event
+    state
+  end
+
+  def spec_impl_ref_fixture(spec, implementation, attrs \\ %{}) do
+    attrs =
+      attrs
+      |> Enum.into(%{
+        refs: %{
+          "test-feature.COMP.1" => [
+            %{
+              "repo" => "github.com/acai-sh/server",
+              "path" => "lib/my_app/my_module.ex",
+              "loc" => "42:10",
+              "is_test" => false
+            }
+          ]
+        },
+        agent: "github-action",
+        commit: "abc123def456",
+        pushed_at: DateTime.utc_now()
+      })
+      |> Map.put(:spec_id, spec.id)
+      |> Map.put(:implementation_id, implementation.id)
+
+    {:ok, ref} =
+      SpecImplRef.changeset(%SpecImplRef{}, attrs)
+      |> Repo.insert()
+
+    ref
   end
 end
