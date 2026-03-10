@@ -4,7 +4,7 @@ feature:
     description: |
         The push endpoint is the primary write API for the acai CLI.
         It ingests specs, code references, states, and manages implementation state.
-    version: 3.0.0
+    version: 1.0.0
     product: api
     prerequisites:
         - The data-model feature defines the core schema
