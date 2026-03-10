@@ -2,7 +2,7 @@
 name: implement-task
 description: "My job is to develop and implement code to complete predefined tasks."
 mode: all
-model: opencode/gemini-3-flash
+model: opencode-go/kimi-k2.5
 permission:
   edit: allow
   bash:
