@@ -207,7 +207,7 @@ defmodule Acai.ImplementationsTest do
 
   describe "get_spec_impl_state_counts/1" do
     test "returns counts of states by status", %{product: product} do
-      team = product.team
+      _team = product.team
       spec = spec_fixture(product)
       impl = implementation_fixture(product)
 
@@ -272,7 +272,6 @@ defmodule Acai.ImplementationsTest do
 
   describe "list_active_implementations_for_specs/1" do
     test "returns active implementations for specs through product", %{
-      team: team,
       product: product
     } do
       spec = spec_fixture(product)
