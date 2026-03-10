@@ -5,9 +5,8 @@ feature:
 
 components:
     API:
-        1: exposes public /api/openapi.json route
-        2: namespaces all endpoints under /api/v1
-        3: "All routes and resources are default private and require Authorization: Bearer <token> header unless otherwise specified"
+        1: exposes public /api/v1/openapi.json route
+        1-1: renders compliant openapi json spec for this version of the api
 
 constraints:
     ENG:
@@ -17,3 +16,5 @@ constraints:
         4: All HTTP 2xx JSON responses wrap their payload in a root `data` key
         5: Controllers use action_fallback to a unified FallbackController for Ecto Changeset errors and 404s
         6: The :api router pipeline is strictly stateless (must not contain fetch_session or fetch_flash)
+        7: namespaces all endpoints under /api/v1
+        8: All routes and resources are default private, require Authorization header with Bearer token unless otherwise specified
