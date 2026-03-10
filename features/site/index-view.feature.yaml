@@ -1,5 +1,6 @@
 feature:
     name: index-view
+    product: site
     description: The index route and view
 
 components:

@@ -1,5 +1,6 @@
 feature:
     name: team-tokens
+    product: site
     description: Create and manage team access tokens, which can then be used for permissioned API ops.
     prerequisites:
         - Data model and team views must be completed and tested;

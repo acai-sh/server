@@ -1,0 +1,120 @@
+feature:
+    name: push
+    key: PUSH_API
+    description: |
+        The push endpoint is the primary write API for the acai CLI.
+        It ingests specs, code references, states, and manages implementation state.
+    version: 3.0.0
+    product: api
+    prerequisites:
+        - The data-model feature defines the core schema
+
+components:
+    SPEC_PUSH:
+        name: Spec push
+        description: |
+            Pushing a feature.yaml creates or updates a spec for the branch.
+            Spec identity is stable across updates on the same (repo_uri, branch_name, feature_name).
+        requirements:
+            1: Push creates a new spec if no matching (repo_uri, branch_name, feature_name) exists.
+            2: Push updates the existing spec if the combination already exists.
+            3: Spec version changes update the row but do not create a new spec.
+            4: Renaming a feature creates a new spec; the old spec and its states are preserved.
+            5: Each push captures the commit hash and raw content for traceability.
+
+    REF_PUSH:
+        name: Code reference push
+        description: |
+            Pushing code references links ACIDs to implementation locations.
+            References are scoped to a spec + implementation combination.
+        requirements:
+            1: Push overwrites all existing refs for the spec + implementation with the new set.
+            2: References include repo, file path, line/column location, and whether it's a test.
+            3: Invalid or unknown ACIDs in the push are skipped and reported.
+            4: Refs can be pushed independently of specs (common in multi-repo setups).
+
+    STATES_PUSH:
+        name: States push
+        description: |
+            Pushing a states map allows setting ACID statuses directly.
+            States are merged into the spec_impl_states JSONB column.
+        requirements:
+            1: States map keys are full ACID strings.
+            2: States map values include status, optional comment, and optional metadata.
+            3: Pushed states are merged with existing states, overwriting on key collision.
+            4: States pushed to an inherited implementation overwrite inherited snapshotted values.
+            5: States can be pushed independently of specs and refs.
+
+    IMPL_CREATION:
+        name: Implementation creation
+        description: |
+            Pushing to an untracked branch may create an implementation.
+            This links the branch to a product environment.
+        requirements:
+            1: When pushing to an untracked branch, the system may create an implementation.
+            2: Implementation name defaults to the branch name.
+            3: Parent is determined by the parent field semantics defined in IMPL_PARENT semantics.
+
+    IMPL_PARENT:
+        name: Implementation parent semantics
+        description: |
+            The parent field controls inheritance behavior and has different semantics
+            depending on whether the implementation is new or existing, and whether
+            the field is undefined, null, or a value.
+        requirements:
+            1: For NEW implementations, undefined parent triggers git upstream auto-detection.
+            2: For NEW implementations, null parent explicitly creates with NO parent.
+            3: For NEW implementations, a parent UUID explicitly sets that parent.
+            4: For EXISTING implementations, undefined parent leaves the current parent unchanged.
+            5: For EXISTING implementations, null parent removes the current parent link (uninherit).
+            6: For EXISTING implementations, a parent UUID changes to that parent (reparent).
+
+    INHERITANCE:
+        name: Implementation inheritance
+        description: |
+            When an implementation gains a parent (at creation or via reparenting),
+            states and refs are snapshotted from the parent.
+        requirements:
+            1: Gaining a parent snapshots states from parent to child.
+            2: Gaining a parent snapshots refs from parent to child.
+            3: Snapshotted values are merged with any existing values; existing takes precedence.
+            4: Child specs take precedence over parent specs for the same feature.
+            5: Post-creation, parent changes do not affect the child's snapshotted state.
+            6: Uninheriting (setting parent to null) severs the link but retains existing states.
+            7: Specs only visible via inheritance are no longer accessible after uninherit.
+
+    IDEMPOTENCY:
+        name: Push idempotency
+        description: |
+            Push operations are idempotent - re-running the same push produces the same result.
+            Different pushes to the same implementation compose predictably.
+        requirements:
+            1: Pushing the same spec content multiple times is a no-op after the first.
+            2: Pushing without inheritance, then pushing with inheritance, adds the parent and snapshots.
+            3: Pushing with inheritance, then pushing without inheritance, keeps the parent unchanged.
+            4: Pushing with inheritance, then pushing with parent null, removes the parent (uninherit).
+            5: Forgotten states can be added in subsequent pushes via the states map.
+            6: Forgotten inheritance can be added in subsequent pushes by setting parent.
+
+constraints:
+    AUTH:
+        name: Authentication and authorization
+        requirements:
+            1: Push requires a valid, non-expired, non-revoked API token.
+            2: Token scopes must include specs:write for spec pushes.
+            3: Token scopes must include refs:write for reference pushes.
+            4: Token scopes must include impls:write for creating implementations.
+            5: The token's team_id determines ownership of all created resources.
+
+    TX:
+        name: Transaction guarantees
+        requirements:
+            1: All operations within a push are atomic; failures roll back entirely.
+            2: Concurrent pushes to the same spec use last-write-wins semantics.
+
+    VALIDATION:
+        name: Validation constraints
+        requirements:
+            1: Feature names must only contain alphanumeric chars, hyphens, and underscores.
+            2: Version strings must follow SemVer format when provided.
+            3: Duplicate (feature_name, feature_version) combinations are rejected across branches.

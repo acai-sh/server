@@ -68,7 +68,9 @@ defmodule Acai.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       # data-model.FIELDS.3 - UUIDv7 primary keys for all entities
-      {:uuidv7, "~> 0.2"}
+      {:uuidv7, "~> 0.2"},
+      # core.API.1 - OpenAPI spec generation and validation
+      {:open_api_spex, "~> 3.21"}
     ]
   end
 

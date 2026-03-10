@@ -1,0 +1,187 @@
+feature:
+    name: data-model
+    product: site
+    description: |
+        Core RDBMS schema for tracking AI-driven feature specifications and code implementation state.
+        Fields are default required / non-null unless flagged as Optional.
+        Foreign keys are default ON DELETE CASCADE unless flagged otherwise.
+    prerequisites:
+        - Default elixir/phoenix app already has Users table, session tokens, and mailer logic completed.
+
+components:
+    TEAMS:
+        name: teams table
+        description: Top-level tenant for RBAC and billing.
+        requirements:
+            1: id field is a UUIDv7 Primary Key.
+            2: name field is a case-insensitive string, non-nullable, and unique within the entire teams table.
+            2-1: name field only supports alphanumeric chars, hyphens, and underscores.
+
+    PRODUCTS:
+        name: products table
+        description: First-class product entity representing a collection of features. Implementations span all features within a product.
+        requirements:
+            1: id field is a UUIDv7 Primary Key.
+            2: team_id is a Foreign Key to teams table.
+            3: name field is a CITEXT column, non-nullable.
+            3-1: name field only supports alphanumeric chars, hyphens, and underscores.
+            4: description is a text field. Optional.
+            5: is_active is a boolean to handle soft-deletes. Defaults to true.
+            6: Composite Unique Constraint enforces (team_id, name).
+
+    TOKENS:
+        name: access_tokens table
+        description: Cryptographically hashed tokens granting scoped API access to the team, via a user.
+        requirements:
+            1: id field is a UUIDv7 Primary Key.
+            2: user_id is a Foreign Key to users table.
+            3: name is a string, used for identifying the token's purpose.
+            4: token_hash is a string storing the SHA-256 hash of the raw token.
+            4-1: token_hash has a UNIQUE constraint, which serves as its index.
+            5: token_prefix is a string storing the unhashed prefix.
+            6: scopes is a JSONB array of strings defining the permitted API actions.
+            6-1: Default new token scopes are specs:read, specs:write, states:read, states:write, refs:read, refs:write, impls:read, impls:write, team:read.
+            7: expires_at is a timestamp indicating when the token naturally invalidates. Optional.
+            8: revoked_at is a timestamp for manual, soft-delete invalidation. Optional.
+            9: last_used_at is a timestamp updated on successful authentication to track stale tokens. Optional.
+            10: team_id is a Foreign Key to teams table.
+
+    ROLES:
+        name: user_team_roles table
+        description: A pure join table with no primary key. Unique constraint on (team_id, user_id) prevents duplicate role assignments.
+        requirements:
+            1: team_id is a Foreign Key to teams table.
+            2: user_id is a Foreign Key to users table.
+            3: title field is a non-nullable string.
+
+    IMPLS:
+        name: implementations table
+        description: |
+            A global environment belonging to a product that encompasses the state of all features within that product.
+            Implementations can inherit from a parent implementation to form an inheritance chain.
+        requirements:
+            1: id field is a UUIDv7 Primary Key.
+            2: product_id is a Foreign Key to products table.
+            3: name is a string, typically derived from the branch name during auto-creation.
+            4: description is a text field. Optional.
+            5: is_active is a boolean to handle soft-deletes. Defaults to true.
+            6: team_id is a Foreign Key to teams table.
+            7: parent_implementation_id is a Foreign Key to implementations table (self-referential). Optional.
+            7-1: parent_implementation_id uses ON DELETE SET NULL to preserve child implementations if parent is deleted.
+            8: Composite Unique Constraint enforces (product_id, name).
+
+    BRANCHES:
+        name: tracked_branches table
+        description: A junction table linking repository branches to an implementation. One implementation can track multiple branches across repos.
+        requirements:
+            1: id field is a UUIDv7 Primary Key.
+            2: implementation_id is a Foreign Key to implementations table, non-nullable.
+            3: repo_uri is the normalized URI (e.g., github.com/org/repo).
+            4: branch_name is a string (e.g., main, dev, feature-x).
+            5: last_seen_commit is a string storing the commit hash from the most recent CLI push for this branch.
+            6: Composite Unique Constraint enforces (implementation_id, repo_uri) - an implementation can only track one branch per repo.
+            7: Index on (repo_uri, branch_name) for looking up which implementation tracks a given branch.
+
+    SPECS:
+        name: specs table
+        description: |
+            A stored feature.yaml file at a specific repo + branch + path.
+            Requirements are stored as JSONB rather than a separate table for simplicity.
+            Denormalized repo_uri and branch_name support uniqueness constraints without joins.
+        requirements:
+            1: id field is a UUIDv7 Primary Key.
+            2: team_id is a Foreign Key to teams table.
+            3: tracked_branch_id is a Foreign Key to tracked_branches table. Optional as FK, but should be populated when the branch is tracked.
+            4: repo_uri is the normalized URI, copied from tracked_branch for uniqueness constraint.
+            5: branch_name is a string, copied from tracked_branch for uniqueness constraint.
+            6: path is text starting from the repo root without a leading slash (e.g., features/auth.feature.yaml). Optional.
+            6-1: path is metadata only and not part of spec identity.
+            7: last_seen_commit is a string storing the commit hash from the most recent CLI push.
+            8: parsed_at is a timestamp of the most recent parse.
+            9: feature_name is the string defined under feature.name.
+            9-1: feature_name field only supports alphanumeric chars, hyphens, and underscores.
+            10: feature_description is the string defined under feature.description. Optional.
+            11: feature_version is the string defined under feature.version. Defaults to 1.0.0.
+            11-1: If present, feature_version must follow SemVer format.
+            12: raw_content is a text field storing the original feature.yaml contents. Optional.
+            13: requirements is a JSONB column storing parsed requirement definitions keyed by ACID.
+            13-1: Each ACID key maps to an object containing definition (string), note (string, optional), is_deprecated (boolean, defaults to false), replaced_by (array of ACID strings, defaults to empty).
+            14: product_id is a Foreign Key to products table.
+            15: Composite Unique Constraint enforces (team_id, repo_uri, branch_name, feature_name) - one spec per feature per branch.
+            16: Composite Unique Constraint enforces (team_id, feature_name, feature_version) - prevents duplicate feature versions, forces users to re-version when they revise specs.
+            17: Index on (product_id) for listing specs by product.
+            18: Index on (repo_uri, branch_name) for joining specs to tracked_branches.
+
+    SPEC_IMPL_STATES:
+        name: spec_impl_states table
+        description: |
+            Snapshot of ACID states for a specific spec + implementation combination, stored as JSONB.
+            States are keyed by full ACID (e.g., my-feature.MY_COMPONENT.1-1).
+            Orphaned states (ACIDs removed from spec) are retained for potential reinstatement.
+        requirements:
+            1: id field is a UUIDv7 Primary Key.
+            2: implementation_id is a Foreign Key to implementations table.
+            3: spec_id is a Foreign Key to specs table.
+            4: states is a JSONB column storing ACID statuses.
+            4-1: states format is an object keyed by full ACID string.
+            4-2: Each ACID entry contains status (string), comment (string, optional), metadata (object, optional), updated_at (timestamp).
+            4-3: Valid status values are pending, in_progress, blocked, completed, rejected.
+            5: Composite Unique Constraint enforces (implementation_id, spec_id).
+            6: GIN Index on (states) for querying by ACID key within the JSONB.
+
+    SPEC_IMPL_REFS:
+        name: spec_impl_refs table
+        description: |
+            Stores code references linking ACIDs to implementation locations in the codebase.
+            Pushed exclusively by CLI, keyed by spec + implementation.
+            Includes metadata about the push agent (CI, user, etc.).
+        requirements:
+            1: id field is a UUIDv7 Primary Key.
+            2: implementation_id is a Foreign Key to implementations table.
+            3: spec_id is a Foreign Key to specs table.
+            4: refs is a JSONB column storing ACID references.
+            4-1: refs format is an object keyed by full ACID string.
+            4-2: Each ACID entry contains an array of reference objects.
+            4-3: Each reference object contains repo (string), path (string), loc (string, line/column), is_test (boolean).
+            5: agent is a string identifying the source of the refs (e.g., github-action, @username, robot-label).
+            6: commit is a string storing the commit hash when refs were pushed.
+            7: pushed_at is a timestamp of when the refs were pushed.
+            8: Composite Unique Constraint enforces (implementation_id, spec_id).
+            9: GIN Index on (refs) for querying by ACID key within the JSONB.
+
+constraints:
+    FIELDS:
+        requirements:
+            1: All tables include created_at and updated_at timestamps managed by Ecto.
+            2: Any field in any table that ends with _key must only support url-safe alphanumeric chars, hyphens and underscores.
+            3: All entities, except for roles, use `id` primary key as UUIDv7.
+
+    SPEC_IDENTITY:
+        name: Spec identity and update semantics
+        requirements:
+            1: Spec id is stable across updates on the same (repo_uri, branch_name, feature_name) combination.
+            2: Pushing an updated feature.yaml to an existing branch updates the existing spec row if feature_name matches.
+            3: Renaming a feature creates a new spec; the old spec and its states remain under the old feature_name.
+            4: Version changes on an existing spec update the spec row but do not create a new spec.
+            5: Version uniqueness constraint prevents claiming a (feature_name, feature_version) already used by another branch.
+
+    IMPL_CREATION:
+        name: Automatic implementation creation
+        requirements:
+            1: When CLI pushes to an untracked branch, the server may auto-create an implementation.
+            2: Implementation name defaults to the branch name being pushed.
+            3: Parent implementation is inferred via git upstream branch lookup against tracked_branches table.
+            4: If parent branch is tracked, new implementation inherits from that implementation.
+            5: If parent branch is not tracked or no upstream exists, parent_implementation_id is null.
+            6: CLI may override auto-detection with explicit --parent-impl or --parent-branch flags.
+
+    INHERITANCE:
+        name: Implementation inheritance semantics
+        requirements:
+            1: Inheritance forms a chain via parent_implementation_id for querying specs across implementations.
+            2: When querying states/refs for an implementation, the system finds specs via tracked branches.
+            3: If a spec exists on both parent and child implementation's tracked branches, child's spec takes precedence.
+            4: If a spec only exists on a parent implementation's tracked branch, states/refs inherit from parent.
+            5: Inheritance recurses up the chain with worst case depth of 3 to 4 levels (e.g., prod to dev to feature to task).
+            6: States and refs are snapshotted from parent at child creation time to prevent drift.
+            7: Push operations may overwrite snapshotted refs; states persist unless explicitly modified.

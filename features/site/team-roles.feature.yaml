@@ -1,5 +1,6 @@
 feature:
     name: team-roles
+    product: site
     description: Spec defining how team roles should be enforced and managed in code
     prerequisites:
         - data-model.ROLES

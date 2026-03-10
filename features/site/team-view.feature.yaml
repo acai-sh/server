@@ -1,5 +1,6 @@
 feature:
     name: team-view
+    product: site
     description: The /t/:team_name view where a user can invite team members, manage their roles, and see a list of products owned by the team
     prerequisites:
         - data-model.TEAMS

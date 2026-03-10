@@ -1,5 +1,6 @@
 feature:
     name: seed-data
+    product: site
     key: SEED_DATA
     description: Generate seed data in the devcontainer for QA / testing purposes
 
@@ -33,12 +34,23 @@ components:
                 - `developer@testing.team` -> `developer`
                 - `readonly@testing.team` -> `readonly`
 
+    PRODUCTS:
+        name: Products
+        description: First-class product entities for organizing features and implementations
+        requirements:
+            1: |
+                Generate at least 2 `Products` for `testing-team`:
+                - `acai.sh` - main product with multiple features and implementations
+                - `example.com` - secondary product for testing multi-product scenarios
+            2: Each product must have a description
+            3: Products must be created before specs so specs can reference them
+
     MOCK_DATA:
         name: Mock Domain Data
         description: Functional data for testing-team to enable QA of core features
         requirements:
             1: |
-                Generate at least 3 `Specs` for `testing-team` with varying states:
+                Generate at least 3 `Specs` for `testing-team` distributed across products:
                 - One spec with a full set of requirements and multiple implementations
                 - One spec with pending requirements and no implementations
                 - One spec with a mix of completed, partially completed, and deprecated requirements
@@ -48,16 +60,21 @@ components:
                 - Nested requirements (sub-requirements)
                 - Requirements with notes and `replaced_by` ACIDs
             3: |
-                Generate `Implementations` for the specs in `testing-team`:
+                Generate `Implementations` for the products in `testing-team`:
+                - At least one "Production" implementation spanning multiple features in a product
+                - At least one "Staging" implementation for testing inheritance
                 - At least one implementation with a linked `TrackedBranch`
-                - Varying statuses for requirements within implementations
             4: |
+                Generate `FeatureImplementationStates` for implementations:
+                - Populate JSONB status_snapshot with varying statuses for requirements
+                - Ensure some features have accepted, implemented, and null statuses
+            5: |
                 Generate a history of `ActivityEvents` for `testing-team`:
-                - Events for spec creation, requirement updates, and implementation progress
+                - Events for product creation, spec creation, requirement updates, and implementation progress
                 - Events attributed to different team members (owner, developer)
 
 constraints:
     ENVIRONMENT:
         requirements:
             1: Seed data generation must run automatically during devcontainer build or when `mix run priv/repo/seeds.exs` is executed
-            2: Seeding must be idempotent; running it multiple times should not create duplicate users or teams
+            2: Seeding must be idempotent; running it multiple times should not create duplicate users, teams, or products

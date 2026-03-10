@@ -3,15 +3,15 @@ name: write-spec
 description: Learn how to write compliant feature.yaml specs
 ---
 
-Every feature has a spec file called `feature.yaml`, located in the `features` directory.
+Every feature has a spec file called `feature.yaml`
 Each requirement in the spec has a stable ID e.g. `my-feature.COMPONENT.1-1` or `my-feature.CONSTRAINT.2`. We call these ACIDs.
 
 Here are tips for writing a good spec;
 - Only functionality, never design and style
-- Intended desired behavior, never current state or status
-- Well-bounded slice of user value
+- Intended behavior, never reflect the current state or status
 - Requirements are grouped into obvious components
 - Not overly prescriptive, focused only on key behaviors and acceptance criteria
+- Always better to under-specify than over-specify
 
 For important cross-cutting criteria that don't relate to a single component, e.g. under-the-hood engineering concerns, use the `constraints` key.
 
@@ -30,7 +30,7 @@ components:
       name: Top level file format
       requirements:
         1: The file must be called `feature.yaml`
-        2: The file should be located as the direct child of a directory that matches the feature name e.g. `features/my-feature-name/feature.yaml`
+        2: The file should be located in a file that matches the feature name e.g. `features/my-feature-name.feature.yaml`
         3: The file must begin with the `feature` top-level property, containing feature metadata
         4: The file may contain a `components` top-level property, with unique component keys
         5: The file may contain a `constraints` top-level property, with unique constraint keys

@@ -1,5 +1,6 @@
 feature:
     name: team-list
+    product: site
     description: This feature describes the /teams list view where a user can view a list of teams and create a new team.
     prerequisites:
         - data-model.TEAMS

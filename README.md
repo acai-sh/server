@@ -15,34 +15,6 @@ The project directories follow the conventional Phoenix layout, with the additio
 
 Otherwise, choose from one of the deployment options below.
 
-## Product Overview
-
-Acai.sh is an open-source toolkit for spec-driven software development. The toolkit is centered around `feature.yaml` specs docs.
-The toolkit supports a specific software development workflow;
-1. Features are defined in plain language in `feature.yaml`, as simple lists of key requirements.
-2. Requirements each get stable ids like `data-model.TEAMS.1`.
-3. The Acai CLI parses your `feature.yaml` files and scans your codebase to find id references in comments and in tests.
-4. Data is pushed to the server, so that many collaborators (humans and agents) can share progress, and review/accept/reject implementations.
-
-The server also hosts a dashboard, which presents a simple and intuitive heirarchy.
-- Teams that have many Products
-- Products that have many Features
-- Features that have many Implementations
-- Implementation are linked to a single canonical Spec file, and one or more git branches (where requirements are turned into code!)
-
-Under-the-hood, this is the data model;
-- teams: Top-level tenant for RBAC and billing.
-- users: Pre-existing table for identity, session tokens, and mailer logic.
-- access_tokens: Cryptographically hashed tokens granting scoped API access to a team.
-- user_team_roles: Join table linking users to teams with specific titles.
-- specs: Metadata and tracking for a feature.yaml file at a specific repo path.
-- implementations: Specific variants of a feature, such as "Production" or "Prototype".
-- tracked_branches: Links specific repository branches to an implementation.
-- requirements: The parsed, definition-only content and ACIDs from a spec file.
-- requirement_statuses: Per-implementation state (e.g., status, commit) for each requirement.
-- code_references: Tracks where a requirement ACID is actively referenced in external code.
-- activity_events: Append-only log of domain events for activity feeds and auditing
-
 ### Devcontainers & DevPods
 
 This is the easiest way to host a local instance (or multiple in parallel)

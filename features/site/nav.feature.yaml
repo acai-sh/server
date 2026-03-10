@@ -1,5 +1,6 @@
 feature:
     name: nav
+    product: site
     description: |
         The persistent app shell navigation for authenticated team views (/t/:team_name/...).
         Includes a collapsible sidebar panel, a slim top header bar, and contextual active-state
@@ -9,6 +10,7 @@ feature:
         - data-model.SPECS
         - data-model.IMPLS
         - team-roles
+        - feature-view
 
 components:
     HEADER:
@@ -35,18 +37,18 @@ components:
 
             3: Renders a "PRODUCTS" section header below the top-level nav items
             3-1: Each product associated with the team is rendered as a collapsible item under the PRODUCTS header
-            3-2: A product's display name is derived from the distinct feature_product values across the team's specs
+            3-2: A product's display name comes from the products table (first-class entity)
             3-3: The product item links to /t/:team_name/p/:product_name (product overview)
 
             4: Each product item can be expanded to reveal the list of feature names within that product
-            4-1: Each feature name links to /t/:team_name/f/:feature_name
+            4-1: Each feature name links to /t/:team_name/f/:feature_name (feature-view implementation selector)
             4-2: Multiple products can be expanded simultaneously
             4-3: Clicking the product name navigates to the product overview while clicking the toggle icon expands/collapses the list
 
             5: The panel automatically expands and highlights the correct product and feature based on the current URL
             5-1: When viewing /t/:team_name/p/:product_name, the matching product item is expanded and highlighted
             5-2: When viewing /t/:team_name/f/:feature_name, the matching product is expanded and the matching feature is highlighted
-            5-3: When viewing /t/:team_name/f/:feature_name/i/:impl_slug (where :impl_slug follows the my-impl-name+dashless_uuid pattern), the panel highlights the feature that owns that implementation
+            5-3: When viewing a nested route, the panel highlights the product and the feature being viewed
             5-4: Highlighting propagates upward — the active product is also highlighted whenever any child feature or implementation is active
 
             6: Renders a Team Settings link (/t/:team_name/settings) and a Tokens link (/t/:team_name/tokens) at the bottom of the panel
