@@ -25,7 +25,7 @@ defmodule Acai.SeedsTest do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
 
     # Run seeds using the module
-    Acai.Seeds.run()
+    Acai.Seeds.run(silent: true)
 
     :ok
   end
@@ -48,7 +48,7 @@ defmodule Acai.SeedsTest do
 
     test "idempotent: running seeds twice doesn't duplicate users" do
       user_count_before = Repo.aggregate(Accounts.User, :count)
-      Acai.Seeds.run()
+      Acai.Seeds.run(silent: true)
       user_count_after = Repo.aggregate(Accounts.User, :count)
       assert user_count_before == user_count_after
     end
@@ -80,7 +80,7 @@ defmodule Acai.SeedsTest do
 
     test "idempotent: running seeds twice doesn't duplicate teams" do
       team_count_before = Repo.aggregate(Teams.Team, :count)
-      Acai.Seeds.run()
+      Acai.Seeds.run(silent: true)
       team_count_after = Repo.aggregate(Teams.Team, :count)
       assert team_count_before == team_count_after
     end
@@ -106,7 +106,7 @@ defmodule Acai.SeedsTest do
 
     test "idempotent: running seeds twice doesn't duplicate products" do
       product_count_before = Repo.aggregate(Product, :count)
-      Acai.Seeds.run()
+      Acai.Seeds.run(silent: true)
       product_count_after = Repo.aggregate(Product, :count)
       assert product_count_before == product_count_after
     end
@@ -205,7 +205,7 @@ defmodule Acai.SeedsTest do
 
     test "idempotent: running seeds twice doesn't duplicate specs" do
       spec_count_before = Repo.aggregate(Spec, :count)
-      Acai.Seeds.run()
+      Acai.Seeds.run(silent: true)
       spec_count_after = Repo.aggregate(Spec, :count)
       assert spec_count_before == spec_count_after
     end
@@ -248,7 +248,7 @@ defmodule Acai.SeedsTest do
 
     test "idempotent: running seeds twice doesn't duplicate implementations" do
       impl_count_before = Repo.aggregate(Implementation, :count)
-      Acai.Seeds.run()
+      Acai.Seeds.run(silent: true)
       impl_count_after = Repo.aggregate(Implementation, :count)
       assert impl_count_before == impl_count_after
     end
@@ -282,7 +282,7 @@ defmodule Acai.SeedsTest do
 
     test "idempotent: running seeds twice doesn't duplicate tracked branches" do
       branch_count_before = Repo.aggregate(TrackedBranch, :count)
-      Acai.Seeds.run()
+      Acai.Seeds.run(silent: true)
       branch_count_after = Repo.aggregate(TrackedBranch, :count)
       assert branch_count_before == branch_count_after
     end
@@ -337,7 +337,7 @@ defmodule Acai.SeedsTest do
 
     test "idempotent: running seeds twice doesn't duplicate spec_impl_states" do
       state_count_before = Repo.aggregate(SpecImplState, :count)
-      Acai.Seeds.run()
+      Acai.Seeds.run(silent: true)
       state_count_after = Repo.aggregate(SpecImplState, :count)
       assert state_count_before == state_count_after
     end
@@ -402,7 +402,7 @@ defmodule Acai.SeedsTest do
 
     test "idempotent: running seeds twice doesn't duplicate spec_impl_refs" do
       ref_count_before = Repo.aggregate(SpecImplRef, :count)
-      Acai.Seeds.run()
+      Acai.Seeds.run(silent: true)
       ref_count_after = Repo.aggregate(SpecImplRef, :count)
       assert ref_count_before == ref_count_after
     end

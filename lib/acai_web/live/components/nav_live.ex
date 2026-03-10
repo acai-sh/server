@@ -61,12 +61,13 @@ defmodule AcaiWeb.Live.Components.NavLive do
 
         {product, nil}
 
-      # nav.PANEL.5-3: /t/:team_name/f/:feature_name/i/:impl_slug
+      # nav.PANEL.5-3: /t/:team_name/i/:impl_slug/f/:feature_name
       # Check for specific implementation path first (more specific than feature path)
-      String.starts_with?(path_without_team, "/f/") and String.contains?(path_without_team, "/i/") ->
-        # Parse feature and impl_slug
-        parts = path_without_team |> String.trim_leading("/f/") |> String.split("/i/")
-        feature = List.first(parts) || nil
+      String.starts_with?(path_without_team, "/i/") and String.contains?(path_without_team, "/f/") ->
+        # Parse impl_slug and feature from /i/:impl_slug/f/:feature_name
+        # After /i/ comes impl_slug, after /f/ comes feature_name
+        parts = path_without_team |> String.trim_leading("/i/") |> String.split("/f/")
+        feature = parts |> Enum.at(1) |> String.split("/") |> List.first()
 
         # nav.PANEL.5-3: Highlight the feature that owns the implementation
         product = find_product_for_feature(team, feature)

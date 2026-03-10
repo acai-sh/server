@@ -33,41 +33,36 @@ defmodule AcaiWeb.FeatureLive do
         # Get all active implementations for the product
         implementations = Implementations.list_active_implementations_for_specs(specs)
 
-        # feature-view.PERFORMANCE.1: Batch count tracked branches (query 4)
-        tracked_branch_counts = Implementations.batch_count_tracked_branches(implementations)
+        # feature-view.PERF.1: Preload product association for each implementation
+        implementations = Acai.Repo.preload(implementations, :product)
 
         # data-model.SPEC_IMPL_STATES: Get status counts from spec_impl_states JSONB
         # For each implementation, aggregate status counts across all specs
         status_counts_by_impl =
           Implementations.batch_get_spec_impl_state_counts(implementations)
 
+        # Total requirements across all specs for this feature
+        total_requirements =
+          specs
+          |> Enum.map(fn spec -> Map.get(spec_requirement_counts, spec.id, 0) end)
+          |> Enum.sum()
+
         # Build implementation cards with pre-fetched data
         implementation_cards =
           implementations
           |> Enum.map(fn impl ->
-            # feature-view.IMPL_CARD.2: Count tracked branches (from batch)
-            tracked_branch_count = Map.get(tracked_branch_counts, impl.id, 0)
-
-            # feature-view.IMPL_CARD.3: Total requirements across all specs for this feature
-            total_requirements =
-              specs
-              |> Enum.map(fn spec -> Map.get(spec_requirement_counts, spec.id, 0) end)
-              |> Enum.sum()
-
-            # feature-view.IMPL_CARD.4: Get status counts from spec_impl_states
+            # feature-view.MAIN.3: Get status counts from spec_impl_states
             impl_counts = Map.get(status_counts_by_impl, impl.id, %{"completed" => 0})
 
-            # Build status counts for progress bar
+            # Calculate completion percentage
             completed_count = Map.get(impl_counts, "completed", 0)
-            in_progress_count = Map.get(impl_counts, "in_progress", 0)
-            # Null count is everything that's not completed or in_progress
-            null_count = max(0, total_requirements - completed_count - in_progress_count)
 
-            status_counts = %{
-              completed: completed_count,
-              in_progress: in_progress_count,
-              null: null_count
-            }
+            completion_percentage =
+              if total_requirements > 0 do
+                round(completed_count / total_requirements * 100)
+              else
+                0
+              end
 
             # Build the slug for navigation (impl_name+uuid_without_dashes)
             # feature-view.MAIN.4
@@ -77,9 +72,8 @@ defmodule AcaiWeb.FeatureLive do
               id: "impl-#{impl.id}",
               implementation: impl,
               slug: slug,
-              tracked_branch_count: tracked_branch_count,
-              total_requirements: total_requirements,
-              status_counts: status_counts
+              product_name: impl.product.name,
+              completion_percentage: completion_percentage
             }
           end)
           |> Enum.sort_by(& &1.implementation.name)
@@ -89,12 +83,12 @@ defmodule AcaiWeb.FeatureLive do
           |> assign(:team, team)
           # feature-view.MAIN.1
           |> assign(:feature_name, actual_feature_name)
-          # feature-view.MAIN.2
+          # feature-view.MAIN.1
           |> assign(:feature_description, first_spec.feature_description)
           # data-model.SPECS.14: Get product name from preloaded association
           |> assign(:product_name, first_spec.product.name)
           |> assign(:implementations_empty?, implementation_cards == [])
-          # feature-view.MAIN.3
+          # feature-view.MAIN.2
           |> stream(:implementations, implementation_cards)
           # nav.AUTH.1: Pass current_path for navigation
           |> assign(:current_path, "/t/#{team.name}/f/#{feature_name}")
@@ -126,12 +120,12 @@ defmodule AcaiWeb.FeatureLive do
           ]}
         />
 
-        <%!-- feature-view.MAIN.3: Section header --%>
+        <%!-- feature-view.MAIN.2: Section header --%>
         <h2 class="text-lg font-semibold mb-4">Feature Implementations</h2>
 
-        <%!-- feature-view.MAIN.4 --%>
+        <%!-- feature-view.MAIN.5 --%>
         <%= if @implementations_empty? do %>
-          <%!-- feature-view.MAIN.4-1: Empty state --%>
+          <%!-- feature-view.MAIN.5: Empty state --%>
           <div class="text-center py-12 rounded-xl border-2 border-dashed border-base-300">
             <.icon name="hero-code-bracket" class="size-12 text-base-content/30 mx-auto mb-4" />
             <p class="text-base-content/60">No implementations found for this feature</p>
@@ -142,18 +136,18 @@ defmodule AcaiWeb.FeatureLive do
             phx-update="stream"
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
           >
-            <%!-- feature-view.IMPL_CARD --%>
+            <%!-- feature-view.MAIN.2 --%>
             <.link
               :for={{id, card} <- @streams.implementations}
               id={id}
-              navigate={"/t/#{@team.name}/f/#{@feature_name}/i/#{card.slug}"}
+              navigate={"/t/#{@team.name}/i/#{card.slug}/f/#{@feature_name}"}
               class="block group"
             >
               <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer h-full">
                 <div class="card-body">
                   <div class="flex items-start justify-between gap-3">
                     <div class="flex-1 min-w-0">
-                      <%!-- feature-view.IMPL_CARD.1 --%>
+                      <%!-- feature-view.MAIN.3 --%>
                       <h3 class="font-semibold text-base group-hover:text-primary transition-colors truncate">
                         {card.implementation.name}
                       </h3>
@@ -163,31 +157,19 @@ defmodule AcaiWeb.FeatureLive do
                     </div>
                   </div>
 
-                  <div class="flex items-center gap-4 mt-3 pt-3 border-t border-base-200">
-                    <%!-- feature-view.IMPL_CARD.2 --%>
-                    <div class="flex items-center gap-1.5">
-                      <.icon name="hero-git-branch" class="size-4 text-base-content/50" />
-                      <span class="text-sm text-base-content/60">
-                        {card.tracked_branch_count} branch{if card.tracked_branch_count != 1,
-                          do: "es",
-                          else: ""}
+                  <%!-- feature-view.MAIN.3: Product name --%>
+                  <p class="text-sm text-base-content/60 mt-1">
+                    {card.product_name}
+                  </p>
+
+                  <%!-- feature-view.MAIN.3: Completion percentage --%>
+                  <div class="mt-4 pt-3 border-t border-base-200">
+                    <div class="flex items-center justify-between">
+                      <span class="text-sm text-base-content/50">Completion</span>
+                      <span class="text-sm font-semibold text-primary">
+                        {card.completion_percentage}%
                       </span>
                     </div>
-
-                    <%!-- feature-view.IMPL_CARD.3 --%>
-                    <div class="flex items-center gap-1.5">
-                      <.icon name="hero-list-bullet" class="size-4 text-base-content/50" />
-                      <span class="text-sm text-base-content/60">
-                        {card.total_requirements} requirement{if card.total_requirements != 1,
-                          do: "s",
-                          else: ""}
-                      </span>
-                    </div>
-                  </div>
-
-                  <%!-- feature-view.IMPL_CARD.4: Progress bar --%>
-                  <div class="mt-3">
-                    <.progress_bar counts={card.status_counts} total={card.total_requirements} />
                   </div>
                 </div>
               </div>
@@ -196,63 +178,6 @@ defmodule AcaiWeb.FeatureLive do
         <% end %>
       </div>
     </Layouts.app>
-    """
-  end
-
-  # feature-view.IMPL_CARD.4: Progress bar component
-  defp progress_bar(assigns) do
-    %{counts: %{completed: completed, in_progress: in_progress, null: null}, total: total} =
-      assigns
-
-    # Calculate percentages (avoid division by zero)
-    {completed_pct, in_progress_pct, null_pct} =
-      if total > 0 do
-        {
-          round(completed / total * 100),
-          round(in_progress / total * 100),
-          round(null / total * 100)
-        }
-      else
-        {0, 0, 0}
-      end
-
-    assigns =
-      assigns
-      |> assign(:completed, completed)
-      |> assign(:in_progress, in_progress)
-      |> assign(:completed_pct, completed_pct)
-      |> assign(:in_progress_pct, in_progress_pct)
-      |> assign(:null_pct, null_pct)
-
-    ~H"""
-    <div class="flex items-center gap-2">
-      <div class="flex-1 h-2 bg-base-200 rounded-full overflow-hidden flex">
-        <%!-- feature-view.IMPL_CARD.4-1: Green for completed --%>
-        <div
-          :if={@completed_pct > 0}
-          class="bg-success h-full"
-          style={"width: #{@completed_pct}%"}
-          title={"#{@completed_pct}% completed"}
-        />
-        <%!-- feature-view.IMPL_CARD.4-2: Blue for in_progress --%>
-        <div
-          :if={@in_progress_pct > 0}
-          class="bg-info h-full"
-          style={"width: #{@in_progress_pct}%"}
-          title={"#{@in_progress_pct}% in progress"}
-        />
-        <%!-- feature-view.IMPL_CARD.4-3: Gray for null/no status --%>
-        <div
-          :if={@null_pct > 0}
-          class="bg-base-300 h-full"
-          style={"width: #{@null_pct}%"}
-          title={"#{@null_pct}% not started"}
-        />
-      </div>
-      <span class="text-xs text-base-content/50">
-        {@completed + @in_progress}/{@total}
-      </span>
-    </div>
     """
   end
 end

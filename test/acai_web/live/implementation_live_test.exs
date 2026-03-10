@@ -102,7 +102,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       slug = "some-impl+018f1a2b3c4d5e6f7a8b9c0d1e2f3a4b"
 
       {:error, {:redirect, %{to: path}}} =
-        live(conn, ~p"/t/#{team.name}/f/some-feature/i/#{slug}")
+        live(conn, ~p"/t/#{team.name}/i/#{slug}/f/some-feature")
 
       assert path == ~p"/users/log-in"
     end
@@ -119,7 +119,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product, name: "Production")
       slug = build_impl_slug(impl)
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
       assert has_element?(view, "h1", "Production")
     end
 
@@ -131,7 +131,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product, name: "Production")
       slug = build_impl_slug(impl)
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Check breadcrumb links exist (home icon for overview, then product and feature)
       assert has_element?(view, "a[href='/t/#{team.name}'] span.hero-home")
@@ -147,7 +147,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product, name: "Production")
       slug = build_impl_slug(impl)
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
       assert has_element?(view, "h1", "Production")
     end
 
@@ -163,7 +163,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       uuid_without_dashes = String.replace(uuid_string, "-", "")
       wrong_name_slug = "wrong-name+#{uuid_without_dashes}"
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{wrong_name_slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{wrong_name_slug}/f/my-feature")
       # Should still show the correct implementation name
       assert has_element?(view, "h1", "Production")
     end
@@ -181,7 +181,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       assert slug =~ ~r/^[a-z0-9-]+\+[0-9a-f]{32}$/
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
       assert has_element?(view, "h1", "QA / Canary + EU-West 🚀")
     end
 
@@ -195,7 +195,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       fake_slug = "some-impl+018f1a2b3c4d5e6f7a8b9c0d1e2f3a4b"
 
       assert {:error, {:live_redirect, %{to: redirect_to}}} =
-               live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{fake_slug}")
+               live(conn, ~p"/t/#{team.name}/i/#{fake_slug}/f/my-feature")
 
       assert redirect_to == ~p"/t/#{team.name}/f/my-feature"
     end
@@ -209,7 +209,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       fake_slug = "some-impl+018f1a2b3c4d5e6f7a8b9c0d1e2f3a4b"
 
       assert {:error, {:live_redirect, %{flash: flash}}} =
-               live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{fake_slug}")
+               live(conn, ~p"/t/#{team.name}/i/#{fake_slug}/f/my-feature")
 
       assert flash["error"] == "Implementation not found"
     end
@@ -226,7 +226,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Should have chips for all requirements
       assert has_element?(view, "div[title='my-feature.COMP.1']")
@@ -243,7 +243,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       create_spec_impl_state(spec, impl, status: "completed")
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       assert has_element?(view, ".bg-success[title='my-feature.COMP.1']")
     end
@@ -257,7 +257,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       create_spec_impl_state(spec, impl, status: "in_progress")
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       assert has_element?(view, ".bg-info[title='my-feature.COMP.1']")
     end
@@ -271,7 +271,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # No status created
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       assert has_element?(view, ".bg-base-300[title='my-feature.COMP.1']")
     end
@@ -284,7 +284,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Click on the chip using the phx-click event (using acid instead of requirement_id)
       view |> render_click("open_drawer", %{"acid" => "my-feature.COMP.1"})
@@ -329,7 +329,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       )
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       assert has_element?(view, "div[title*='my-feature.COMP.1']")
       assert has_element?(view, "div[title*='my-feature.COMP.2']")
@@ -357,7 +357,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       )
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Should have green background for test coverage
       assert has_element?(view, ".bg-success[title*='my-feature.COMP.1']")
@@ -385,7 +385,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       )
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Should have gray background for no test coverage
       assert has_element?(view, ".bg-base-300[title*='my-feature.COMP.1']")
@@ -425,7 +425,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       )
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Should show count 3 inside the chip
       assert has_element?(view, ".bg-success", "3")
@@ -452,7 +452,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       )
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Click on the test coverage chip using the phx-click event (using acid)
       view |> render_click("open_drawer", %{"acid" => "my-feature.COMP.1"})
@@ -473,7 +473,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       assert has_element?(view, "a[href='/t/#{team.name}/f/my-feature']", "my-feature")
     end
@@ -493,7 +493,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       tracked_branch_fixture(impl, repo_uri: "github.com/org/repo2", branch_name: "develop")
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       assert has_element?(view, "div", "github.com/org/repo1")
       assert has_element?(view, "div", "main")
@@ -511,7 +511,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       tracked_branch_fixture(impl, repo_uri: "github.com/org/repo", branch_name: "feature-branch")
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       assert has_element?(view, "div", "github.com/org/repo")
       assert has_element?(view, "div", "feature-branch")
@@ -524,7 +524,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       assert has_element?(view, "div", "No tracked branches")
     end
@@ -541,7 +541,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Check table headers
       assert has_element?(view, "th", "ACID")
@@ -583,7 +583,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       )
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Should show count 2 in Refs column
       html = render(view)
@@ -624,7 +624,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       )
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Should show count 3 in Tests column
       html = render(view)
@@ -639,7 +639,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # All headers should be clickable for sorting
       assert has_element?(view, "th[phx-click='sort'][phx-value-by='acid']")
@@ -677,7 +677,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Get the order of ACIDs in the table
       html = render(view)
@@ -700,7 +700,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Click on ACID header to sort descending
       view
@@ -724,7 +724,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Click on the table row using acid instead of requirement_id
       view
@@ -754,7 +754,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       create_implementation_for_product(other_product, name: "OtherImpl")
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Should show the correct implementation
       assert has_element?(view, "h1", "MyImpl")
@@ -778,7 +778,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       slug = build_impl_slug(other_impl)
 
       assert {:error, {:live_redirect, %{to: redirect_to}}} =
-               live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+               live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       assert redirect_to == ~p"/t/#{team.name}/f/my-feature"
     end
@@ -804,7 +804,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Open drawer using the phx-click event with acid
       view |> render_click("open_drawer", %{"acid" => "my-feature.COMP.1"})
@@ -822,7 +822,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Open drawer
       view |> render_click("open_drawer", %{"acid" => "my-feature.COMP.1"})
@@ -843,7 +843,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature/i/#{slug}")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Open drawer for first time
       view |> render_click("open_drawer", %{"acid" => "my-feature.COMP.1"})

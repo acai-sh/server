@@ -8,12 +8,34 @@ defmodule AcaiWeb.ProductLive do
   alias Acai.Products
   alias Acai.Implementations
 
+  # product-view.ROUTING.1
   @impl true
-  def mount(%{"team_name" => team_name, "product_name" => product_name}, _session, socket) do
+  def mount(%{"team_name" => team_name}, _session, socket) do
     team = Teams.get_team_by_name!(team_name)
 
-    # product-view.ROUTING.1: Case-insensitive product name matching
-    # data-model.PRODUCTS: Use Products context to get product by name
+    # Load all products for the team (for product selector)
+    # product-view.PRODUCT_SELECTOR.1
+    products = Products.list_products(socket.assigns.current_scope, team)
+
+    socket =
+      socket
+      |> assign(:team, team)
+      |> assign(:products, products)
+      |> assign(:current_path, nil)
+
+    {:ok, socket}
+  end
+
+  # product-view.ROUTING.2
+  # Handle params loads the product data when the URL changes (including from selector)
+  @impl true
+  def handle_params(params, uri, socket) do
+    %{team: team} = socket.assigns
+    product_name = params["product_name"]
+
+    # Update current_path for navigation highlighting
+    socket = assign(socket, :current_path, URI.parse(uri).path)
+
     case get_product_by_name_case_insensitive(team, product_name) do
       nil ->
         # product-view.ROUTING.2: Redirect if product not found
@@ -22,50 +44,99 @@ defmodule AcaiWeb.ProductLive do
           |> put_flash(:error, "Product not found")
           |> push_navigate(to: ~p"/t/#{team.name}")
 
-        {:ok, socket}
+        {:noreply, socket}
 
       product ->
-        # data-model.SPECS.14: Get specs for this product
-        specs = Specs.list_specs_for_product(product)
+        socket = load_product_data(socket, product)
+        {:noreply, socket}
+    end
+  end
 
-        # data-model.IMPLS: Implementations now belong to products, not specs
-        implementations = Implementations.list_implementations(product)
-        active_impl_count = Enum.count(implementations, & &1.is_active)
+  # Load all product data: specs, implementations, and completion matrix
+  # product-view.ROUTING.2
+  defp load_product_data(socket, product) do
+    # Fetch specs and active implementations
+    specs = Specs.list_specs_for_product(product)
+    implementations = Implementations.list_implementations(product)
+    active_implementations = Enum.filter(implementations, & &1.is_active)
 
-        # Group specs by feature_name to get distinct features
-        # Each feature_name can have multiple specs (different versions/branches)
-        # We show one card per distinct feature_name
-        features =
-          specs
-          |> Enum.group_by(& &1.feature_name)
-          |> Enum.map(fn {feature_name, feature_specs} ->
-            # Get the first spec for display info (they share the same feature_name)
-            first_spec = List.first(feature_specs)
+    # Group specs by feature_name for row headers
+    # product-view.MATRIX.2
+    features_by_name =
+      specs
+      |> Enum.group_by(& &1.feature_name)
+      |> Enum.map(fn {feature_name, feature_specs} ->
+        first_spec = List.first(feature_specs)
 
-            # data-model.IMPLS.2: All implementations belong to the product
-            # and span all features within that product
+        %{
+          name: feature_name,
+          description: first_spec.feature_description,
+          specs: feature_specs
+        }
+      end)
+      |> Enum.sort_by(& &1.name)
+
+    # Fetch per-spec-impl completion data in a single batch query
+    # product-view.ROUTING.2
+    spec_impl_completion =
+      if specs != [] and active_implementations != [] do
+        Specs.batch_get_spec_impl_completion(specs, active_implementations)
+      else
+        %{}
+      end
+
+    # Build matrix rows: each feature has a cell for each implementation
+    # product-view.MATRIX.3
+    matrix_rows =
+      features_by_name
+      |> Enum.map(fn feature ->
+        cells =
+          active_implementations
+          |> Enum.map(fn impl ->
+            # Sum completion across all specs for this feature/implementation pair
+            {completed, total} =
+              feature.specs
+              |> Enum.reduce({0, 0}, fn spec, {acc_completed, acc_total} ->
+                spec_total = map_size(spec.requirements)
+
+                spec_completed =
+                  case Map.get(spec_impl_completion, {spec.id, impl.id}) do
+                    nil -> 0
+                    data -> data.completed
+                  end
+
+                {acc_completed + spec_completed, acc_total + spec_total}
+              end)
+
+            percentage = if total > 0, do: round(completed / total * 100), else: 0
+
             %{
-              id: "features-#{feature_name}",
-              feature_name: feature_name,
-              feature_description: first_spec.feature_description,
-              implementation_count: active_impl_count
+              implementation_id: impl.id,
+              implementation_slug: Implementations.implementation_slug(impl),
+              completed: completed,
+              total: total,
+              percentage: percentage
             }
           end)
-          |> Enum.sort_by(& &1.feature_name)
 
-        socket =
-          socket
-          |> assign(:team, team)
-          # product-view.MAIN.1
-          |> assign(:product_name, product.name)
-          |> assign(:features_empty?, features == [])
-          # product-view.MAIN.2
-          |> stream(:features, features)
-          # nav.AUTH.1: Pass current_path for navigation
-          |> assign(:current_path, "/t/#{team.name}/p/#{product_name}")
+        %{
+          feature_name: feature.name,
+          feature_description: feature.description,
+          cells: cells
+        }
+      end)
 
-        {:ok, socket}
-    end
+    # Empty state check: product-view.MATRIX.6
+    empty? = features_by_name == [] or active_implementations == []
+
+    socket
+    |> assign(:product, product)
+    |> assign(:product_name, product.name)
+    |> assign(:active_implementations, active_implementations)
+    |> assign(:matrix_rows, matrix_rows)
+    |> assign(:empty?, empty?)
+    |> assign(:no_features?, features_by_name == [])
+    |> assign(:no_implementations?, active_implementations == [])
   end
 
   # Helper to get product by name with case-insensitive matching
@@ -76,6 +147,30 @@ defmodule AcaiWeb.ProductLive do
         where: fragment("lower(?)", p.name) == ^String.downcase(name),
         limit: 1
     )
+  end
+
+  # Handle product selector change
+  # product-view.PRODUCT_SELECTOR.2
+  @impl true
+  def handle_event("select_product", %{"product" => %{"product_id" => product_name}}, socket) do
+    %{team: team} = socket.assigns
+
+    # Patch the URL to the new product without full page navigation
+    {:noreply, push_patch(socket, to: ~p"/t/#{team.name}/p/#{product_name}")}
+  end
+
+  # Calculate cell color based on completion percentage
+  # product-view.MATRIX.4
+  defp completion_color_class(percentage) when percentage <= 50, do: ""
+
+  defp completion_color_class(percentage) do
+    # Map 50-100 -> 0-1, apply ease-in (quadratic)
+    t = (percentage - 50) / 50
+    eased = t * t
+
+    # Interpolate from base text color to saturated green
+    # 50% = no green (text-base-content), 100% = full green
+    "color: rgb(34, #{round(100 + eased * 97)}, 34)"
   end
 
   @impl true
@@ -99,60 +194,114 @@ defmodule AcaiWeb.ProductLive do
           ]}
         />
 
-        <%!-- product-view.MAIN.3: Section header --%>
-        <h2 class="text-lg font-semibold">Features:</h2>
+        <%!-- Product selector dropdown --%>
+        <%!-- product-view.PRODUCT_SELECTOR.1 --%>
+        <div class="flex items-center gap-4">
+          <form phx-change="select_product" id="product-selector-form">
+            <.input
+              type="select"
+              name="product[product_id]"
+              value={@product_name}
+              options={Enum.map(@products, &{&1.name, &1.name})}
+              class="select select-bordered w-64"
+            />
+          </form>
+          <span class="text-sm text-base-content/60">
+            {length(@active_implementations)} active implementation{if length(@active_implementations) !=
+                                                                         1, do: "s", else: ""}
+          </span>
+        </div>
 
-        <%!-- product-view.MAIN.4 --%>
-        <%= if @features_empty? do %>
-          <%!-- product-view.MAIN.2-1: Empty state --%>
-          <div class="text-center py-12">
-            <.icon name="hero-folder-open" class="size-12 text-base-content/30 mx-auto mb-4" />
-            <p class="text-base-content/60">No features found for this product</p>
+        <%!-- Empty state --%>
+        <%!-- product-view.MATRIX.6 --%>
+        <%= if @empty? do %>
+          <div class="text-center py-16 bg-base-200/50 rounded-lg border border-base-300">
+            <.icon name="hero-table-cells" class="size-16 text-base-content/20 mx-auto mb-4" />
+            <%= if @no_features? do %>
+              <h3 class="text-lg font-medium mb-2">No features found</h3>
+              <p class="text-base-content/60 max-w-md mx-auto">
+                This product doesn't have any feature specs yet. Add specs to see the completion matrix.
+              </p>
+            <% else %>
+              <h3 class="text-lg font-medium mb-2">No active implementations</h3>
+              <p class="text-base-content/60 max-w-md mx-auto">
+                This product doesn't have any active implementations. Activate or add implementations to track completion.
+              </p>
+            <% end %>
           </div>
         <% else %>
-          <div
-            id="features-grid"
-            phx-update="stream"
-            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-          >
-            <%!-- product-view.FEATURE_CARD --%>
-            <.link
-              :for={{id, feature} <- @streams.features}
-              id={id}
-              navigate={"/t/#{@team.name}/f/#{feature.feature_name}"}
-              class="block group"
-            >
-              <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer h-full">
-                <div class="card-body">
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="flex-1 min-w-0">
-                      <%!-- product-view.FEATURE_CARD.1 --%>
-                      <h3 class="font-semibold text-base group-hover:text-primary transition-colors truncate">
-                        {feature.feature_name}
-                      </h3>
-                      <%!-- product-view.FEATURE_CARD.2 --%>
-                      <p
-                        :if={feature.feature_description}
-                        class="text-sm text-base-content/60 mt-1 line-clamp-2"
+          <%!-- Feature × Implementation Matrix --%>
+          <%!-- product-view.MATRIX.1, product-view.MATRIX.2 --%>
+          <div class="overflow-x-auto border border-base-300 rounded-lg">
+            <table class="table table-zebra w-full">
+              <thead>
+                <tr class="bg-base-200">
+                  <%!-- Feature name column header --%>
+                  <th class="sticky left-0 bg-base-200 z-10 min-w-[200px] border-r border-base-300">
+                    Feature
+                  </th>
+                  <%!-- Implementation column headers --%>
+                  <%= for impl <- @active_implementations do %>
+                    <th class="text-center min-w-[100px] border-l border-base-300 first:border-l-0">
+                      <div class="flex flex-col items-center gap-1">
+                        <.icon name="hero-server" class="size-4 text-base-content/50" />
+                        <span class="text-xs font-medium truncate max-w-[120px]" title={impl.name}>
+                          {impl.name}
+                        </span>
+                      </div>
+                    </th>
+                  <% end %>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for row <- @matrix_rows do %>
+                  <tr class="hover:bg-base-200/50">
+                    <%!-- Feature name cell (row header) --%>
+                    <%!-- product-view.MATRIX.5 --%>
+                    <td class="sticky left-0 bg-base-100 z-10 border-r border-base-300 p-0">
+                      <.link
+                        navigate={"/t/#{@team.name}/f/#{row.feature_name}"}
+                        class="block p-4 hover:bg-base-200 transition-colors"
                       >
-                        {feature.feature_description}
-                      </p>
-                    </div>
-                    <div class="flex-shrink-0">
-                      <.icon name="hero-cube" class="size-5 text-base-content/40" />
-                    </div>
-                  </div>
-                  <%!-- product-view.FEATURE_CARD.3 --%>
-                  <div class="flex items-center gap-2 mt-3 pt-3 border-t border-base-200">
-                    <.icon name="hero-code-bracket" class="size-4 text-base-content/50" />
-                    <span class="text-sm text-base-content/60">
-                      {feature.implementation_count} implementation{if feature.implementation_count !=
-                                                                         1, do: "s", else: ""}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </.link>
+                        <div class="font-medium text-primary hover:underline">
+                          {row.feature_name}
+                        </div>
+                        <%= if row.feature_description do %>
+                          <div class="text-xs text-base-content/60 mt-1 line-clamp-2">
+                            {row.feature_description}
+                          </div>
+                        <% end %>
+                      </.link>
+                    </td>
+                    <%!-- Completion cells --%>
+                    <%= for cell <- row.cells do %>
+                      <td class="text-center border-l border-base-300 first:border-l-0 p-0">
+                        <%!-- product-view.MATRIX.7 --%>
+                        <.link
+                          navigate={"/t/#{@team.name}/i/#{cell.implementation_slug}/f/#{row.feature_name}"}
+                          class={[
+                            "block py-4 px-2 hover:bg-base-200 transition-colors",
+                            cell.percentage == 100 && "bg-success/10"
+                          ]}
+                        >
+                          <span
+                            class="font-semibold text-sm"
+                            style={completion_color_class(cell.percentage)}
+                          >
+                            {cell.percentage}%
+                          </span>
+                          <%= if cell.total > 0 do %>
+                            <div class="text-xs text-base-content/40 mt-1">
+                              {cell.completed}/{cell.total}
+                            </div>
+                          <% end %>
+                        </.link>
+                      </td>
+                    <% end %>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
           </div>
         <% end %>
       </div>

@@ -128,7 +128,7 @@ defmodule AcaiWeb.ImplementationLive do
       |> assign(:sort_dir, :asc)
       |> assign(
         :current_path,
-        "/t/#{team.name}/f/#{feature_name}/i/#{Implementations.implementation_slug(implementation)}"
+        "/t/#{team.name}/i/#{Implementations.implementation_slug(implementation)}/f/#{feature_name}"
       )
 
     {:ok, socket}

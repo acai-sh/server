@@ -211,6 +211,43 @@ defmodule Acai.Specs do
     )
   end
 
+  # --- SpecImplState Batch Queries ---
+
+  @doc """
+  Batch gets spec_impl_state data for multiple specs and implementations.
+  Returns a map of {spec_id, implementation_id} => %{completed: count, total: count}.
+
+  This is used for building the feature × implementation matrix where each cell
+  shows completion percentage.
+  """
+  def batch_get_spec_impl_completion(specs, implementations)
+      when is_list(specs) and is_list(implementations) do
+    spec_ids = Enum.map(specs, & &1.id)
+    impl_ids = Enum.map(implementations, & &1.id)
+
+    # Fetch all spec_impl_states for the given specs and implementations
+    states =
+      Repo.all(
+        from sis in SpecImplState,
+          where: sis.spec_id in ^spec_ids and sis.implementation_id in ^impl_ids,
+          select: {sis.spec_id, sis.implementation_id, sis.states}
+      )
+
+    # Build a map of {spec_id, impl_id} => completion data
+    states
+    |> Enum.map(fn {spec_id, impl_id, state_map} ->
+      completed_count =
+        Enum.count(state_map, fn {_acid, attrs} ->
+          attrs["status"] == "completed"
+        end)
+
+      total_count = map_size(state_map)
+
+      {{spec_id, impl_id}, %{completed: completed_count, total: total_count}}
+    end)
+    |> Map.new()
+  end
+
   # --- SpecImplRefs ---
 
   @doc """

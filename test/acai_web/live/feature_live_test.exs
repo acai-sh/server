@@ -172,7 +172,7 @@ defmodule AcaiWeb.FeatureLiveTest do
 
       expected_slug = Implementations.implementation_slug(impl)
 
-      assert has_element?(view, "a[href='/t/#{team.name}/f/my-feature/i/#{expected_slug}']")
+      assert has_element?(view, "a[href='/t/#{team.name}/i/#{expected_slug}/f/my-feature']")
     end
 
     test "implementation card link uses sanitized slug for special characters", %{
@@ -189,14 +189,14 @@ defmodule AcaiWeb.FeatureLiveTest do
       expected_slug = Implementations.implementation_slug(impl)
 
       assert expected_slug =~ ~r/^[a-z0-9-]+\+[0-9a-f]{32}$/
-      assert has_element?(view, "a[href='/t/#{team.name}/f/my-feature/i/#{expected_slug}']")
+      assert has_element?(view, "a[href='/t/#{team.name}/i/#{expected_slug}/f/my-feature']")
     end
   end
 
   describe "implementation card" do
     setup :register_and_log_in_user
 
-    # feature-view.IMPL_CARD.1
+    # feature-view.MAIN.3
     test "shows implementation name", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
@@ -207,80 +207,19 @@ defmodule AcaiWeb.FeatureLiveTest do
       assert has_element?(view, "#implementations-grid", "Production")
     end
 
-    # feature-view.IMPL_CARD.2
-    test "shows tracked branch count", %{conn: conn, user: user} do
+    # feature-view.MAIN.3
+    test "shows product name on each card", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
       create_spec_for_feature(team, product, "my-feature")
-      impl = create_implementation_for_product(product)
-
-      # Create tracked branches with unique repo_uris
-      tracked_branch_fixture(impl, repo_uri: "github.com/org/repo1")
-      tracked_branch_fixture(impl, repo_uri: "github.com/org/repo2")
+      create_implementation_for_product(product, name: "Production")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
-      assert has_element?(view, "#implementations-grid", "2 branches")
+      assert has_element?(view, "#implementations-grid", "TestProduct")
     end
 
-    # feature-view.IMPL_CARD.2
-    test "shows singular branch count", %{conn: conn, user: user} do
-      {team, _role} = create_team_with_owner(user)
-      product = create_product(team, "TestProduct")
-      create_spec_for_feature(team, product, "my-feature")
-      impl = create_implementation_for_product(product)
-
-      tracked_branch_fixture(impl, repo_uri: "github.com/org/repo1")
-
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
-      assert has_element?(view, "#implementations-grid", "1 branch")
-    end
-
-    # feature-view.IMPL_CARD.3
-    # data-model.SPECS.13: Requirements are JSONB on specs
-    test "shows total requirements count", %{conn: conn, user: user} do
-      {team, _role} = create_team_with_owner(user)
-      product = create_product(team, "TestProduct")
-
-      # Create spec with 3 requirements in JSONB
-      requirements = %{
-        "my-feature.COMP.1" => %{
-          "definition" => "Req 1",
-          "is_deprecated" => false,
-          "replaced_by" => []
-        },
-        "my-feature.COMP.2" => %{
-          "definition" => "Req 2",
-          "is_deprecated" => false,
-          "replaced_by" => []
-        },
-        "my-feature.COMP.3" => %{
-          "definition" => "Req 3",
-          "is_deprecated" => false,
-          "replaced_by" => []
-        }
-      }
-
-      create_spec_for_feature(team, product, "my-feature", requirements: requirements)
-      create_implementation_for_product(product)
-
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
-      assert has_element?(view, "#implementations-grid", "3 requirements")
-    end
-
-    # feature-view.IMPL_CARD.3
-    test "shows singular requirement count", %{conn: conn, user: user} do
-      {team, _role} = create_team_with_owner(user)
-      product = create_product(team, "TestProduct")
-      create_spec_for_feature(team, product, "my-feature")
-      create_implementation_for_product(product)
-
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
-      assert has_element?(view, "#implementations-grid", "2 requirements")
-    end
-
-    # feature-view.IMPL_CARD.4
-    # data-model.SPEC_IMPL_STATES: States are JSONB
-    test "progress bar shows correct proportions", %{conn: conn, user: user} do
+    # feature-view.MAIN.3
+    test "shows completion percentage", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
 
@@ -311,7 +250,7 @@ defmodule AcaiWeb.FeatureLiveTest do
       spec = create_spec_for_feature(team, product, "my-feature", requirements: requirements)
       impl = create_implementation_for_product(product)
 
-      # Create spec_impl_state with 2 completed (maps to "completed" in UI)
+      # Create spec_impl_state with 2 completed (50%)
       states = %{
         "my-feature.COMP.1" => %{
           "status" => "completed",
@@ -325,19 +264,32 @@ defmodule AcaiWeb.FeatureLiveTest do
           "status" => "pending",
           "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
         }
-        # COMP.4 has no status (null)
+        # COMP.4 has no status
       }
 
       create_spec_impl_state(spec, impl, states: states)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
-      # Should show 2/4 complete (completed count / total)
-      assert has_element?(view, "#implementations-grid", "2/4")
+      # Should show 50% completion
+      assert has_element?(view, "#implementations-grid", "50%")
     end
 
-    # feature-view.IMPL_CARD.4-1
-    test "progress bar green segment for completed status", %{conn: conn, user: user} do
+    # feature-view.MAIN.3
+    test "shows 0% completion when no requirements are completed", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "my-feature")
+      create_implementation_for_product(product)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
+
+      # Should show 0% completion
+      assert has_element?(view, "#implementations-grid", "0%")
+    end
+
+    # feature-view.MAIN.3
+    test "shows 100% completion when all requirements are completed", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
 
@@ -356,46 +308,8 @@ defmodule AcaiWeb.FeatureLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
-      # Should have green (success) segment for completed
-      assert has_element?(view, ".bg-success")
-    end
-
-    # feature-view.IMPL_CARD.4-2
-    # Note: The new model doesn't have "accepted" status, only "completed"
-    test "progress bar blue segment for in_progress status", %{conn: conn, user: user} do
-      {team, _role} = create_team_with_owner(user)
-      product = create_product(team, "TestProduct")
-
-      requirements = %{
-        "my-feature.COMP.1" => %{
-          "definition" => "Req 1",
-          "is_deprecated" => false,
-          "replaced_by" => []
-        }
-      }
-
-      spec = create_spec_for_feature(team, product, "my-feature", requirements: requirements)
-      impl = create_implementation_for_product(product)
-
-      create_spec_impl_state(spec, impl, status: "in_progress")
-
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
-
-      # Should have blue (info) segment for in_progress
-      assert has_element?(view, ".bg-info")
-    end
-
-    # feature-view.IMPL_CARD.4-3
-    test "progress bar gray segment for null status", %{conn: conn, user: user} do
-      {team, _role} = create_team_with_owner(user)
-      product = create_product(team, "TestProduct")
-      create_spec_for_feature(team, product, "my-feature")
-      _impl = create_implementation_for_product(product)
-
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
-
-      # Should have gray segment (base-300)
-      assert has_element?(view, ".bg-base-300")
+      # Should show 100% completion
+      assert has_element?(view, "#implementations-grid", "100%")
     end
   end
 
