@@ -1,5 +1,6 @@
 feature:
     name: feature-view
+    key: FEATURE_VIEW
     product: site
     description: Implementation selector view for a feature. Shows cards for each implementation across products.
     prerequisites:

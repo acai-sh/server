@@ -1,5 +1,6 @@
 feature:
     name: product-view
+    key: PRODUCT_VIEW
     product: site
     description: Matrix view showing feature completion across all implementations in a product.
     prerequisites:
