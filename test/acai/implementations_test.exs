@@ -213,21 +213,23 @@ defmodule Acai.ImplementationsTest do
 
       spec_impl_state_fixture(spec, impl, %{
         states: %{
-          "feat.1" => %{"status" => "pending"},
-          "feat.2" => %{"status" => "in_progress"},
+          "feat.1" => %{"status" => nil},
+          "feat.2" => %{"status" => "assigned"},
           "feat.3" => %{"status" => "completed"},
-          "feat.4" => %{"status" => "completed"},
-          "feat.5" => %{"status" => "blocked"}
+          "feat.4" => %{"status" => "accepted"},
+          "feat.5" => %{"status" => "blocked"},
+          "feat.6" => %{"status" => "rejected"}
         }
       })
 
       counts = Implementations.get_spec_impl_state_counts(impl)
 
-      assert counts["pending"] == 1
-      assert counts["in_progress"] == 1
-      assert counts["completed"] == 2
+      assert counts[nil] == 1
+      assert counts["assigned"] == 1
+      assert counts["completed"] == 1
+      assert counts["accepted"] == 1
       assert counts["blocked"] == 1
-      assert counts["rejected"] == 0
+      assert counts["rejected"] == 1
     end
 
     test "returns zero counts when no states exist", %{product: product} do
@@ -235,9 +237,10 @@ defmodule Acai.ImplementationsTest do
 
       counts = Implementations.get_spec_impl_state_counts(impl)
 
-      assert counts["pending"] == 0
-      assert counts["in_progress"] == 0
+      assert counts[nil] == 0
+      assert counts["assigned"] == 0
       assert counts["completed"] == 0
+      assert counts["accepted"] == 0
       assert counts["blocked"] == 0
       assert counts["rejected"] == 0
     end
@@ -251,22 +254,22 @@ defmodule Acai.ImplementationsTest do
 
       spec_impl_state_fixture(spec, impl1, %{
         states: %{
-          "feat.1" => %{"status" => "pending"},
+          "feat.1" => %{"status" => nil},
           "feat.2" => %{"status" => "completed"}
         }
       })
 
       spec_impl_state_fixture(spec, impl2, %{
         states: %{
-          "feat.1" => %{"status" => "in_progress"}
+          "feat.1" => %{"status" => "assigned"}
         }
       })
 
       counts = Implementations.batch_get_spec_impl_state_counts([impl1, impl2])
 
-      assert counts[impl1.id]["pending"] == 1
+      assert counts[impl1.id][nil] == 1
       assert counts[impl1.id]["completed"] == 1
-      assert counts[impl2.id]["in_progress"] == 1
+      assert counts[impl2.id]["assigned"] == 1
     end
   end
 

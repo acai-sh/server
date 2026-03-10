@@ -213,7 +213,7 @@ defmodule Acai.Implementations do
 
   @doc """
   Gets spec_impl_state counts for an implementation.
-  Returns %{pending: count, in_progress: count, blocked: count, completed: count, rejected: count}
+  Returns %{nil => count, assigned: count, blocked: count, completed: count, accepted: count, rejected: count}
   """
   def get_spec_impl_state_counts(%Implementation{} = implementation) do
     state =
@@ -224,22 +224,23 @@ defmodule Acai.Implementations do
       ) || %{}
 
     counts = %{
-      "pending" => 0,
-      "in_progress" => 0,
+      nil => 0,
+      "assigned" => 0,
       "blocked" => 0,
       "completed" => 0,
+      "accepted" => 0,
       "rejected" => 0
     }
 
     Enum.reduce(state, counts, fn {_acid, attrs}, acc ->
-      status = attrs["status"] || "pending"
+      status = attrs["status"]
       Map.update(acc, status, 1, &(&1 + 1))
     end)
   end
 
   @doc """
   Batch gets spec_impl_state counts for multiple implementations and optional specs.
-  Returns a map of implementation_id => %{pending: count, in_progress: count, blocked: count, completed: count, rejected: count}
+  Returns a map of implementation_id => %{nil => count, assigned: count, blocked: count, completed: count, accepted: count, rejected: count}
 
   When specs are provided, only counts states for those specs. Otherwise counts all states.
   """
@@ -270,16 +271,17 @@ defmodule Acai.Implementations do
       state = Map.get(states_by_impl, impl_id, %{})
 
       counts = %{
-        "pending" => 0,
-        "in_progress" => 0,
+        nil => 0,
+        "assigned" => 0,
         "blocked" => 0,
         "completed" => 0,
+        "accepted" => 0,
         "rejected" => 0
       }
 
       final_counts =
         Enum.reduce(state, counts, fn {_acid, attrs}, acc ->
-          status = attrs["status"] || "pending"
+          status = attrs["status"]
           Map.update(acc, status, 1, &(&1 + 1))
         end)
 

@@ -234,13 +234,13 @@ defmodule AcaiWeb.ImplementationLiveTest do
     end
 
     # implementation-view.REQ_COVERAGE.2-1
-    # data-model.SPEC_IMPL_STATES: Status values include "completed"
-    test "green chip for completed status", %{conn: conn, user: user} do
+    # data-model.SPEC_IMPL_STATES.4-3: accepted (green)
+    test "green chip for accepted status", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
       spec = create_spec_for_feature(team, product, "my-feature")
       impl = create_implementation_for_product(product)
-      create_spec_impl_state(spec, impl, status: "completed")
+      create_spec_impl_state(spec, impl, status: "accepted")
 
       slug = build_impl_slug(impl)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
@@ -249,12 +249,13 @@ defmodule AcaiWeb.ImplementationLiveTest do
     end
 
     # implementation-view.REQ_COVERAGE.2-2
-    test "blue chip for in_progress status", %{conn: conn, user: user} do
+    # data-model.SPEC_IMPL_STATES.4-3: completed (blue)
+    test "blue chip for completed status", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
       spec = create_spec_for_feature(team, product, "my-feature")
       impl = create_implementation_for_product(product)
-      create_spec_impl_state(spec, impl, status: "in_progress")
+      create_spec_impl_state(spec, impl, status: "completed")
 
       slug = build_impl_slug(impl)
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")

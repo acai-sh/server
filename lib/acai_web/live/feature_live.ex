@@ -54,12 +54,14 @@ defmodule AcaiWeb.FeatureLive do
             # feature-view.MAIN.3: Get status counts from spec_impl_states
             impl_counts = Map.get(status_counts_by_impl, impl.id, %{"completed" => 0})
 
-            # Calculate completion percentage
+            # Calculate completion percentage (completed + accepted count as done)
             completed_count = Map.get(impl_counts, "completed", 0)
+            accepted_count = Map.get(impl_counts, "accepted", 0)
+            total_done = completed_count + accepted_count
 
             completion_percentage =
               if total_requirements > 0 do
-                round(completed_count / total_requirements * 100)
+                round(total_done / total_requirements * 100)
               else
                 0
               end

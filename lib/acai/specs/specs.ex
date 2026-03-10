@@ -234,11 +234,12 @@ defmodule Acai.Specs do
       )
 
     # Build a map of {spec_id, impl_id} => completion data
+    # feature-view.MAIN.3: Both completed and accepted count toward completion
     states
     |> Enum.map(fn {spec_id, impl_id, state_map} ->
       completed_count =
         Enum.count(state_map, fn {_acid, attrs} ->
-          attrs["status"] == "completed"
+          attrs["status"] in ["completed", "accepted"]
         end)
 
       total_count = map_size(state_map)

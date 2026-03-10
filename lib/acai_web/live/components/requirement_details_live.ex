@@ -344,12 +344,14 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   end
 
   # Badge colors for different statuses
-  # data-model.SPEC_IMPL_STATES: Valid status values are pending, in_progress, blocked, completed, rejected
+  # data-model.SPEC_IMPL_STATES.4-3: Valid status values are null, assigned, blocked, completed, accepted, rejected
+  # Color coding: null (gray), assigned (gold), blocked (red), completed (blue), accepted (green), rejected (red)
   defp status_badge_color(status) do
     case status do
-      "completed" -> "badge-success"
-      "in_progress" -> "badge-info"
-      "pending" -> "badge-warning"
+      nil -> "badge-ghost"
+      "accepted" -> "badge-success"
+      "completed" -> "badge-info"
+      "assigned" -> "badge-warning"
       "blocked" -> "badge-error"
       "rejected" -> "badge-error"
       _ -> "badge-ghost"

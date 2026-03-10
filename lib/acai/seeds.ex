@@ -1041,14 +1041,14 @@ defmodule Acai.Seeds do
           "map-editor.CANVAS.1" => %{"status" => "completed", "updated_at" => now},
           "map-editor.CANVAS.2" => %{"status" => "completed", "updated_at" => now},
           "map-editor.CANVAS.3" => %{
-            "status" => "in_progress",
+            "status" => "assigned",
             "comment" => "Touch support pending",
             "updated_at" => now
           },
           "map-editor.LAYERS.1" => %{"status" => "completed", "updated_at" => now},
           "map-editor.LAYERS.2" => %{"status" => "completed", "updated_at" => now},
           "map-editor.MARKERS.1" => %{"status" => "completed", "updated_at" => now},
-          "map-editor.MARKERS.2" => %{"status" => "pending", "updated_at" => now},
+          "map-editor.MARKERS.2" => %{"status" => "assigned", "updated_at" => now},
           "map-editor.EXPORT.1" => %{
             "status" => "blocked",
             "comment" => "Waiting for design specs",
@@ -1087,13 +1087,13 @@ defmodule Acai.Seeds do
         states: %{
           "form-editor.FIELDS.1" => %{"status" => "completed", "updated_at" => now},
           "form-editor.FIELDS.2" => %{"status" => "completed", "updated_at" => now},
-          "form-editor.FIELDS.3" => %{"status" => "in_progress", "updated_at" => now},
+          "form-editor.FIELDS.3" => %{"status" => "assigned", "updated_at" => now},
           "form-editor.LOCATION.1" => %{
             "status" => "completed",
             "comment" => "GPS auto-capture working",
             "updated_at" => now
           },
-          "form-editor.LOCATION.2" => %{"status" => "pending", "updated_at" => now},
+          "form-editor.LOCATION.2" => %{"status" => "assigned", "updated_at" => now},
           "form-editor.PREVIEW.1" => %{"status" => "completed", "updated_at" => now},
           "form-editor.CONDITIONAL.1" => %{
             "status" => "blocked",
@@ -1118,7 +1118,7 @@ defmodule Acai.Seeds do
           "push-api.SPEC.3" => %{"status" => "completed", "updated_at" => now},
           "push-api.REF.1" => %{"status" => "completed", "updated_at" => now},
           "push-api.REF.2" => %{
-            "status" => "in_progress",
+            "status" => "assigned",
             "comment" => "Error reporting needs refinement",
             "updated_at" => now
           },

@@ -344,11 +344,12 @@ defmodule AcaiWeb.ImplementationLive do
       class={
         [
           "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110",
-          # implementation-view.REQ_COVERAGE.2-1: Green for completed
-          @requirement.status == "completed" && "bg-success",
-          # implementation-view.REQ_COVERAGE.2-2: Blue for in_progress
-          @requirement.status == "in_progress" && "bg-info",
-          # implementation-view.REQ_COVERAGE.2-3: Gray for null/no status
+          # data-model.SPEC_IMPL_STATES.4-3: Color coding
+          # accepted (green), completed (blue), assigned (gold), blocked/rejected (red), null (gray)
+          @requirement.status == "accepted" && "bg-success",
+          @requirement.status == "completed" && "bg-info",
+          @requirement.status == "assigned" && "bg-warning",
+          (@requirement.status == "blocked" || @requirement.status == "rejected") && "bg-error",
           (@requirement.status == nil || @requirement.status == "") && "bg-base-300"
         ]
       }
@@ -520,6 +521,8 @@ defmodule AcaiWeb.ImplementationLive do
   end
 
   # Status badge for table
+  # data-model.SPEC_IMPL_STATES.4-3: Color coding
+  # null (gray), assigned (gold), blocked (red), completed (blue), accepted (green), rejected (red)
   defp status_badge(assigns) do
     ~H"""
     <%= if @status do %>
@@ -527,13 +530,13 @@ defmodule AcaiWeb.ImplementationLive do
         "badge badge-sm",
         @status == "accepted" && "badge-success",
         @status == "completed" && "badge-info",
-        @status == "pending" && "badge-warning",
-        @status == "blocked" && "badge-error"
+        @status == "assigned" && "badge-warning",
+        (@status == "blocked" || @status == "rejected") && "badge-error"
       ]}>
         {@status}
       </span>
     <% else %>
-      <span class="badge badge-ghost badge-sm text-base-content/50">—</span>
+      <span class="badge badge-ghost badge-sm text-base-content/50">No status</span>
     <% end %>
     """
   end
