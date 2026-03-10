@@ -22,28 +22,24 @@ defmodule AcaiWeb.FeatureLive do
 
       {actual_feature_name, specs} ->
         # Get the first spec for display info (they share the same feature_name)
-        first_spec = List.first(specs)
+        first_spec = List.first(specs) |> Acai.Repo.preload(:product)
 
-        # feature-view.PERFORMANCE.1: Batch count requirements per spec (query 2)
-        spec_requirement_counts = Specs.batch_count_requirements(specs)
+        # data-model.SPECS.13: Requirements are now JSONB on each spec
+        # Count requirements by getting map_size of the requirements JSONB
+        spec_requirement_counts =
+          Map.new(specs, fn spec -> {spec.id, map_size(spec.requirements)} end)
 
-        # feature-view.MAIN.3: Get all active implementations for these specs (query 3)
+        # data-model.IMPLS: Implementations now belong to products, not specs
+        # Get all active implementations for the product
         implementations = Implementations.list_active_implementations_for_specs(specs)
 
         # feature-view.PERFORMANCE.1: Batch count tracked branches (query 4)
         tracked_branch_counts = Implementations.batch_count_tracked_branches(implementations)
 
-        # feature-view.PERFORMANCE.1: Build impl_id => requirement_count map for batch status
-        impl_requirements_map =
-          implementations
-          |> Enum.map(fn impl ->
-            {impl.id, Map.get(spec_requirement_counts, impl.spec_id, 0)}
-          end)
-          |> Map.new()
-
-        # feature-view.PERFORMANCE.1: Batch get status counts (query 5)
+        # data-model.SPEC_IMPL_STATES: Get status counts from spec_impl_states JSONB
+        # For each implementation, aggregate status counts across all specs
         status_counts_by_impl =
-          Implementations.batch_get_requirement_status_counts(impl_requirements_map)
+          Implementations.batch_get_spec_impl_state_counts(implementations)
 
         # Build implementation cards with pre-fetched data
         implementation_cards =
@@ -52,16 +48,26 @@ defmodule AcaiWeb.FeatureLive do
             # feature-view.IMPL_CARD.2: Count tracked branches (from batch)
             tracked_branch_count = Map.get(tracked_branch_counts, impl.id, 0)
 
-            # feature-view.IMPL_CARD.3: Count total requirements (from batch)
-            total_requirements = Map.get(spec_requirement_counts, impl.spec_id, 0)
+            # feature-view.IMPL_CARD.3: Total requirements across all specs for this feature
+            total_requirements =
+              specs
+              |> Enum.map(fn spec -> Map.get(spec_requirement_counts, spec.id, 0) end)
+              |> Enum.sum()
 
-            # feature-view.IMPL_CARD.4: Get status counts (from batch)
-            status_counts =
-              Map.get(status_counts_by_impl, impl.id, %{
-                accepted: 0,
-                completed: 0,
-                null: total_requirements
-              })
+            # feature-view.IMPL_CARD.4: Get status counts from spec_impl_states
+            impl_counts = Map.get(status_counts_by_impl, impl.id, %{"completed" => 0})
+
+            # Convert new status format to old format for UI compatibility
+            # "accepted" -> "completed" for backward compatibility with progress bar
+            completed_count = Map.get(impl_counts, "completed", 0)
+            accepted_count = 0
+            null_count = max(0, total_requirements - completed_count)
+
+            status_counts = %{
+              accepted: accepted_count,
+              completed: completed_count,
+              null: null_count
+            }
 
             # Build the slug for navigation (impl_name+uuid_without_dashes)
             # feature-view.MAIN.4
@@ -85,7 +91,8 @@ defmodule AcaiWeb.FeatureLive do
           |> assign(:feature_name, actual_feature_name)
           # feature-view.MAIN.2
           |> assign(:feature_description, first_spec.feature_description)
-          |> assign(:product_name, first_spec.feature_product)
+          # data-model.SPECS.14: Get product name from preloaded association
+          |> assign(:product_name, first_spec.product.name)
           |> assign(:implementations_empty?, implementation_cards == [])
           # feature-view.MAIN.3
           |> stream(:implementations, implementation_cards)

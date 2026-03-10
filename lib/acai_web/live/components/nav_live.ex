@@ -17,6 +17,7 @@ defmodule AcaiWeb.Live.Components.NavLive do
       ) do
     # nav.AUTH.2
     teams = Teams.list_teams(current_scope)
+    # data-model.PRODUCTS: Products are now first-class entities
     products_data = Specs.list_specs_grouped_by_product(team)
 
     # nav.PANEL.5: Auto-expand and highlight based on URL
@@ -86,11 +87,27 @@ defmodule AcaiWeb.Live.Components.NavLive do
   end
 
   defp find_product_for_feature(team, feature_name) when is_binary(feature_name) do
+    # data-model.PRODUCTS: Get product name via spec's product association
     spec = Specs.get_spec_by_feature_name(team, feature_name)
-    if spec, do: spec.feature_product, else: nil
+    if spec, do: get_product_name_for_spec(spec), else: nil
   end
 
   defp find_product_for_feature(_team, _feature_name), do: nil
+
+  # data-model.SPECS.14: Specs belong to products
+  defp get_product_name_for_spec(spec) do
+    # Preload product if not already loaded
+    case spec.product do
+      %Ecto.Association.NotLoaded{} ->
+        Acai.Repo.preload(spec, :product).product.name
+
+      nil ->
+        nil
+
+      product ->
+        product.name
+    end
+  end
 
   # nav.PANEL.4-2: Toggle product expansion
   @impl true

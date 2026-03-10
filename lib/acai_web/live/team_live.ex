@@ -3,7 +3,7 @@ defmodule AcaiWeb.TeamLive do
 
   alias Acai.Teams
   alias Acai.Teams.Permissions
-  alias Acai.Specs
+  alias Acai.Products
 
   @impl true
   def mount(%{"team_name" => team_name}, _session, socket) do
@@ -11,8 +11,9 @@ defmodule AcaiWeb.TeamLive do
     current_user = socket.assigns.current_scope.user
 
     members = Teams.list_team_members(team)
-    products_data = Specs.list_specs_grouped_by_product(team)
-    products = Map.keys(products_data) |> Enum.sort()
+    # data-model.PRODUCTS: Products are now first-class entities
+    products = Products.list_products(socket.assigns.current_scope, team)
+    product_names = Enum.map(products, & &1.name) |> Enum.sort()
 
     current_role =
       Enum.find(members, fn r -> r.user_id == current_user.id end)
@@ -28,7 +29,8 @@ defmodule AcaiWeb.TeamLive do
       socket
       # team-view.MAIN.1
       |> assign(:team, team)
-      |> assign(:products, products)
+      # data-model.PRODUCTS: Products are now first-class entities
+      |> assign(:products, product_names)
       |> assign(:current_role_title, current_role_title)
       |> assign(:current_path, ~p"/t/#{team.name}")
       |> assign(:can_admin?, can_admin?)

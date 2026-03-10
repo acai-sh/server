@@ -8,51 +8,100 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   use AcaiWeb, :live_component
 
   alias Acai.Specs
-  alias Acai.Implementations
 
   @impl true
   def update(
-        %{id: id, requirement: requirement, implementation: implementation} = assigns,
+        %{id: id, acid: acid, spec: spec, implementation: implementation} = assigns,
         socket
       ) do
-    # requirement-details.DRAWER.4: Get the requirement status for this implementation
-    requirement_status = Implementations.get_requirement_status(requirement, implementation)
+    if acid do
+      # data-model.SPECS.13: Get requirement data from JSONB
+      requirement_data = Map.get(spec.requirements, acid)
 
-    # requirement-details.DRAWER.5-1: Get code references filtered by implementation's tracked branches
-    # requirement-details.DRAWER.5-2: Group by tracked branch
-    refs_by_branch =
-      Specs.list_code_references_for_requirement_and_implementation(requirement, implementation)
+      # data-model.SPEC_IMPL_STATES: Get status from spec_impl_states JSONB
+      spec_impl_state = Specs.get_spec_impl_state(spec, implementation)
+      state_data = get_in(spec_impl_state && spec_impl_state.states, [acid])
 
-    socket =
-      socket
-      |> assign(:id, id)
-      |> assign(:requirement, requirement)
-      |> assign(:implementation, implementation)
-      |> assign(:requirement_status, requirement_status)
-      |> assign(:refs_by_branch, refs_by_branch)
-      |> assign(:visible, Map.get(assigns, :visible, false))
+      # data-model.SPEC_IMPL_REFS: Get refs from spec_impl_refs JSONB
+      spec_impl_ref = Specs.get_spec_impl_ref(spec, implementation)
+      refs_data = Map.get((spec_impl_ref && spec_impl_ref.refs) || %{}, acid, [])
 
-    {:ok, socket}
-  end
+      # Group refs by branch (using repo as proxy since refs JSONB stores repo)
+      refs_by_branch = group_refs_by_branch(refs_data)
 
-  def update(
-        %{id: id, requirement_id: requirement_id, implementation: implementation} = assigns,
-        socket
-      ) do
-    if requirement_id do
-      requirement = Specs.get_requirement!(requirement_id)
-      update(Map.merge(assigns, %{requirement: requirement}), socket)
-    else
-      # No requirement selected, just update visibility and set requirement to nil
+      # Build requirement struct-like map from JSONB data
+      requirement = build_requirement_from_jsonb(acid, requirement_data)
+
+      # Build status struct-like map from JSONB data
+      requirement_status = build_status_from_jsonb(state_data)
+
       socket =
         socket
         |> assign(:id, id)
+        |> assign(:acid, acid)
+        |> assign(:requirement, requirement)
         |> assign(:implementation, implementation)
+        |> assign(:requirement_status, requirement_status)
+        |> assign(:refs_by_branch, refs_by_branch)
         |> assign(:visible, Map.get(assigns, :visible, false))
-        |> assign(:requirement, nil)
 
       {:ok, socket}
+    else
+      # No requirement selected, just update visibility
+      {:ok,
+       socket
+       |> assign(:id, id)
+       |> assign(:acid, nil)
+       |> assign(:requirement, nil)
+       |> assign(:implementation, implementation)
+       |> assign(:visible, Map.get(assigns, :visible, false))}
     end
+  end
+
+  # Group refs by repo (acting as branch identifier in the JSONB model)
+  defp group_refs_by_branch(refs) when is_list(refs) do
+    refs
+    |> Enum.group_by(& &1["repo"])
+    |> Enum.map(fn {repo, repo_refs} ->
+      # Create a mock branch struct for compatibility
+      branch = %{repo_uri: repo, branch_name: "main"}
+      {branch, repo_refs}
+    end)
+    |> Map.new()
+  end
+
+  defp group_refs_by_branch(_), do: %{}
+
+  # Build requirement map from JSONB data
+  defp build_requirement_from_jsonb(acid, nil) do
+    %{
+      acid: acid,
+      definition: "Definition not available",
+      note: nil,
+      is_deprecated: false,
+      replaced_by: []
+    }
+  end
+
+  defp build_requirement_from_jsonb(acid, data) do
+    %{
+      acid: acid,
+      definition: Map.get(data, "definition", "No definition"),
+      note: Map.get(data, "note"),
+      is_deprecated: Map.get(data, "is_deprecated", false),
+      replaced_by: Map.get(data, "replaced_by", [])
+    }
+  end
+
+  # Build status map from JSONB data
+  defp build_status_from_jsonb(nil), do: nil
+
+  defp build_status_from_jsonb(data) do
+    %{
+      status: data["status"],
+      note: data["comment"],
+      updated_at: data["updated_at"]
+    }
   end
 
   @impl true
@@ -193,6 +242,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
                 </p>
               <% else %>
                 <%!-- requirement-details.DRAWER.5-2: References are grouped by their tracked branch --%>
+                <%!-- data-model.SPEC_IMPL_REFS: refs are stored as JSONB keyed by ACID --%>
                 <div :for={{branch, refs} <- @refs_by_branch} class="space-y-2">
                   <%!-- Group header shows repo_uri and branch_name --%>
                   <div class="flex items-center gap-2 text-sm font-medium text-base-content/80">
@@ -206,7 +256,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
                   <ul class="ml-6 space-y-1">
                     <li :for={ref <- refs} class="flex items-center gap-2">
                       <%!-- requirement-details.DRAWER.5-5: Test references visually distinguished --%>
-                      <%= if ref.is_test do %>
+                      <%= if ref["is_test"] do %>
                         <.icon name="hero-beaker" class="size-4 text-info flex-shrink-0" />
                       <% else %>
                         <.icon
@@ -223,15 +273,15 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
                         rel="noopener noreferrer"
                         class={[
                           "text-sm hover:underline",
-                          ref.is_test && "text-info",
-                          !ref.is_test && "text-base-content/80 hover:text-primary"
+                          ref["is_test"] && "text-info",
+                          !ref["is_test"] && "text-base-content/80 hover:text-primary"
                         ]}
                       >
-                        {format_path(ref.path)}
+                        {format_path(ref["path"])}
                       </.link>
 
                       <%!-- Test badge for test references --%>
-                      <%= if ref.is_test do %>
+                      <%= if ref["is_test"] do %>
                         <span class="badge badge-info badge-xs">Test</span>
                       <% end %>
                     </li>
@@ -267,11 +317,12 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
 
   # requirement-details.DRAWER.5-4: Build the clickable link
   # Format: https://<repo_uri>/blob/<branch_name>/<path>
+  # data-model.SPEC_IMPL_REFS: refs are stored as JSONB with repo, path, loc fields
   defp build_reference_url(ref) do
     # Extract just the file path (without line number) for the URL
-    {file_path, _line} = parse_path_and_line(ref.path)
+    {file_path, _line} = parse_path_and_line(ref["path"])
 
-    "https://#{ref.branch.repo_uri}/blob/#{ref.branch.branch_name}/#{file_path}"
+    "https://#{ref["repo"]}/blob/main/#{file_path}"
   end
 
   # Parse path like "lib/my_app/foo.ex:42" into {"lib/my_app/foo.ex", "42"}
@@ -288,12 +339,14 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   end
 
   # Badge colors for different statuses
+  # data-model.SPEC_IMPL_STATES: Valid status values are pending, in_progress, blocked, completed, rejected
   defp status_badge_color(status) do
     case status do
-      "accepted" -> "badge-success"
-      "completed" -> "badge-info"
+      "completed" -> "badge-success"
+      "in_progress" -> "badge-info"
       "pending" -> "badge-warning"
       "blocked" -> "badge-error"
+      "rejected" -> "badge-error"
       _ -> "badge-ghost"
     end
   end

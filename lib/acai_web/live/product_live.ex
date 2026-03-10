@@ -1,8 +1,11 @@
 defmodule AcaiWeb.ProductLive do
   use AcaiWeb, :live_view
 
+  import Ecto.Query
+
   alias Acai.Teams
   alias Acai.Specs
+  alias Acai.Products
   alias Acai.Implementations
 
   @impl true
@@ -10,7 +13,8 @@ defmodule AcaiWeb.ProductLive do
     team = Teams.get_team_by_name!(team_name)
 
     # product-view.ROUTING.1: Case-insensitive product name matching
-    case Specs.get_specs_by_product_name(team, product_name) do
+    # data-model.PRODUCTS: Use Products context to get product by name
+    case get_product_by_name_case_insensitive(team, product_name) do
       nil ->
         # product-view.ROUTING.2: Redirect if product not found
         socket =
@@ -20,9 +24,13 @@ defmodule AcaiWeb.ProductLive do
 
         {:ok, socket}
 
-      {actual_product_name, specs} ->
-        # product-view.PERFORMANCE.1: Batch count active implementations (query 2)
-        impl_counts_by_spec = Implementations.batch_count_active_implementations_for_specs(specs)
+      product ->
+        # data-model.SPECS.14: Get specs for this product
+        specs = Specs.list_specs_for_product(product)
+
+        # data-model.IMPLS: Implementations now belong to products, not specs
+        implementations = Implementations.list_implementations(product)
+        active_impl_count = Enum.count(implementations, & &1.is_active)
 
         # Group specs by feature_name to get distinct features
         # Each feature_name can have multiple specs (different versions/branches)
@@ -33,17 +41,14 @@ defmodule AcaiWeb.ProductLive do
           |> Enum.map(fn {feature_name, feature_specs} ->
             # Get the first spec for display info (they share the same feature_name)
             first_spec = List.first(feature_specs)
-            # Count all active implementations across all specs for this feature (from batch)
-            impl_count =
-              feature_specs
-              |> Enum.map(fn spec -> Map.get(impl_counts_by_spec, spec.id, 0) end)
-              |> Enum.sum()
 
+            # data-model.IMPLS.2: All implementations belong to the product
+            # and span all features within that product
             %{
               id: "features-#{feature_name}",
               feature_name: feature_name,
               feature_description: first_spec.feature_description,
-              implementation_count: impl_count
+              implementation_count: active_impl_count
             }
           end)
           |> Enum.sort_by(& &1.feature_name)
@@ -52,7 +57,7 @@ defmodule AcaiWeb.ProductLive do
           socket
           |> assign(:team, team)
           # product-view.MAIN.1
-          |> assign(:product_name, actual_product_name)
+          |> assign(:product_name, product.name)
           |> assign(:features_empty?, features == [])
           # product-view.MAIN.2
           |> stream(:features, features)
@@ -61,6 +66,16 @@ defmodule AcaiWeb.ProductLive do
 
         {:ok, socket}
     end
+  end
+
+  # Helper to get product by name with case-insensitive matching
+  defp get_product_by_name_case_insensitive(team, name) do
+    Acai.Repo.one(
+      from p in Products.Product,
+        where: p.team_id == ^team.id,
+        where: fragment("lower(?)", p.name) == ^String.downcase(name),
+        limit: 1
+    )
   end
 
   @impl true

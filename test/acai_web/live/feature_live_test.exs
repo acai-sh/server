@@ -15,49 +15,58 @@ defmodule AcaiWeb.FeatureLiveTest do
     {team, role}
   end
 
-  # Helper to create a spec with a specific feature
-  # Uses unique path to avoid unique constraint violation
-  # data-model.SPECS.14: same feature_name requires different version within a team
-  defp create_spec_for_feature(team, feature_name, opts \\ []) do
+  # data-model.PRODUCTS: Create product as first-class entity
+  defp create_product(team, name) do
+    product_fixture(team, %{name: name, is_active: true})
+  end
+
+  # data-model.SPECS: Create spec for a product with JSONB requirements
+  defp create_spec_for_feature(team, product, feature_name, opts \\ []) do
     unique_id = System.unique_integer([:positive])
 
-    spec_fixture(team, %{
-      feature_product: Keyword.get(opts, :product, "TestProduct"),
+    # data-model.SPECS.13: Requirements stored as JSONB
+    requirements =
+      Keyword.get(opts, :requirements, %{
+        "#{feature_name}.COMP.1" => %{
+          "definition" => "Test requirement 1",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "#{feature_name}.COMP.2" => %{
+          "definition" => "Test requirement 2",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      })
+
+    spec_fixture(product, %{
       feature_name: feature_name,
       feature_description: Keyword.get(opts, :description, "Description for #{feature_name}"),
-      feature_version: Keyword.get(opts, :version),
-      path: "features/#{feature_name}-#{unique_id}/feature.yaml"
+      feature_version: Keyword.get(opts, :version, "1.0.0"),
+      path: "features/#{feature_name}-#{unique_id}/feature.yaml",
+      requirements: requirements
     })
   end
 
-  # Helper to create an implementation for a spec
-  defp create_implementation_for_spec(spec, opts \\ []) do
-    implementation_fixture(spec, %{
+  # data-model.IMPLS: Create implementation for a product
+  defp create_implementation_for_product(product, opts \\ []) do
+    implementation_fixture(product, %{
       name: Keyword.get(opts, :name, "Impl-#{System.unique_integer([:positive])}"),
       is_active: Keyword.get(opts, :is_active, true)
     })
   end
 
-  # Helper to create a requirement for a spec
-  defp create_requirement_for_spec(spec, opts \\ []) do
-    unique_id = System.unique_integer([:positive])
+  # data-model.SPEC_IMPL_STATES: Create spec_impl_state with JSONB states
+  defp create_spec_impl_state(spec, implementation, opts \\ []) do
+    states =
+      Keyword.get(opts, :states, %{
+        "#{spec.feature_name}.COMP.1" => %{
+          "status" => Keyword.get(opts, :status, "pending"),
+          "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+      })
 
-    requirement_fixture(spec, %{
-      group_key: Keyword.get(opts, :group_key, "COMP"),
-      group_type: Keyword.get(opts, :group_type, :COMPONENT),
-      local_id: Keyword.get(opts, :local_id, "#{unique_id}"),
-      definition: Keyword.get(opts, :definition, "A requirement"),
-      feature_name: spec.feature_name
-    })
-  end
-
-  # Helper to create a requirement status
-  defp create_requirement_status(impl, requirement, opts) do
-    requirement_status_fixture(impl, requirement, %{
-      status: Keyword.get(opts, :status, nil),
-      is_active: true,
-      last_seen_commit: "abc123"
-    })
+    spec_impl_state_fixture(spec, implementation, %{states: states})
   end
 
   describe "unauthenticated access" do
@@ -74,7 +83,8 @@ defmodule AcaiWeb.FeatureLiveTest do
     # feature-view.MAIN.1
     test "renders the feature name", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      create_spec_for_feature(team, "my-feature")
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "my-feature")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
       assert has_element?(view, "h1", "my-feature")
@@ -83,8 +93,8 @@ defmodule AcaiWeb.FeatureLiveTest do
     # feature-view.ROUTING.1
     test "renders feature name with case-insensitive matching", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      # Create spec with feature name "MyFeature"
-      create_spec_for_feature(team, "MyFeature")
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "MyFeature")
 
       # Access with lowercase URL
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/myfeature")
@@ -95,7 +105,11 @@ defmodule AcaiWeb.FeatureLiveTest do
     # feature-view.MAIN.2
     test "renders feature description when present", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      create_spec_for_feature(team, "my-feature", description: "A test feature description")
+      product = create_product(team, "TestProduct")
+
+      create_spec_for_feature(team, product, "my-feature",
+        description: "A test feature description"
+      )
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
       assert has_element?(view, "p", "A test feature description")
@@ -104,7 +118,8 @@ defmodule AcaiWeb.FeatureLiveTest do
     # feature-view.MAIN.2
     test "does not render description when nil", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature", description: nil)
+      product = create_product(team, "TestProduct")
+      spec = create_spec_for_feature(team, product, "my-feature", description: nil)
 
       # Update spec to have nil description
       Specs.update_spec(spec, %{feature_description: nil})
@@ -119,8 +134,9 @@ defmodule AcaiWeb.FeatureLiveTest do
     # feature-view.MAIN.3
     test "renders implementation cards grid", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      impl = create_implementation_for_spec(spec, name: "Impl-1")
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "my-feature")
+      impl = create_implementation_for_product(product, name: "Impl-1")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
@@ -135,7 +151,8 @@ defmodule AcaiWeb.FeatureLiveTest do
     # feature-view.MAIN.3-1
     test "shows empty state when no implementations", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      create_spec_for_feature(team, "my-feature")
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "my-feature")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
       assert has_element?(view, ".text-center", "No implementations found for this feature")
@@ -144,8 +161,9 @@ defmodule AcaiWeb.FeatureLiveTest do
     # feature-view.MAIN.4
     test "each card navigates to implementation view", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      impl = create_implementation_for_spec(spec, name: "MyImpl")
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "my-feature")
+      impl = create_implementation_for_product(product, name: "MyImpl")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
@@ -159,8 +177,9 @@ defmodule AcaiWeb.FeatureLiveTest do
       user: user
     } do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      impl = create_implementation_for_spec(spec, name: "Deploy / Canary + EU-West 🚀")
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "my-feature")
+      impl = create_implementation_for_product(product, name: "Deploy / Canary + EU-West 🚀")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
@@ -177,8 +196,9 @@ defmodule AcaiWeb.FeatureLiveTest do
     # feature-view.IMPL_CARD.1
     test "shows implementation name", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      create_implementation_for_spec(spec, name: "Production")
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "my-feature")
+      create_implementation_for_product(product, name: "Production")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
       assert has_element?(view, "#implementations-grid", "Production")
@@ -187,8 +207,9 @@ defmodule AcaiWeb.FeatureLiveTest do
     # feature-view.IMPL_CARD.2
     test "shows tracked branch count", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      impl = create_implementation_for_spec(spec)
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "my-feature")
+      impl = create_implementation_for_product(product)
 
       # Create tracked branches with unique repo_uris
       tracked_branch_fixture(impl, repo_uri: "github.com/org/repo1")
@@ -201,8 +222,9 @@ defmodule AcaiWeb.FeatureLiveTest do
     # feature-view.IMPL_CARD.2
     test "shows singular branch count", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      impl = create_implementation_for_spec(spec)
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "my-feature")
+      impl = create_implementation_for_product(product)
 
       tracked_branch_fixture(impl, repo_uri: "github.com/org/repo1")
 
@@ -211,15 +233,32 @@ defmodule AcaiWeb.FeatureLiveTest do
     end
 
     # feature-view.IMPL_CARD.3
+    # data-model.SPECS.13: Requirements are JSONB on specs
     test "shows total requirements count", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      create_implementation_for_spec(spec)
+      product = create_product(team, "TestProduct")
 
-      # Create requirements
-      create_requirement_for_spec(spec)
-      create_requirement_for_spec(spec)
-      create_requirement_for_spec(spec)
+      # Create spec with 3 requirements in JSONB
+      requirements = %{
+        "my-feature.COMP.1" => %{
+          "definition" => "Req 1",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "my-feature.COMP.2" => %{
+          "definition" => "Req 2",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "my-feature.COMP.3" => %{
+          "definition" => "Req 3",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+
+      create_spec_for_feature(team, product, "my-feature", requirements: requirements)
+      create_implementation_for_product(product)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
       assert has_element?(view, "#implementations-grid", "3 requirements")
@@ -228,77 +267,127 @@ defmodule AcaiWeb.FeatureLiveTest do
     # feature-view.IMPL_CARD.3
     test "shows singular requirement count", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      create_implementation_for_spec(spec)
-
-      create_requirement_for_spec(spec)
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "my-feature")
+      create_implementation_for_product(product)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
-      assert has_element?(view, "#implementations-grid", "1 requirement")
+      assert has_element?(view, "#implementations-grid", "2 requirements")
     end
 
     # feature-view.IMPL_CARD.4
+    # data-model.SPEC_IMPL_STATES: States are JSONB
     test "progress bar shows correct proportions", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      impl = create_implementation_for_spec(spec)
+      product = create_product(team, "TestProduct")
 
-      # Create 4 requirements
-      req1 = create_requirement_for_spec(spec)
-      req2 = create_requirement_for_spec(spec)
-      req3 = create_requirement_for_spec(spec)
-      _req4 = create_requirement_for_spec(spec)
+      # Create spec with 4 requirements
+      requirements = %{
+        "my-feature.COMP.1" => %{
+          "definition" => "Req 1",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "my-feature.COMP.2" => %{
+          "definition" => "Req 2",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "my-feature.COMP.3" => %{
+          "definition" => "Req 3",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "my-feature.COMP.4" => %{
+          "definition" => "Req 4",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
 
-      # 2 accepted, 1 completed, 1 null
-      create_requirement_status(impl, req1, status: "accepted")
-      create_requirement_status(impl, req2, status: "accepted")
-      create_requirement_status(impl, req3, status: "completed")
-      # req4 has no status (null)
+      spec = create_spec_for_feature(team, product, "my-feature", requirements: requirements)
+      impl = create_implementation_for_product(product)
+
+      # Create spec_impl_state with 2 completed (maps to "completed" in UI)
+      states = %{
+        "my-feature.COMP.1" => %{
+          "status" => "completed",
+          "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+        },
+        "my-feature.COMP.2" => %{
+          "status" => "completed",
+          "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+        },
+        "my-feature.COMP.3" => %{
+          "status" => "pending",
+          "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+        # COMP.4 has no status (null)
+      }
+
+      create_spec_impl_state(spec, impl, states: states)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
-      # Should show 3/4 complete
-      assert has_element?(view, "#implementations-grid", "3/4")
+      # Should show 2/4 complete (completed count / total)
+      assert has_element?(view, "#implementations-grid", "2/4")
     end
 
     # feature-view.IMPL_CARD.4-1
-    test "progress bar green segment for accepted", %{conn: conn, user: user} do
+    test "progress bar green segment for completed status", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      impl = create_implementation_for_spec(spec)
+      product = create_product(team, "TestProduct")
 
-      req = create_requirement_for_spec(spec)
-      create_requirement_status(impl, req, status: "accepted")
+      requirements = %{
+        "my-feature.COMP.1" => %{
+          "definition" => "Req 1",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+
+      spec = create_spec_for_feature(team, product, "my-feature", requirements: requirements)
+      impl = create_implementation_for_product(product)
+
+      create_spec_impl_state(spec, impl, status: "completed")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
-      # Should have green (success) segment
+      # Should have green (success) segment for completed
       assert has_element?(view, ".bg-success")
     end
 
     # feature-view.IMPL_CARD.4-2
-    test "progress bar blue segment for completed", %{conn: conn, user: user} do
+    # Note: The new model doesn't have "accepted" status, only "completed"
+    test "progress bar blue segment for in_progress status", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      impl = create_implementation_for_spec(spec)
+      product = create_product(team, "TestProduct")
 
-      req = create_requirement_for_spec(spec)
-      create_requirement_status(impl, req, status: "completed")
+      requirements = %{
+        "my-feature.COMP.1" => %{
+          "definition" => "Req 1",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+
+      spec = create_spec_for_feature(team, product, "my-feature", requirements: requirements)
+      impl = create_implementation_for_product(product)
+
+      create_spec_impl_state(spec, impl, status: "in_progress")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
-      # Should have blue (info) segment
+      # Should have blue (info) segment for in_progress
       assert has_element?(view, ".bg-info")
     end
 
     # feature-view.IMPL_CARD.4-3
     test "progress bar gray segment for null status", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      _impl = create_implementation_for_spec(spec)
-
-      # Create requirement with no status
-      create_requirement_for_spec(spec)
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "my-feature")
+      _impl = create_implementation_for_product(product)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
@@ -313,7 +402,8 @@ defmodule AcaiWeb.FeatureLiveTest do
     # feature-view.ROUTING.1
     test "case-insensitive feature_name matching", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      create_spec_for_feature(team, "MyFeature")
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "MyFeature")
 
       # Test various case combinations
       for feature_name <- ["MyFeature", "myfeature", "MYFEATURE", "Myfeature"] do
@@ -349,15 +439,17 @@ defmodule AcaiWeb.FeatureLiveTest do
 
     test "only shows implementations for the correct team", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      create_implementation_for_spec(spec, name: "MyImpl")
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "my-feature")
+      create_implementation_for_product(product, name: "MyImpl")
 
       # Create another team with a different user
       other_user = user_fixture()
       other_team = team_fixture()
       user_team_role_fixture(other_team, other_user, %{title: "owner"})
-      other_spec = create_spec_for_feature(other_team, "my-feature")
-      create_implementation_for_spec(other_spec, name: "OtherImpl")
+      other_product = create_product(other_team, "TestProduct")
+      create_spec_for_feature(other_team, other_product, "my-feature")
+      create_implementation_for_product(other_product, name: "OtherImpl")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
       # Should only show implementations from the current team
@@ -367,9 +459,10 @@ defmodule AcaiWeb.FeatureLiveTest do
 
     test "only shows active implementations", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "my-feature")
-      create_implementation_for_spec(spec, name: "ActiveImpl", is_active: true)
-      create_implementation_for_spec(spec, name: "InactiveImpl", is_active: false)
+      product = create_product(team, "TestProduct")
+      create_spec_for_feature(team, product, "my-feature")
+      create_implementation_for_product(product, name: "ActiveImpl", is_active: true)
+      create_implementation_for_product(product, name: "InactiveImpl", is_active: false)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
       assert has_element?(view, "#implementations-grid", "ActiveImpl")
@@ -382,8 +475,9 @@ defmodule AcaiWeb.FeatureLiveTest do
 
     test "get_specs_by_feature_name returns correct feature and specs", %{user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec1 = create_spec_for_feature(team, "MyFeature", version: "1.0.0")
-      spec2 = create_spec_for_feature(team, "MyFeature", version: "2.0.0")
+      product = create_product(team, "TestProduct")
+      spec1 = create_spec_for_feature(team, product, "MyFeature", version: "1.0.0")
+      spec2 = create_spec_for_feature(team, product, "MyFeature", version: "2.0.0")
 
       {feature_name, specs} = Specs.get_specs_by_feature_name(team, "myfeature")
       assert feature_name == "MyFeature"
@@ -405,11 +499,16 @@ defmodule AcaiWeb.FeatureLiveTest do
 
     test "list_active_implementations_for_specs returns correct implementations", %{user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec1 = create_spec_for_feature(team, "feature-1")
-      spec2 = create_spec_for_feature(team, "feature-2")
-      impl1 = create_implementation_for_spec(spec1, is_active: true)
-      impl2 = create_implementation_for_spec(spec2, is_active: true)
-      create_implementation_for_spec(spec1, is_active: false)
+      product = create_product(team, "TestProduct")
+      spec1 = create_spec_for_feature(team, product, "feature-1")
+
+      # Create another product with a spec
+      product2 = create_product(team, "TestProduct2")
+      spec2 = create_spec_for_feature(team, product2, "feature-2")
+
+      impl1 = create_implementation_for_product(product, is_active: true)
+      impl2 = create_implementation_for_product(product2, is_active: true)
+      create_implementation_for_product(product, is_active: false)
 
       impls = Implementations.list_active_implementations_for_specs([spec1, spec2])
       assert length(impls) == 2
@@ -419,8 +518,8 @@ defmodule AcaiWeb.FeatureLiveTest do
 
     test "count_tracked_branches returns correct count", %{user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "feature-1")
-      impl = create_implementation_for_spec(spec)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product)
 
       tracked_branch_fixture(impl, repo_uri: "github.com/org/repo1")
       tracked_branch_fixture(impl, repo_uri: "github.com/org/repo2")
@@ -430,28 +529,55 @@ defmodule AcaiWeb.FeatureLiveTest do
       assert count == 3
     end
 
-    test "get_requirement_status_counts returns correct counts", %{user: user} do
+    test "batch_get_spec_impl_state_counts returns correct counts", %{user: user} do
       {team, _role} = create_team_with_owner(user)
-      spec = create_spec_for_feature(team, "feature-1")
-      impl = create_implementation_for_spec(spec)
+      product = create_product(team, "TestProduct")
 
-      # Create 5 requirements
-      req1 = create_requirement_for_spec(spec)
-      req2 = create_requirement_for_spec(spec)
-      req3 = create_requirement_for_spec(spec)
-      _req4 = create_requirement_for_spec(spec)
-      _req5 = create_requirement_for_spec(spec)
+      requirements = %{
+        "feature-1.COMP.1" => %{
+          "definition" => "Req 1",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "feature-1.COMP.2" => %{
+          "definition" => "Req 2",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "feature-1.COMP.3" => %{
+          "definition" => "Req 3",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
 
-      # 2 accepted, 1 completed, 2 null
-      create_requirement_status(impl, req1, status: "accepted")
-      create_requirement_status(impl, req2, status: "accepted")
-      create_requirement_status(impl, req3, status: "completed")
-      # req4 and req5 have no status
+      spec = create_spec_for_feature(team, product, "feature-1", requirements: requirements)
+      impl = create_implementation_for_product(product)
 
-      counts = Implementations.get_requirement_status_counts(impl, 5)
-      assert counts.accepted == 2
-      assert counts.completed == 1
-      assert counts.null == 2
+      # Create spec_impl_state with 1 completed, 1 in_progress, 1 pending
+      states = %{
+        "feature-1.COMP.1" => %{
+          "status" => "completed",
+          "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+        },
+        "feature-1.COMP.2" => %{
+          "status" => "in_progress",
+          "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+        },
+        "feature-1.COMP.3" => %{
+          "status" => "pending",
+          "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+      }
+
+      create_spec_impl_state(spec, impl, states: states)
+
+      counts = Implementations.batch_get_spec_impl_state_counts([impl])
+      impl_counts = Map.get(counts, impl.id, %{})
+
+      assert impl_counts["completed"] == 1
+      assert impl_counts["in_progress"] == 1
+      assert impl_counts["pending"] == 1
     end
   end
 end

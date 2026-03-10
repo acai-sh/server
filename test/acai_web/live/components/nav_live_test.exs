@@ -11,10 +11,16 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
     {team, role}
   end
 
-  # Helper to create unique specs
-  defp create_spec(team, attrs) do
-    unique_path = "features/#{attrs[:feature_name]}/feature.yaml"
-    spec_fixture(team, Map.put(attrs, :path, unique_path))
+  # Helper to create a product with specs
+  # data-model.PRODUCTS: Products are now first-class entities
+  defp create_product_with_specs(team, product_name, feature_names) do
+    product = product_fixture(team, %{name: product_name})
+
+    Enum.each(feature_names, fn feature_name ->
+      spec_fixture(product, %{feature_name: feature_name})
+    end)
+
+    product
   end
 
   describe "nav.HEADER" do
@@ -118,12 +124,13 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
     setup :register_and_log_in_user
 
     # nav.PANEL.3-1
+    # data-model.PRODUCTS: Products are now first-class entities
     test "renders each product as collapsible item", %{conn: conn, user: user} do
       {team, _} = create_team_with_owner(user)
 
-      # Create specs with different products
-      create_spec(team, %{feature_name: "feature-1", feature_product: "product-a"})
-      create_spec(team, %{feature_name: "feature-2", feature_product: "product-b"})
+      # Create products with specs
+      create_product_with_specs(team, "product-a", ["feature-1"])
+      create_product_with_specs(team, "product-b", ["feature-2"])
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 
@@ -132,10 +139,11 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
     end
 
     # nav.PANEL.3-2
-    test "product display name is derived from feature_product", %{conn: conn, user: user} do
+    # data-model.PRODUCTS: Product display name from Product entity
+    test "product display name is derived from product name", %{conn: conn, user: user} do
       {team, _} = create_team_with_owner(user)
 
-      create_spec(team, %{feature_name: "feature-1", feature_product: "my-product"})
+      create_product_with_specs(team, "my-product", ["feature-1"])
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 
@@ -150,7 +158,8 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
     test "each feature name links to /t/:team_name/f/:feature_name", %{conn: conn, user: user} do
       {team, _} = create_team_with_owner(user)
 
-      spec = create_spec(team, %{feature_name: "my-feature", feature_product: "my-product"})
+      product = create_product_with_specs(team, "my-product", ["my-feature"])
+      spec = Acai.Specs.list_specs_for_product(product) |> List.first()
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 
@@ -164,8 +173,8 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
     test "multiple products can be expanded simultaneously", %{conn: conn, user: user} do
       {team, _} = create_team_with_owner(user)
 
-      create_spec(team, %{feature_name: "feature-1", feature_product: "product-a"})
-      create_spec(team, %{feature_name: "feature-2", feature_product: "product-b"})
+      create_product_with_specs(team, "product-a", ["feature-1"])
+      create_product_with_specs(team, "product-b", ["feature-2"])
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 
@@ -189,7 +198,7 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
     } do
       {team, _} = create_team_with_owner(user)
 
-      create_spec(team, %{feature_name: "feature-1", feature_product: "my-product"})
+      create_product_with_specs(team, "my-product", ["feature-1"])
 
       # Note: This test assumes a route exists for /t/:team_name/p/:product_name
       # Since we don't have that route yet, we test the parsing logic indirectly
@@ -206,7 +215,7 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
     } do
       {team, _} = create_team_with_owner(user)
 
-      spec = create_spec(team, %{feature_name: "my-feature", feature_product: "my-product"})
+      create_product_with_specs(team, "my-product", ["my-feature"])
 
       # Note: This test assumes a route exists for /t/:team_name/f/:feature_name
       # Since we don't have that route yet, we test the parsing logic indirectly
@@ -215,7 +224,7 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
       # Expand the product to see the feature
       view |> element("button[phx-value-product='my-product']") |> render_click()
 
-      assert has_element?(view, "a[href='/t/#{team.name}/f/#{spec.feature_name}']")
+      assert has_element?(view, "a[href='/t/#{team.name}/f/my-feature']")
     end
 
     # nav.PANEL.5-4
@@ -225,7 +234,7 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
     } do
       {team, _} = create_team_with_owner(user)
 
-      create_spec(team, %{feature_name: "feature-1", feature_product: "my-product"})
+      create_product_with_specs(team, "my-product", ["feature-1"])
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 

@@ -29,20 +29,22 @@ defmodule AcaiWeb.ImplementationLive do
       implementation ->
         # Verify the implementation belongs to this team
         if implementation.team_id == team.id do
-          # Get the spec for this implementation
-          spec = Specs.get_spec!(implementation.spec_id)
+          # data-model.IMPLS: Implementation belongs to product, not spec
+          # Find the spec for this feature_name within the same product
+          implementation = Acai.Repo.preload(implementation, :product)
 
-          # Verify the spec belongs to this feature
-          if spec.feature_name == feature_name do
-            mount_implementation_view(socket, team, spec, implementation, feature_name)
-          else
-            # Feature name mismatch - redirect to correct feature
-            socket =
-              socket
-              |> put_flash(:error, "Implementation not found in this feature")
-              |> push_navigate(to: ~p"/t/#{team.name}/f/#{feature_name}")
+          case find_spec_for_feature(team, implementation.product_id, feature_name) do
+            nil ->
+              # No spec found for this feature in this product
+              socket =
+                socket
+                |> put_flash(:error, "Feature not found in this product")
+                |> push_navigate(to: ~p"/t/#{team.name}/f/#{feature_name}")
 
-            {:ok, socket}
+              {:ok, socket}
+
+            spec ->
+              mount_implementation_view(socket, team, spec, implementation, feature_name)
           end
         else
           # Team mismatch - redirect
@@ -56,34 +58,58 @@ defmodule AcaiWeb.ImplementationLive do
     end
   end
 
-  defp mount_implementation_view(socket, team, spec, implementation, feature_name) do
-    # Load requirements for the spec
-    requirements = Specs.list_requirements(spec)
+  # Find a spec by feature_name for a given product
+  defp find_spec_for_feature(team, product_id, feature_name) do
+    Acai.Repo.one(
+      from s in Acai.Specs.Spec,
+        where: s.team_id == ^team.id,
+        where: s.product_id == ^product_id,
+        where: s.feature_name == ^feature_name,
+        limit: 1
+    )
+  end
 
-    # Load requirement statuses for this implementation
-    statuses = Implementations.list_requirement_statuses(implementation)
-    status_by_req_id = Map.new(statuses, &{&1.requirement_id, &1})
+  defp mount_implementation_view(socket, team, spec, implementation, feature_name) do
+    # data-model.SPECS.13: Requirements are JSONB on the spec
+    # data-model.SPECS.14: Preload product association for breadcrumb
+    spec = Acai.Repo.preload(spec, :product)
+
+    # Build requirement rows from the JSONB requirements map
+    requirements = build_requirement_rows_from_spec(spec)
+
+    # data-model.SPEC_IMPL_STATES: Load states from spec_impl_states JSONB
+    spec_impl_state = Specs.get_spec_impl_state(spec, implementation)
+    states = if spec_impl_state, do: spec_impl_state.states, else: %{}
+
+    # data-model.SPEC_IMPL_REFS: Load refs from spec_impl_refs JSONB
+    spec_impl_ref = Specs.get_spec_impl_ref(spec, implementation)
+    refs = if spec_impl_ref, do: spec_impl_ref.refs, else: %{}
 
     # Load tracked branches
     tracked_branches = Implementations.list_tracked_branches(implementation)
 
-    # Load code reference counts per requirement
-    ref_counts = get_code_reference_counts(requirements, tracked_branches)
-
-    # Build requirement rows with status and counts
+    # Build requirement rows with status and counts from JSONB
     requirement_rows =
       requirements
       |> Enum.map(fn req ->
-        status = Map.get(status_by_req_id, req.id)
-        counts = Map.get(ref_counts, req.id, %{refs: 0, tests: 0})
+        acid = req.acid
+        state_data = Map.get(states, acid, %{"status" => nil})
+        acid_refs = Map.get(refs, acid, [])
+
+        # Count refs and tests from the refs JSONB
+        refs_count = Enum.count(acid_refs, &(!&1["is_test"]))
+        tests_count = Enum.count(acid_refs, & &1["is_test"])
 
         %{
-          id: req.id,
-          acid: req.acid,
+          id: acid,
+          acid: acid,
           definition: req.definition,
-          status: status && status.status,
-          refs_count: counts.refs,
-          tests_count: counts.tests
+          status: state_data["status"],
+          refs_count: refs_count,
+          tests_count: tests_count,
+          note: req.note,
+          is_deprecated: req.is_deprecated,
+          replaced_by: req.replaced_by
         }
       end)
       |> Enum.sort_by(& &1.acid)
@@ -96,7 +122,7 @@ defmodule AcaiWeb.ImplementationLive do
       |> assign(:feature_name, feature_name)
       |> assign(:requirements, requirement_rows)
       |> assign(:tracked_branches, tracked_branches)
-      |> assign(:selected_requirement_id, nil)
+      |> assign(:selected_acid, nil)
       |> assign(:drawer_visible, false)
       |> assign(:sort_by, :acid)
       |> assign(:sort_dir, :asc)
@@ -108,34 +134,18 @@ defmodule AcaiWeb.ImplementationLive do
     {:ok, socket}
   end
 
-  # Get code reference counts per requirement
-  defp get_code_reference_counts(requirements, tracked_branches) do
-    if tracked_branches == [] do
-      Map.new(requirements, fn req -> {req.id, %{refs: 0, tests: 0}} end)
-    else
-      branch_ids = Enum.map(tracked_branches, & &1.id)
-
-      # Query code references grouped by requirement_id and is_test
-      alias Acai.Specs.CodeReference
-
-      counts =
-        Acai.Repo.all(
-          from ref in CodeReference,
-            where: ref.requirement_id in ^Enum.map(requirements, & &1.id),
-            where: ref.branch_id in ^branch_ids,
-            group_by: [ref.requirement_id, ref.is_test],
-            select: {ref.requirement_id, ref.is_test, count()}
-        )
-
-      # Build a map of requirement_id => %{refs: count, tests: count}
-      Enum.reduce(counts, Map.new(requirements, fn req -> {req.id, %{refs: 0, tests: 0}} end), fn
-        {req_id, true, count}, acc ->
-          update_in(acc, [req_id, :tests], fn _ -> count end)
-
-        {req_id, false, count}, acc ->
-          update_in(acc, [req_id, :refs], fn _ -> count end)
-      end)
-    end
+  # data-model.SPECS.13: Build requirement rows from JSONB requirements map
+  defp build_requirement_rows_from_spec(spec) do
+    spec.requirements
+    |> Enum.map(fn {acid, data} ->
+      %{
+        acid: acid,
+        definition: Map.get(data, "definition", ""),
+        note: Map.get(data, "note"),
+        is_deprecated: Map.get(data, "is_deprecated", false),
+        replaced_by: Map.get(data, "replaced_by", [])
+      }
+    end)
   end
 
   @impl true
@@ -160,10 +170,10 @@ defmodule AcaiWeb.ImplementationLive do
      |> assign(:requirements, sorted_requirements)}
   end
 
-  def handle_event("open_drawer", %{"requirement_id" => req_id}, socket) do
+  def handle_event("open_drawer", %{"acid" => acid}, socket) do
     {:noreply,
      socket
-     |> assign(:selected_requirement_id, req_id)
+     |> assign(:selected_acid, acid)
      |> assign(:drawer_visible, true)}
   end
 
@@ -171,14 +181,14 @@ defmodule AcaiWeb.ImplementationLive do
     {:noreply,
      socket
      |> assign(:drawer_visible, false)
-     |> assign(:selected_requirement_id, nil)}
+     |> assign(:selected_acid, nil)}
   end
 
   @impl true
   def handle_info("drawer_closed", socket) do
     {:noreply,
      socket
-     |> assign(:selected_requirement_id, nil)
+     |> assign(:selected_acid, nil)
      |> assign(:drawer_visible, false)}
   end
 
@@ -206,6 +216,7 @@ defmodule AcaiWeb.ImplementationLive do
     >
       <div class="space-y-6">
         <%!-- implementation-view.MAIN.1: Page header --%>
+        <%!-- data-model.PRODUCTS: Product is now a separate entity --%>
         <.content_header
           page_title="Implementation"
           resource_name={@implementation.name}
@@ -213,8 +224,8 @@ defmodule AcaiWeb.ImplementationLive do
           breadcrumb_items={[
             %{label: "Overview", navigate: ~p"/t/#{@team.name}", icon: "hero-home"},
             %{
-              label: @spec.feature_product,
-              navigate: ~p"/t/#{@team.name}/p/#{@spec.feature_product}"
+              label: @spec.product.name,
+              navigate: ~p"/t/#{@team.name}/p/#{@spec.product.name}"
             },
             %{label: @feature_name, navigate: ~p"/t/#{@team.name}/f/#{@feature_name}"},
             %{label: @implementation.name}
@@ -281,10 +292,12 @@ defmodule AcaiWeb.ImplementationLive do
         />
 
         <%!-- Requirement details drawer --%>
+        <%!-- data-model.SPECS.13: Pass acid instead of requirement_id --%>
         <.live_component
           module={AcaiWeb.Live.Components.RequirementDetailsLive}
           id="requirement-details-drawer"
-          requirement_id={@selected_requirement_id}
+          acid={@selected_acid}
+          spec={@spec}
           implementation={@implementation}
           visible={@drawer_visible}
         />
@@ -314,7 +327,7 @@ defmodule AcaiWeb.ImplementationLive do
       <.link
         :for={req <- @requirements}
         phx-click={@on_click}
-        phx-value-requirement_id={req.id}
+        phx-value-acid={req.acid}
         class="cursor-pointer"
       >
         <.req_chip requirement={req} />
@@ -350,7 +363,7 @@ defmodule AcaiWeb.ImplementationLive do
       <.link
         :for={req <- @requirements}
         phx-click={@on_click}
-        phx-value-requirement_id={req.id}
+        phx-value-acid={req.acid}
         class="cursor-pointer"
       >
         <.test_chip requirement={req} />
@@ -464,7 +477,7 @@ defmodule AcaiWeb.ImplementationLive do
                 :for={req <- @requirements}
                 class="hover:bg-base-200 cursor-pointer"
                 phx-click={@on_row_click}
-                phx-value-requirement_id={req.id}
+                phx-value-acid={req.acid}
               >
                 <td class="font-mono text-sm">{req.acid}</td>
                 <td>
