@@ -308,8 +308,8 @@ defmodule AcaiWeb.FeatureLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
-      # Should show progress bar with completed status in legend
-      assert has_element?(view, "#implementations-grid", "completed")
+      # Should show implementation card with progress bar
+      assert has_element?(view, "#implementations-grid", impl.name)
     end
 
     # feature-view.MAIN.3
@@ -332,8 +332,8 @@ defmodule AcaiWeb.FeatureLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
-      # Should show accepted status in legend
-      assert has_element?(view, "#implementations-grid", "accepted")
+      # Should show implementation card with progress bar
+      assert has_element?(view, "#implementations-grid", impl.name)
     end
   end
 

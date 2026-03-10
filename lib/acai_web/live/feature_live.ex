@@ -215,40 +215,18 @@ defmodule AcaiWeb.FeatureLive do
                         class="h-full bg-base-300"
                         style={"width: #{card.status_percentages[nil]}%"}
                       />
-                    </div>
-
-                    <%!-- Legend with counts --%>
-                    <div class="flex flex-wrap gap-2 mt-2 text-xs text-base-content/60">
-                      <%= if card.status_percentages["accepted"] > 0 do %>
-                        <span class="flex items-center gap-1">
-                          <span class="w-2 h-2 rounded-full bg-success" /> accepted
-                        </span>
-                      <% end %>
-                      <%= if card.status_percentages["completed"] > 0 do %>
-                        <span class="flex items-center gap-1">
-                          <span class="w-2 h-2 rounded-full bg-info" /> completed
-                        </span>
-                      <% end %>
-                      <%= if card.status_percentages["assigned"] > 0 do %>
-                        <span class="flex items-center gap-1">
-                          <span class="w-2 h-2 rounded-full bg-warning" /> assigned
-                        </span>
-                      <% end %>
-                      <%= if card.status_percentages["blocked"] > 0 do %>
-                        <span class="flex items-center gap-1">
-                          <span class="w-2 h-2 rounded-full bg-error" /> blocked
-                        </span>
-                      <% end %>
-                      <%= if card.status_percentages["rejected"] > 0 do %>
-                        <span class="flex items-center gap-1">
-                          <span class="w-2 h-2 rounded-full bg-error opacity-60" /> rejected
-                        </span>
-                      <% end %>
-                      <%= if card.status_percentages[nil] > 0 do %>
-                        <span class="flex items-center gap-1">
-                          <span class="w-2 h-2 rounded-full bg-base-300" /> no status
-                        </span>
-                      <% end %>
+                      <%!-- Empty state: full gray bar when no statuses at all --%>
+                      <div
+                        :if={
+                          card.status_percentages["accepted"] == 0 &&
+                            card.status_percentages["completed"] == 0 &&
+                            card.status_percentages["assigned"] == 0 &&
+                            card.status_percentages["blocked"] == 0 &&
+                            card.status_percentages["rejected"] == 0 &&
+                            card.status_percentages[nil] == 0
+                        }
+                        class="h-full w-full bg-base-300"
+                      />
                     </div>
                   </div>
                 </div>

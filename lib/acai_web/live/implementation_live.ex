@@ -271,6 +271,23 @@ defmodule AcaiWeb.ImplementationLive do
               requirements={@requirements}
               on_click="open_drawer"
             />
+            <div class="mt-3 pt-3 border-t border-base-200 flex flex-wrap gap-x-3 gap-y-1 text-xs text-base-content/50">
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 rounded-sm bg-success" /> accepted
+              </span>
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 rounded-sm bg-info" /> completed
+              </span>
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 rounded-sm bg-warning" /> assigned
+              </span>
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 rounded-sm bg-error" /> blocked
+              </span>
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 rounded-sm bg-error opacity-60" /> rejected
+              </span>
+            </div>
           </.coverage_section>
 
           <%!-- implementation-view.TEST_COVERAGE: Test coverage grid --%>
@@ -279,40 +296,15 @@ defmodule AcaiWeb.ImplementationLive do
               requirements={@requirements}
               on_click="open_drawer"
             />
+            <% reqs_with_tests = Enum.count(@requirements, &(&1.tests_count > 0)) %>
+            <% total_reqs = Enum.count(@requirements) %>
+            <% coverage_pct =
+              if total_reqs > 0, do: round(reqs_with_tests / total_reqs * 100), else: 0 %>
+            <div class="mt-3 pt-3 border-t border-base-200 flex items-center justify-between text-sm">
+              <span class="text-base-content/50">{coverage_pct}% covered</span>
+              <span class="text-base-content/50">{reqs_with_tests} of {total_reqs}</span>
+            </div>
           </.coverage_section>
-        </div>
-
-        <%!-- Status legend --%>
-        <div class="card bg-base-100 border border-base-300 shadow-sm p-4">
-          <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider mb-3">
-            Status Legend
-          </h3>
-          <div class="flex flex-wrap gap-4 text-sm">
-            <div class="flex items-center gap-2">
-              <span class="w-4 h-4 rounded bg-success"></span>
-              <span>Accepted</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="w-4 h-4 rounded bg-info"></span>
-              <span>Completed</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="w-4 h-4 rounded bg-warning"></span>
-              <span>Assigned</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="w-4 h-4 rounded bg-error"></span>
-              <span>Blocked</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="w-4 h-4 rounded bg-error opacity-60"></span>
-              <span>Rejected</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="w-4 h-4 rounded bg-base-300"></span>
-              <span>No Status</span>
-            </div>
-          </div>
         </div>
 
         <%!-- implementation-view.REQ_LIST: Requirements table --%>
