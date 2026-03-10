@@ -22,34 +22,43 @@ defmodule Acai.Seeds do
 
   @doc """
   Runs all seeds.
+
+  ## Options
+
+    * `:silent` - When `true`, suppresses all console output. Defaults to `false`.
+
   """
-  def run do
-    users = seed_users()
-    team = seed_team("mapperoni")
-    seed_roles(team, users)
+  def run(opts \\ []) do
+    silent = Keyword.get(opts, :silent, false)
 
-    products = seed_products(team)
-    specs = seed_specs(team, products)
-    impls = seed_implementations(team, products)
-    seed_tracked_branches(impls)
-    seed_spec_impl_states(specs, impls)
-    seed_spec_impl_refs(specs, impls)
+    users = seed_users(silent)
+    team = seed_team("mapperoni", silent)
+    seed_roles(team, users, silent)
 
-    IO.puts("\n=== Seeding Complete ===")
-    IO.puts("")
-    IO.puts("Sample data created:")
-    IO.puts("  - Users: #{Enum.map(users, & &1.email) |> Enum.join(", ")}")
-    IO.puts("  - Team: #{team.name}")
-    IO.puts("  - Products: #{Enum.map(products, & &1.name) |> Enum.join(", ")}")
+    products = seed_products(team, silent)
+    specs = seed_specs(team, products, silent)
+    impls = seed_implementations(team, products, silent)
+    seed_tracked_branches(impls, silent)
+    seed_spec_impl_states(specs, impls, silent)
+    seed_spec_impl_refs(specs, impls, silent)
 
-    IO.puts(
-      "  - Site Specs: map-editor, map-viewer, project-view, data-explorer, form-editor, field-settings, map-settings"
-    )
+    unless silent do
+      IO.puts("\n=== Seeding Complete ===")
+      IO.puts("")
+      IO.puts("Sample data created:")
+      IO.puts("  - Users: #{Enum.map(users, & &1.email) |> Enum.join(", ")}")
+      IO.puts("  - Team: #{team.name}")
+      IO.puts("  - Products: #{Enum.map(products, & &1.name) |> Enum.join(", ")}")
 
-    IO.puts("  - API Specs: core-api, push-api")
-    IO.puts("  - Implementations: production, staging environments")
-    IO.puts("")
-    IO.puts("All passwords are: Password123!")
+      IO.puts(
+        "  - Site Specs: map-editor, map-viewer, project-view, data-explorer, form-editor, field-settings, map-settings"
+      )
+
+      IO.puts("  - API Specs: core-api, push-api")
+      IO.puts("  - Implementations: production, staging environments")
+      IO.puts("")
+      IO.puts("All passwords are: Password123!")
+    end
 
     :ok
   end
@@ -58,25 +67,31 @@ defmodule Acai.Seeds do
   # User Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_users do
-    IO.puts("\n=== Seeding Users ===")
+  defp seed_users(silent) do
+    unless silent do
+      IO.puts("\n=== Seeding Users ===")
+    end
 
     [
-      seed_user("owner@mapperoni.com"),
-      seed_user("developer@mapperoni.com"),
-      seed_user("readonly@mapperoni.com")
+      seed_user("owner@mapperoni.com", silent),
+      seed_user("developer@mapperoni.com", silent),
+      seed_user("readonly@mapperoni.com", silent)
     ]
   end
 
-  defp seed_user(email) do
+  defp seed_user(email, silent) do
     case Accounts.get_user_by_email(email) do
       nil ->
         {:ok, user} = Accounts.register_user(%{email: email, password: "Password123!"})
-        IO.puts("Created user: #{email}")
+        unless silent do
+          IO.puts("Created user: #{email}")
+        end
         user
 
       user ->
-        IO.puts("User already exists: #{email}")
+        unless silent do
+          IO.puts("User already exists: #{email}")
+        end
         user
     end
   end
@@ -85,17 +100,23 @@ defmodule Acai.Seeds do
   # Team Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_team(name) do
-    IO.puts("\n=== Seeding Teams ===")
+  defp seed_team(name, silent) do
+    unless silent do
+      IO.puts("\n=== Seeding Teams ===")
+    end
 
     case Repo.get_by(Team, name: name) do
       nil ->
         {:ok, team} = Repo.insert(%Team{name: name})
-        IO.puts("Created team: #{name}")
+        unless silent do
+          IO.puts("Created team: #{name}")
+        end
         team
 
       team ->
-        IO.puts("Team already exists: #{name}")
+        unless silent do
+          IO.puts("Team already exists: #{name}")
+        end
         team
     end
   end
@@ -104,26 +125,32 @@ defmodule Acai.Seeds do
   # Role Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_roles(team, [owner, dev, readonly]) do
-    IO.puts("\n=== Seeding Roles ===")
+  defp seed_roles(team, [owner, dev, readonly], silent) do
+    unless silent do
+      IO.puts("\n=== Seeding Roles ===")
+    end
 
-    seed_role(team, owner, "owner")
-    seed_role(team, dev, "developer")
-    seed_role(team, readonly, "readonly")
+    seed_role(team, owner, "owner", silent)
+    seed_role(team, dev, "developer", silent)
+    seed_role(team, readonly, "readonly", silent)
   end
 
-  defp seed_role(team, user, title) do
+  defp seed_role(team, user, title, silent) do
     existing =
       Repo.one(from r in UserTeamRole, where: r.team_id == ^team.id and r.user_id == ^user.id)
 
     if existing do
-      IO.puts("Role already exists for user #{user.email} in team #{team.name}")
+      unless silent do
+        IO.puts("Role already exists for user #{user.email} in team #{team.name}")
+      end
       existing
     else
       {:ok, role} =
         Repo.insert(%UserTeamRole{team_id: team.id, user_id: user.id, title: title})
 
-      IO.puts("Assigned role #{title} to #{user.email} in team #{team.name}")
+      unless silent do
+        IO.puts("Assigned role #{title} to #{user.email} in team #{team.name}")
+      end
       role
     end
   end
@@ -132,27 +159,31 @@ defmodule Acai.Seeds do
   # Product Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_products(team) do
-    IO.puts("\n=== Seeding Products ===")
+  defp seed_products(team, silent) do
+    unless silent do
+      IO.puts("\n=== Seeding Products ===")
+    end
 
     site_product =
       seed_product(team, "site", %{
         description: "Mapperoni web application - map-based survey builder and viewer"
-      })
+      }, silent)
 
     api_product =
       seed_product(team, "api", %{
         description: "Mapperoni API - backend services for maps, forms, and data"
-      })
+      }, silent)
 
     [site_product, api_product]
   end
 
-  defp seed_product(team, name, attrs) do
+  defp seed_product(team, name, attrs, silent) do
     existing = Repo.one(from p in Product, where: p.team_id == ^team.id and p.name == ^name)
 
     if existing do
-      IO.puts("Product already exists: #{name} in team #{team.name}")
+      unless silent do
+        IO.puts("Product already exists: #{name} in team #{team.name}")
+      end
       existing
     else
       attrs =
@@ -167,7 +198,9 @@ defmodule Acai.Seeds do
         )
 
       {:ok, product} = Repo.insert(Product.changeset(%Product{}, attrs))
-      IO.puts("Created product: #{name} in team #{team.name}")
+      unless silent do
+        IO.puts("Created product: #{name} in team #{team.name}")
+      end
       product
     end
   end
@@ -176,21 +209,23 @@ defmodule Acai.Seeds do
   # Spec Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_specs(team, [site_product, api_product]) do
-    IO.puts("\n=== Seeding Specs with JSONB Requirements ===")
+  defp seed_specs(team, [site_product, api_product], silent) do
+    unless silent do
+      IO.puts("\n=== Seeding Specs with JSONB Requirements ===")
+    end
 
     # Site product specs
-    map_editor_spec = seed_map_editor_spec(team, site_product)
-    map_viewer_spec = seed_map_viewer_spec(team, site_product)
-    project_view_spec = seed_project_view_spec(team, site_product)
-    data_explorer_spec = seed_data_explorer_spec(team, site_product)
-    form_editor_spec = seed_form_editor_spec(team, site_product)
-    field_settings_spec = seed_field_settings_spec(team, site_product)
-    map_settings_spec = seed_map_settings_spec(team, site_product)
+    map_editor_spec = seed_map_editor_spec(team, site_product, silent)
+    map_viewer_spec = seed_map_viewer_spec(team, site_product, silent)
+    project_view_spec = seed_project_view_spec(team, site_product, silent)
+    data_explorer_spec = seed_data_explorer_spec(team, site_product, silent)
+    form_editor_spec = seed_form_editor_spec(team, site_product, silent)
+    field_settings_spec = seed_field_settings_spec(team, site_product, silent)
+    map_settings_spec = seed_map_settings_spec(team, site_product, silent)
 
     # API product specs
-    core_api_spec = seed_core_api_spec(team, api_product)
-    push_api_spec = seed_push_api_spec(team, api_product)
+    core_api_spec = seed_core_api_spec(team, api_product, silent)
+    push_api_spec = seed_push_api_spec(team, api_product, silent)
 
     [
       map_editor_spec,
@@ -206,7 +241,7 @@ defmodule Acai.Seeds do
   end
 
   # Site: map-editor feature
-  defp seed_map_editor_spec(team, product) do
+  defp seed_map_editor_spec(team, product, silent) do
     seed_spec(team, product, %{
       feature_name: "map-editor",
       feature_description:
@@ -261,11 +296,11 @@ defmodule Acai.Seeds do
           "replaced_by" => []
         }
       }
-    })
+    }, silent)
   end
 
   # Site: map-viewer feature
-  defp seed_map_viewer_spec(team, product) do
+  defp seed_map_viewer_spec(team, product, silent) do
     seed_spec(team, product, %{
       feature_name: "map-viewer",
       feature_description: "Public and embedded map viewing interface for shared maps",
@@ -305,11 +340,11 @@ defmodule Acai.Seeds do
           "replaced_by" => []
         }
       }
-    })
+    }, silent)
   end
 
   # Site: project-view feature
-  defp seed_project_view_spec(team, product) do
+  defp seed_project_view_spec(team, product, silent) do
     seed_spec(team, product, %{
       feature_name: "project-view",
       feature_description: "Project dashboard showing all maps, forms, and data for a project",
@@ -349,11 +384,11 @@ defmodule Acai.Seeds do
           "replaced_by" => []
         }
       }
-    })
+    }, silent)
   end
 
   # Site: data-explorer feature
-  defp seed_data_explorer_spec(team, product) do
+  defp seed_data_explorer_spec(team, product, silent) do
     seed_spec(team, product, %{
       feature_name: "data-explorer",
       feature_description: "Tabular and visual data exploration interface for form submissions",
@@ -394,11 +429,11 @@ defmodule Acai.Seeds do
           "replaced_by" => []
         }
       }
-    })
+    }, silent)
   end
 
   # Site: form-editor feature
-  defp seed_form_editor_spec(team, product) do
+  defp seed_form_editor_spec(team, product, silent) do
     seed_spec(team, product, %{
       feature_name: "form-editor",
       feature_description: "Survey form builder for collecting data on maps",
@@ -446,11 +481,11 @@ defmodule Acai.Seeds do
           "replaced_by" => []
         }
       }
-    })
+    }, silent)
   end
 
   # Site: field-settings feature
-  defp seed_field_settings_spec(team, product) do
+  defp seed_field_settings_spec(team, product, silent) do
     seed_spec(team, product, %{
       feature_name: "field-settings",
       feature_description: "Configuration interface for form field properties and validation",
@@ -491,11 +526,11 @@ defmodule Acai.Seeds do
           "replaced_by" => []
         }
       }
-    })
+    }, silent)
   end
 
   # Site: map-settings feature
-  defp seed_map_settings_spec(team, product) do
+  defp seed_map_settings_spec(team, product, silent) do
     seed_spec(team, product, %{
       feature_name: "map-settings",
       feature_description: "Configuration interface for map appearance, behavior, and sharing",
@@ -542,11 +577,11 @@ defmodule Acai.Seeds do
           "replaced_by" => []
         }
       }
-    })
+    }, silent)
   end
 
   # API: core feature
-  defp seed_core_api_spec(team, product) do
+  defp seed_core_api_spec(team, product, silent) do
     seed_spec(team, product, %{
       feature_name: "core-api",
       feature_description: "Core API infrastructure - OpenAPI spec, authentication, and routing",
@@ -592,11 +627,11 @@ defmodule Acai.Seeds do
           "replaced_by" => []
         }
       }
-    })
+    }, silent)
   end
 
   # API: push feature
-  defp seed_push_api_spec(team, product) do
+  defp seed_push_api_spec(team, product, silent) do
     seed_spec(team, product, %{
       feature_name: "push-api",
       feature_description: "Push endpoint for CLI to ingest specs, code references, and states",
@@ -672,10 +707,10 @@ defmodule Acai.Seeds do
           "replaced_by" => []
         }
       }
-    })
+    }, silent)
   end
 
-  defp seed_spec(team, product, attrs) do
+  defp seed_spec(team, product, attrs, silent) do
     unique_suffix = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
 
     defaults = %{
@@ -703,11 +738,15 @@ defmodule Acai.Seeds do
       )
 
     if existing do
-      IO.puts("Spec already exists: #{attrs.feature_name} in team #{team.name}")
+      unless silent do
+        IO.puts("Spec already exists: #{attrs.feature_name} in team #{team.name}")
+      end
       existing
     else
       {:ok, spec} = Repo.insert(Spec.changeset(%Spec{}, attrs))
-      IO.puts("Created spec: #{spec.feature_name} in product #{product.name}")
+      unless silent do
+        IO.puts("Created spec: #{spec.feature_name} in product #{product.name}")
+      end
       spec
     end
   end
@@ -716,39 +755,41 @@ defmodule Acai.Seeds do
   # Implementation Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_implementations(team, [site_product, api_product]) do
-    IO.puts("\n=== Seeding Implementations ===")
+  defp seed_implementations(team, [site_product, api_product], silent) do
+    unless silent do
+      IO.puts("\n=== Seeding Implementations ===")
+    end
 
     # Site implementations
     site_prod_impl =
       seed_implementation(team, site_product, %{
         name: "production",
         description: "Production environment for mapperoni site"
-      })
+      }, silent)
 
     site_staging_impl =
       seed_implementation(team, site_product, %{
         name: "staging",
         description: "Staging environment for mapperoni site"
-      })
+      }, silent)
 
     # API implementations
     api_prod_impl =
       seed_implementation(team, api_product, %{
         name: "production",
         description: "Production environment for mapperoni API"
-      })
+      }, silent)
 
     api_staging_impl =
       seed_implementation(team, api_product, %{
         name: "staging",
         description: "Staging environment for mapperoni API"
-      })
+      }, silent)
 
     [site_prod_impl, site_staging_impl, api_prod_impl, api_staging_impl]
   end
 
-  defp seed_implementation(team, product, attrs) do
+  defp seed_implementation(team, product, attrs, silent) do
     defaults = %{
       name: "production",
       description: "Production environment",
@@ -766,11 +807,15 @@ defmodule Acai.Seeds do
       )
 
     if existing do
-      IO.puts("Implementation already exists: #{attrs.name} for product #{product.name}")
+      unless silent do
+        IO.puts("Implementation already exists: #{attrs.name} for product #{product.name}")
+      end
       existing
     else
       {:ok, impl} = Repo.insert(Implementation.changeset(%Implementation{}, attrs))
-      IO.puts("Created implementation: #{impl.name} for product #{product.name}")
+      unless silent do
+        IO.puts("Created implementation: #{impl.name} for product #{product.name}")
+      end
       impl
     end
   end
@@ -779,39 +824,41 @@ defmodule Acai.Seeds do
   # Tracked Branch Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_tracked_branches([site_prod, site_staging, api_prod, api_staging]) do
-    IO.puts("\n=== Seeding Tracked Branches ===")
+  defp seed_tracked_branches([site_prod, site_staging, api_prod, api_staging], silent) do
+    unless silent do
+      IO.puts("\n=== Seeding Tracked Branches ===")
+    end
 
     # Site branches
     seed_tracked_branch(site_prod, %{
       repo_uri: "github.com/mapperoni/mapperoni-site",
       branch_name: "main",
       last_seen_commit: "a1b2c3d4e5f6"
-    })
+    }, silent)
 
     seed_tracked_branch(site_staging, %{
       repo_uri: "github.com/mapperoni/mapperoni-site",
       branch_name: "develop",
       last_seen_commit: "b2c3d4e5f6a7"
-    })
+    }, silent)
 
     # API branches
     seed_tracked_branch(api_prod, %{
       repo_uri: "github.com/mapperoni/mapperoni-api",
       branch_name: "main",
       last_seen_commit: "c3d4e5f6a7b8"
-    })
+    }, silent)
 
     seed_tracked_branch(api_staging, %{
       repo_uri: "github.com/mapperoni/mapperoni-api",
       branch_name: "develop",
       last_seen_commit: "d4e5f6a7b8c9"
-    })
+    }, silent)
 
     :ok
   end
 
-  defp seed_tracked_branch(implementation, attrs) do
+  defp seed_tracked_branch(implementation, attrs, silent) do
     defaults = %{
       repo_uri: "github.com/example/repo",
       branch_name: "main",
@@ -829,14 +876,18 @@ defmodule Acai.Seeds do
       )
 
     if existing do
-      IO.puts(
-        "Tracked branch already exists: #{attrs.repo_uri} for implementation #{implementation.name}"
-      )
+      unless silent do
+        IO.puts(
+          "Tracked branch already exists: #{attrs.repo_uri} for implementation #{implementation.name}"
+        )
+      end
 
       existing
     else
       {:ok, branch} = Repo.insert(TrackedBranch.changeset(%TrackedBranch{}, attrs))
-      IO.puts("Created tracked branch: #{branch.repo_uri}/#{branch.branch_name}")
+      unless silent do
+        IO.puts("Created tracked branch: #{branch.repo_uri}/#{branch.branch_name}")
+      end
       branch
     end
   end
@@ -847,9 +898,12 @@ defmodule Acai.Seeds do
 
   defp seed_spec_impl_states(
          specs,
-         [site_prod, site_staging, api_prod, _api_staging]
+         [site_prod, site_staging, api_prod, _api_staging],
+         silent
        ) do
-    IO.puts("\n=== Seeding SpecImplStates ===")
+    unless silent do
+      IO.puts("\n=== Seeding SpecImplStates ===")
+    end
 
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
@@ -878,7 +932,7 @@ defmodule Acai.Seeds do
           "updated_at" => now
         }
       }
-    })
+    }, silent)
 
     seed_spec_impl_state(map_editor_spec, site_staging, %{
       states: %{
@@ -891,7 +945,7 @@ defmodule Acai.Seeds do
         "map-editor.MARKERS.2" => %{"status" => "completed", "updated_at" => now},
         "map-editor.EXPORT.1" => %{"status" => "completed", "updated_at" => now}
       }
-    })
+    }, silent)
 
     # Site: form-editor states
     form_editor_spec = find_spec.("form-editor")
@@ -914,7 +968,7 @@ defmodule Acai.Seeds do
           "updated_at" => now
         }
       }
-    })
+    }, silent)
 
     # API: push-api states
     push_api_spec = find_spec.("push-api")
@@ -938,12 +992,12 @@ defmodule Acai.Seeds do
         "push-api.INHERIT.2" => %{"status" => "completed", "updated_at" => now},
         "push-api.TX.1" => %{"status" => "completed", "updated_at" => now}
       }
-    })
+    }, silent)
 
     :ok
   end
 
-  defp seed_spec_impl_state(spec, implementation, attrs) do
+  defp seed_spec_impl_state(spec, implementation, attrs, silent) do
     defaults = %{
       states: %{},
       spec_id: spec.id,
@@ -959,14 +1013,18 @@ defmodule Acai.Seeds do
       )
 
     if existing do
-      IO.puts(
-        "SpecImplState already exists for spec #{spec.feature_name} and implementation #{implementation.name}"
-      )
+      unless silent do
+        IO.puts(
+          "SpecImplState already exists for spec #{spec.feature_name} and implementation #{implementation.name}"
+        )
+      end
 
       existing
     else
       {:ok, state} = Repo.insert(SpecImplState.changeset(%SpecImplState{}, attrs))
-      IO.puts("Created spec_impl_state for spec #{spec.feature_name}")
+      unless silent do
+        IO.puts("Created spec_impl_state for spec #{spec.feature_name}")
+      end
       state
     end
   end
@@ -977,9 +1035,12 @@ defmodule Acai.Seeds do
 
   defp seed_spec_impl_refs(
          specs,
-         [site_prod, _site_staging, api_prod, _api_staging]
+         [site_prod, _site_staging, api_prod, _api_staging],
+         silent
        ) do
-    IO.puts("\n=== Seeding SpecImplRefs ===")
+    unless silent do
+      IO.puts("\n=== Seeding SpecImplRefs ===")
+    end
 
     now = DateTime.utc_now()
 
@@ -1031,7 +1092,7 @@ defmodule Acai.Seeds do
       agent: "github-action",
       commit: "abc123def456",
       pushed_at: now
-    })
+    }, silent)
 
     # API: push-api refs
     push_api_spec = find_spec.("push-api")
@@ -1072,12 +1133,12 @@ defmodule Acai.Seeds do
       agent: "seeds",
       commit: "def789abc012",
       pushed_at: now
-    })
+    }, silent)
 
     :ok
   end
 
-  defp seed_spec_impl_ref(spec, implementation, attrs) do
+  defp seed_spec_impl_ref(spec, implementation, attrs, silent) do
     defaults = %{
       refs: %{},
       agent: "seeds",
@@ -1096,14 +1157,18 @@ defmodule Acai.Seeds do
       )
 
     if existing do
-      IO.puts(
-        "SpecImplRef already exists for spec #{spec.feature_name} and implementation #{implementation.name}"
-      )
+      unless silent do
+        IO.puts(
+          "SpecImplRef already exists for spec #{spec.feature_name} and implementation #{implementation.name}"
+        )
+      end
 
       existing
     else
       {:ok, ref} = Repo.insert(SpecImplRef.changeset(%SpecImplRef{}, attrs))
-      IO.puts("Created spec_impl_ref for spec #{spec.feature_name}")
+      unless silent do
+        IO.puts("Created spec_impl_ref for spec #{spec.feature_name}")
+      end
       ref
     end
   end
