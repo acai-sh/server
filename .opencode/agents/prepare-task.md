@@ -21,8 +21,6 @@ We typically follow spec-driven development, following requirements and acceptan
 ## Requirements
 * [ ] Create a complete task following the instructions in the skill
 * [ ] Task file is always in repo root - `.tasks/<timestamp_seconds>_<useful-task-name>.md` e.g. `my-git-repo/.tasks/YYYYMMDDHHMMSS_align_my-feature-name_to_spec.md`
-* [ ] Report back to the supervisor: "I have prepared task file: <path to file>. In summary, the developer should <very concise summary>"
-- In your concise summary to the supervisor, provide any notes that will help with continuity, splitting work into chunks if needed.
+* [ ] Report back to the supervisor: "I have prepared the following task files, which should be implemented in this order: <paths to files>. Feel free to assign the next task and begin implementation."
 
-
-**If no acceptance criteria remain & you believe implementation is already complete, report back to the supervisor**
+**If no acceptance criteria remain & you believe implementation is already complete, report back to the supervisor: "I believe this project is complete, and I do not have any more tasks to assign"**

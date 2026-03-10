@@ -4,11 +4,11 @@ description: If someone asks you to prepare, plan and assign a task.md file, bui
 ---
 
 We use task `.md` files when assigning chunks of work as part of our spec-driven development workflow.
-We are either implementing 1 entire feature spec, or aligning/refactoring/fixing code to meet acceptance criteria defined in the spec.
+We are either implementing 1 entire feature spec, or aligning / refactoring / fixing code to meet some acceptance criteria defined in the spec.
 
-Our feature specs are `*.feature.yaml` files
+Our feature specs are defined in `*.feature.yaml` files
 
-The resulting task file must be comprehensive and complete, the developer who reads it should not need any outside resources, and will not need to read the spec themselves.
+The resulting task files must be comprehensive and complete, the developer who reads it should not need any outside resources, and will not need to read the spec themselves.
 
 **What makes a good task assignment?**
 - Comprehensive research and exploration of the current codebase. Points the developer to existing tools and components that may be useful for this task
@@ -23,3 +23,4 @@ The resulting task file must be comprehensive and complete, the developer who re
 # Requirements
 * [ ] Read relevant feature spec .yaml files.
 * [ ] If you determine the feature is still blocked or needs prerequisite work that is out of scope for this task, halt and notify the supervisor.
+* [ ] Output 1 or more task files. If the work is complex, break it into phases - 1 phase per task file.
