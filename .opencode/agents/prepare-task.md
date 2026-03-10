@@ -2,7 +2,7 @@
 name: prepare-task
 description: "Plan and prepare the next task and create a task document, which includes a well-researched implementation plan"
 mode: subagent
-model: opencode-go/glm-5
+model: opencode/claude-opus-4-6
 permission:
   edit: allow
   bash:

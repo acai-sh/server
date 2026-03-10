@@ -15,18 +15,20 @@ defmodule Acai.Implementations.TrackedBranch do
     field :repo_uri, :string
     # data-model.BRANCHES.4
     field :branch_name, :string
+    # data-model.BRANCHES.5
+    field :last_seen_commit, :string
 
     timestamps(type: :utc_datetime)
   end
 
-  @required_fields [:repo_uri, :branch_name]
+  @required_fields [:repo_uri, :branch_name, :last_seen_commit]
 
   @doc false
   def changeset(tracked_branch, attrs) do
     tracked_branch
     |> cast(attrs, @required_fields)
     |> validate_required(@required_fields)
-    # data-model.BRANCHES.5
+    # data-model.BRANCHES.6
     |> unique_constraint([:implementation_id, :repo_uri])
   end
 end

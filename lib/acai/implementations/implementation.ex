@@ -9,9 +9,11 @@ defmodule Acai.Implementations.Implementation do
 
   schema "implementations" do
     # data-model.IMPLS.2
-    belongs_to :spec, Acai.Specs.Spec
+    belongs_to :product, Acai.Products.Product
     # data-model.IMPLS.6
     belongs_to :team, Acai.Teams.Team
+    # data-model.IMPLS.7
+    belongs_to :parent_implementation, Acai.Implementations.Implementation
 
     # data-model.IMPLS.3
     field :name, :string
@@ -23,15 +25,15 @@ defmodule Acai.Implementations.Implementation do
     timestamps(type: :utc_datetime)
   end
 
-  @required_fields [:name, :is_active]
-  @optional_fields [:description]
+  @required_fields [:name, :is_active, :product_id]
+  @optional_fields [:description, :parent_implementation_id]
 
   @doc false
   def changeset(implementation, attrs) do
     implementation
     |> cast(attrs, @required_fields ++ @optional_fields)
     |> validate_required(@required_fields)
-    # data-model.IMPLS.7
-    |> unique_constraint([:spec_id, :name])
+    # data-model.IMPLS.8
+    |> unique_constraint([:product_id, :name])
   end
 end

@@ -25,6 +25,8 @@ defmodule Acai.Teams.AccessToken do
       default: [
         "specs:read",
         "specs:write",
+        "states:read",
+        "states:write",
         "refs:read",
         "refs:write",
         "impls:read",

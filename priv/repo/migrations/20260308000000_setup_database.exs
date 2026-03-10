@@ -4,6 +4,10 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
   def change do
     execute "CREATE EXTENSION IF NOT EXISTS citext", ""
 
+    # ============================================================================
+    # AUTHENTICATION TABLES (from phx.gen.auth - unchanged)
+    # ============================================================================
+
     create table(:users) do
       add :email, :citext, null: false
       add :hashed_password, :string
@@ -27,201 +31,275 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     create index(:users_tokens, [:user_id])
     create unique_index(:users_tokens, [:context, :token])
 
+    # ============================================================================
+    # TEAM & ACCESS CONTROL TABLES
+    # ============================================================================
+
+    # data-model.TEAMS.1
+    # data-model.FIELDS.3
     create table(:teams, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
+      # data-model.TEAMS.2
       add :name, :citext, null: false
 
       timestamps(type: :utc_datetime)
     end
 
+    # data-model.TEAMS.2
     create unique_index(:teams, [:name])
+    # data-model.TEAMS.2-1
     create constraint(:teams, :name_url_safe, check: "name ~ '^[a-zA-Z0-9_-]+$'")
 
+    # data-model.ROLES
     create table(:user_team_roles, primary_key: false) do
+      # data-model.ROLES.1
       add :team_id, references(:teams, type: :uuid, on_delete: :delete_all), null: false
+      # data-model.ROLES.2
       add :user_id, references(:users, on_delete: :delete_all), null: false
+      # data-model.ROLES.3
       add :title, :string, null: false
 
       timestamps(type: :utc_datetime)
     end
 
+    # data-model.ROLES (unique constraint prevents duplicates)
     create unique_index(:user_team_roles, [:team_id, :user_id])
 
+    # ============================================================================
+    # PRODUCT TABLE (NEW)
+    # ============================================================================
+
+    # data-model.PRODUCTS.1
+    # data-model.FIELDS.3
+    create table(:products, primary_key: false) do
+      add :id, :uuid, primary_key: true, null: false
+      # data-model.PRODUCTS.2
+      add :team_id, references(:teams, type: :uuid, on_delete: :delete_all), null: false
+      # data-model.PRODUCTS.3
+      add :name, :citext, null: false
+      # data-model.PRODUCTS.4
+      add :description, :text
+      # data-model.PRODUCTS.5
+      add :is_active, :boolean, null: false, default: true
+
+      timestamps(type: :utc_datetime)
+    end
+
+    # data-model.PRODUCTS.6
+    create unique_index(:products, [:team_id, :name])
+    # data-model.PRODUCTS.3-1
+    create constraint(:products, :products_name_url_safe, check: "name ~ '^[a-zA-Z0-9_-]+$'")
+
+    # ============================================================================
+    # ACCESS TOKENS TABLE
+    # ============================================================================
+
+    # data-model.TOKENS.1
+    # data-model.FIELDS.3
     create table(:access_tokens, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
+      # data-model.TOKENS.2
       add :user_id, references(:users, on_delete: :delete_all), null: false
+      # data-model.TOKENS.10
       add :team_id, references(:teams, type: :uuid, on_delete: :delete_all), null: false
+      # data-model.TOKENS.3
       add :name, :string, null: false
+      # data-model.TOKENS.4
       add :token_hash, :string, null: false
+      # data-model.TOKENS.5
       add :token_prefix, :string, null: false
-
+      # data-model.TOKENS.6
+      # data-model.TOKENS.6-1
       add :scopes, :jsonb,
         null: false,
         default:
           fragment(
-            "'[\"specs:read\",\"specs:write\",\"refs:read\",\"refs:write\",\"impls:read\",\"impls:write\",\"team:read\"]'::jsonb"
+            "'[\"specs:read\",\"specs:write\",\"states:read\",\"states:write\",\"refs:read\",\"refs:write\",\"impls:read\",\"impls:write\",\"team:read\"]'::jsonb"
           )
 
+      # data-model.TOKENS.7
       add :expires_at, :utc_datetime
+      # data-model.TOKENS.8
       add :revoked_at, :utc_datetime
+      # data-model.TOKENS.9
       add :last_used_at, :utc_datetime
 
       timestamps(type: :utc_datetime)
     end
 
+    # data-model.TOKENS.4-1
     create unique_index(:access_tokens, [:token_hash])
 
-    create table(:specs, primary_key: false) do
+    # ============================================================================
+    # IMPLEMENTATIONS TABLE
+    # ============================================================================
+
+    # data-model.IMPLS.1
+    # data-model.FIELDS.3
+    create table(:implementations, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
+      # data-model.IMPLS.2
+      add :product_id, references(:products, type: :uuid, on_delete: :delete_all), null: false
+      # data-model.IMPLS.3
+      add :name, :string, null: false
+      # data-model.IMPLS.4
+      add :description, :text
+      # data-model.IMPLS.5
+      add :is_active, :boolean, null: false, default: true
+      # data-model.IMPLS.6
       add :team_id, references(:teams, type: :uuid, on_delete: :delete_all), null: false
-      add :repo_uri, :text, null: false
-      add :branch_name, :string, null: false
-      add :path, :text, null: false
-      add :last_seen_commit, :string, null: false
-      add :parsed_at, :utc_datetime, null: false
-      add :feature_name, :string, null: false
-      add :feature_description, :text
-      add :raw_content, :text
-      add :feature_version, :string
-      add :feature_product, :string, null: false
+      # data-model.IMPLS.7
+      # data-model.IMPLS.7-1
+      add :parent_implementation_id,
+          references(:implementations, type: :uuid, on_delete: :nilify_all)
 
       timestamps(type: :utc_datetime)
     end
 
-    create unique_index(:specs, [:team_id, :repo_uri, :branch_name, :path])
+    # data-model.IMPLS.8
+    create unique_index(:implementations, [:product_id, :name])
+
+    # ============================================================================
+    # TRACKED BRANCHES TABLE
+    # ============================================================================
+
+    # data-model.BRANCHES.1
+    # data-model.FIELDS.3
+    create table(:tracked_branches, primary_key: false) do
+      add :id, :uuid, primary_key: true, null: false
+      # data-model.BRANCHES.2
+      add :implementation_id, references(:implementations, type: :uuid, on_delete: :delete_all),
+        null: false
+
+      # data-model.BRANCHES.3
+      add :repo_uri, :text, null: false
+      # data-model.BRANCHES.4
+      add :branch_name, :string, null: false
+      # data-model.BRANCHES.5
+      add :last_seen_commit, :string, null: false
+
+      timestamps(type: :utc_datetime)
+    end
+
+    # data-model.BRANCHES.6
+    create unique_index(:tracked_branches, [:implementation_id, :repo_uri])
+    # data-model.BRANCHES.7
+    create index(:tracked_branches, [:repo_uri, :branch_name])
+
+    # ============================================================================
+    # SPECS TABLE
+    # ============================================================================
+
+    # data-model.SPECS.1
+    # data-model.FIELDS.3
+    create table(:specs, primary_key: false) do
+      add :id, :uuid, primary_key: true, null: false
+      # data-model.SPECS.2
+      add :team_id, references(:teams, type: :uuid, on_delete: :delete_all), null: false
+      # data-model.SPECS.3
+      add :tracked_branch_id, references(:tracked_branches, type: :uuid, on_delete: :nilify_all)
+      # data-model.SPECS.4
+      add :repo_uri, :text, null: false
+      # data-model.SPECS.5
+      add :branch_name, :string, null: false
+      # data-model.SPECS.6
+      add :path, :text
+      # data-model.SPECS.7
+      add :last_seen_commit, :string, null: false
+      # data-model.SPECS.8
+      add :parsed_at, :utc_datetime, null: false
+      # data-model.SPECS.9
+      add :feature_name, :string, null: false
+      # data-model.SPECS.10
+      add :feature_description, :text
+      # data-model.SPECS.11
+      add :feature_version, :string, null: false, default: "1.0.0"
+      # data-model.SPECS.12
+      add :raw_content, :text
+      # data-model.SPECS.13
+      add :requirements, :jsonb, null: false, default: fragment("'{}'::jsonb")
+      # data-model.SPECS.14
+      add :product_id, references(:products, type: :uuid, on_delete: :delete_all), null: false
+
+      timestamps(type: :utc_datetime)
+    end
+
+    # data-model.SPECS.15
+    create unique_index(:specs, [:team_id, :repo_uri, :branch_name, :feature_name])
+    # data-model.SPECS.9-1
     create constraint(:specs, :feature_name_url_safe, check: "feature_name ~ '^[a-zA-Z0-9_-]+$'")
 
-    create constraint(:specs, :feature_product_url_safe,
-             check: "feature_product ~ '^[a-zA-Z0-9_-]+$'"
-           )
-
+    # data-model.SPECS.16
     execute """
     CREATE UNIQUE INDEX specs_team_feature_version_unique_idx
     ON specs (team_id, feature_name, COALESCE(feature_version, ''))
     """
 
-    create index(:specs, [:team_id, :feature_name])
+    # data-model.SPECS.17
+    create index(:specs, [:product_id])
+    # data-model.SPECS.18
+    create index(:specs, [:repo_uri, :branch_name])
 
-    create table(:implementations, primary_key: false) do
+    # ============================================================================
+    # SPEC IMPL STATES TABLE (NEW - replaces requirement_statuses)
+    # ============================================================================
+
+    # data-model.SPEC_IMPL_STATES.1
+    # data-model.FIELDS.3
+    create table(:spec_impl_states, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
-      add :spec_id, references(:specs, type: :uuid, on_delete: :delete_all), null: false
-      add :team_id, references(:teams, type: :uuid, on_delete: :delete_all), null: false
-      add :name, :string, null: false
-      add :description, :text
-      add :is_active, :boolean, null: false, default: true
-
-      timestamps(type: :utc_datetime)
-    end
-
-    create unique_index(:implementations, [:spec_id, :name])
-
-    create table(:tracked_branches, primary_key: false) do
-      add :id, :uuid, primary_key: true, null: false
-
+      # data-model.SPEC_IMPL_STATES.2
       add :implementation_id, references(:implementations, type: :uuid, on_delete: :delete_all),
         null: false
 
-      add :repo_uri, :text, null: false
-      add :branch_name, :string, null: false
-
-      timestamps(type: :utc_datetime)
-    end
-
-    create unique_index(:tracked_branches, [:implementation_id, :repo_uri])
-
-    execute(
-      "CREATE TYPE requirement_group_type AS ENUM ('COMPONENT', 'CONSTRAINT')",
-      "DROP TYPE requirement_group_type"
-    )
-
-    create table(:requirements, primary_key: false) do
-      add :id, :uuid, primary_key: true, null: false
+      # data-model.SPEC_IMPL_STATES.3
       add :spec_id, references(:specs, type: :uuid, on_delete: :delete_all), null: false
-      add :group_key, :string, null: false
-      add :group_type, :requirement_group_type, null: false
-      add :local_id, :string, null: false
-      add :parent_local_id, :string
-      add :definition, :text, null: false
-      add :note, :text
-      add :is_deprecated, :boolean, null: false, default: false
-      add :replaced_by, :jsonb, null: false, default: "[]"
-      add :feature_name, :string, null: false
+      # data-model.SPEC_IMPL_STATES.4
+      add :states, :jsonb, null: false, default: fragment("'{}'::jsonb")
 
       timestamps(type: :utc_datetime)
     end
 
+    # data-model.SPEC_IMPL_STATES.5
+    create unique_index(:spec_impl_states, [:implementation_id, :spec_id])
+    # data-model.SPEC_IMPL_STATES.6
     execute(
-      """
-      ALTER TABLE requirements
-      ADD COLUMN acid text GENERATED ALWAYS AS (feature_name || '.' || group_key || '.' || local_id) STORED
-      """,
-      "ALTER TABLE requirements DROP COLUMN acid"
+      "CREATE INDEX spec_impl_states_states_gin_idx ON spec_impl_states USING gin (states)",
+      "DROP INDEX spec_impl_states_states_gin_idx"
     )
 
-    create index(:requirements, [:acid])
-    create unique_index(:requirements, [:spec_id, :group_key, :local_id])
+    # ============================================================================
+    # SPEC IMPL REFS TABLE (NEW - replaces code_references)
+    # ============================================================================
 
-    create table(:requirement_statuses, primary_key: false) do
+    # data-model.SPEC_IMPL_REFS.1
+    # data-model.FIELDS.3
+    create table(:spec_impl_refs, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
-
-      add :requirement_id, references(:requirements, type: :uuid, on_delete: :delete_all),
-        null: false
-
+      # data-model.SPEC_IMPL_REFS.2
       add :implementation_id, references(:implementations, type: :uuid, on_delete: :delete_all),
         null: false
 
-      add :status, :string
-      add :is_active, :boolean, null: false, default: true
-      add :last_seen_commit, :string, null: false
-      add :note, :string
+      # data-model.SPEC_IMPL_REFS.3
+      add :spec_id, references(:specs, type: :uuid, on_delete: :delete_all), null: false
+      # data-model.SPEC_IMPL_REFS.4
+      add :refs, :jsonb, null: false, default: fragment("'{}'::jsonb")
+      # data-model.SPEC_IMPL_REFS.5
+      add :agent, :string, null: false
+      # data-model.SPEC_IMPL_REFS.6
+      add :commit, :string, null: false
+      # data-model.SPEC_IMPL_REFS.7
+      add :pushed_at, :utc_datetime, null: false
 
       timestamps(type: :utc_datetime)
     end
 
-    create unique_index(:requirement_statuses, [:implementation_id, :requirement_id])
-
-    create table(:code_references, primary_key: false) do
-      add :id, :uuid, primary_key: true, null: false
-
-      add :requirement_id, references(:requirements, type: :uuid, on_delete: :nothing),
-        null: false
-
-      add :branch_id, references(:tracked_branches, type: :uuid, on_delete: :delete_all),
-        null: false
-
-      add :repo_uri, :text, null: false
-      add :last_seen_commit, :text, null: false
-      add :acid_string, :text, null: false
-      add :last_seen_at, :utc_datetime
-      add :path, :text, null: false
-      add :is_test, :boolean, default: false, null: false
-
-      timestamps(type: :utc_datetime)
-    end
-
-    create unique_index(:code_references, [:requirement_id, :branch_id, :path])
-
-    create table(:activity_events, primary_key: false) do
-      add :id, :uuid, primary_key: true, null: false
-      add :team_id, references(:teams, type: :uuid, on_delete: :delete_all), null: false
-      add :actor_token_id, references(:access_tokens, type: :uuid, on_delete: :nilify_all)
-      add :event_type, :string, null: false
-      add :subject_type, :string, null: false
-      add :subject_id, :uuid, null: false
-      add :batch_id, :uuid
-      add :payload, :jsonb, null: false, default: "{}"
-
-      timestamps(type: :utc_datetime, inserted_at: :created_at, updated_at: false)
-    end
-
-    create index(:activity_events, ["team_id", "created_at DESC"],
-             name: :activity_events_team_id_created_at_desc_index
-           )
-
-    create index(:activity_events, ["subject_type", "subject_id", "created_at DESC"],
-             name: :activity_events_subject_type_subject_id_created_at_desc_index
-           )
-
-    create index(:activity_events, [:batch_id])
+    # data-model.SPEC_IMPL_REFS.8
+    create unique_index(:spec_impl_refs, [:implementation_id, :spec_id])
+    # data-model.SPEC_IMPL_REFS.9
+    execute(
+      "CREATE INDEX spec_impl_refs_refs_gin_idx ON spec_impl_refs USING gin (refs)",
+      "DROP INDEX spec_impl_refs_refs_gin_idx"
+    )
   end
 end
