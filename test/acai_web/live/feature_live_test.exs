@@ -219,7 +219,7 @@ defmodule AcaiWeb.FeatureLiveTest do
     end
 
     # feature-view.MAIN.3
-    test "shows completion percentage", %{conn: conn, user: user} do
+    test "shows requirement count on implementation cards", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
 
@@ -250,7 +250,7 @@ defmodule AcaiWeb.FeatureLiveTest do
       spec = create_spec_for_feature(team, product, "my-feature", requirements: requirements)
       impl = create_implementation_for_product(product)
 
-      # Create spec_impl_state with 2 completed (50%)
+      # Create spec_impl_state with mixed statuses
       states = %{
         "my-feature.COMP.1" => %{
           "status" => "completed",
@@ -261,7 +261,7 @@ defmodule AcaiWeb.FeatureLiveTest do
           "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
         },
         "my-feature.COMP.3" => %{
-          "status" => "pending",
+          "status" => "assigned",
           "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
         }
         # COMP.4 has no status
@@ -271,25 +271,49 @@ defmodule AcaiWeb.FeatureLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
-      # Should show 50% completion
-      assert has_element?(view, "#implementations-grid", "50%")
+      # Should show requirement count
+      assert has_element?(view, "#implementations-grid", "4 requirements")
     end
 
     # feature-view.MAIN.3
-    test "shows 0% completion when no requirements are completed", %{conn: conn, user: user} do
+    test "shows segmented progress bar with status segments", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
-      create_spec_for_feature(team, product, "my-feature")
-      create_implementation_for_product(product)
+
+      requirements = %{
+        "my-feature.COMP.1" => %{
+          "definition" => "Req 1",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "my-feature.COMP.2" => %{
+          "definition" => "Req 2",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+
+      spec = create_spec_for_feature(team, product, "my-feature", requirements: requirements)
+      impl = create_implementation_for_product(product)
+
+      # One completed, one with no status
+      states = %{
+        "my-feature.COMP.1" => %{
+          "status" => "completed",
+          "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+      }
+
+      create_spec_impl_state(spec, impl, states: states)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
-      # Should show 0% completion
-      assert has_element?(view, "#implementations-grid", "0%")
+      # Should show progress bar with completed status in legend
+      assert has_element?(view, "#implementations-grid", "completed")
     end
 
     # feature-view.MAIN.3
-    test "shows 100% completion when all requirements are completed", %{conn: conn, user: user} do
+    test "shows accepted status in progress bar", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
 
@@ -304,12 +328,12 @@ defmodule AcaiWeb.FeatureLiveTest do
       spec = create_spec_for_feature(team, product, "my-feature", requirements: requirements)
       impl = create_implementation_for_product(product)
 
-      create_spec_impl_state(spec, impl, status: "completed")
+      create_spec_impl_state(spec, impl, status: "accepted")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
-      # Should show 100% completion
-      assert has_element?(view, "#implementations-grid", "100%")
+      # Should show accepted status in legend
+      assert has_element?(view, "#implementations-grid", "accepted")
     end
   end
 

@@ -282,6 +282,39 @@ defmodule AcaiWeb.ImplementationLive do
           </.coverage_section>
         </div>
 
+        <%!-- Status legend --%>
+        <div class="card bg-base-100 border border-base-300 shadow-sm p-4">
+          <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider mb-3">
+            Status Legend
+          </h3>
+          <div class="flex flex-wrap gap-4 text-sm">
+            <div class="flex items-center gap-2">
+              <span class="w-4 h-4 rounded bg-success"></span>
+              <span>Accepted</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-4 h-4 rounded bg-info"></span>
+              <span>Completed</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-4 h-4 rounded bg-warning"></span>
+              <span>Assigned</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-4 h-4 rounded bg-error"></span>
+              <span>Blocked</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-4 h-4 rounded bg-error opacity-60"></span>
+              <span>Rejected</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-4 h-4 rounded bg-base-300"></span>
+              <span>No Status</span>
+            </div>
+          </div>
+        </div>
+
         <%!-- implementation-view.REQ_LIST: Requirements table --%>
         <.requirements_table
           requirements={@requirements}

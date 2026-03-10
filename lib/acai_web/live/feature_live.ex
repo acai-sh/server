@@ -52,18 +52,28 @@ defmodule AcaiWeb.FeatureLive do
           implementations
           |> Enum.map(fn impl ->
             # feature-view.MAIN.3: Get status counts from spec_impl_states
-            impl_counts = Map.get(status_counts_by_impl, impl.id, %{"completed" => 0})
+            impl_counts = Map.get(status_counts_by_impl, impl.id, %{})
 
-            # Calculate completion percentage (completed + accepted count as done)
-            completed_count = Map.get(impl_counts, "completed", 0)
-            accepted_count = Map.get(impl_counts, "accepted", 0)
-            total_done = completed_count + accepted_count
-
-            completion_percentage =
+            # Calculate status percentages for progress bar
+            status_percentages =
               if total_requirements > 0 do
-                round(total_done / total_requirements * 100)
+                %{
+                  nil => Map.get(impl_counts, nil, 0) / total_requirements * 100,
+                  "assigned" => Map.get(impl_counts, "assigned", 0) / total_requirements * 100,
+                  "blocked" => Map.get(impl_counts, "blocked", 0) / total_requirements * 100,
+                  "completed" => Map.get(impl_counts, "completed", 0) / total_requirements * 100,
+                  "accepted" => Map.get(impl_counts, "accepted", 0) / total_requirements * 100,
+                  "rejected" => Map.get(impl_counts, "rejected", 0) / total_requirements * 100
+                }
               else
-                0
+                %{
+                  nil => 0,
+                  "assigned" => 0,
+                  "blocked" => 0,
+                  "completed" => 0,
+                  "accepted" => 0,
+                  "rejected" => 0
+                }
               end
 
             # Build the slug for navigation (impl_name+uuid_without_dashes)
@@ -75,7 +85,8 @@ defmodule AcaiWeb.FeatureLive do
               implementation: impl,
               slug: slug,
               product_name: impl.product.name,
-              completion_percentage: completion_percentage
+              total_requirements: total_requirements,
+              status_percentages: status_percentages
             }
           end)
           |> Enum.sort_by(& &1.implementation.name)
@@ -159,18 +170,85 @@ defmodule AcaiWeb.FeatureLive do
                     </div>
                   </div>
 
-                  <%!-- feature-view.MAIN.3: Product name --%>
+                  <%!-- feature-view.MAIN.3: Product name and requirement count --%>
                   <p class="text-sm text-base-content/60 mt-1">
-                    {card.product_name}
+                    {card.product_name} • {card.total_requirements} requirements
                   </p>
 
-                  <%!-- feature-view.MAIN.3: Completion percentage --%>
+                  <%!-- feature-view.MAIN.3: Segmented progress bar by status --%>
                   <div class="mt-4 pt-3 border-t border-base-200">
-                    <div class="flex items-center justify-between">
-                      <span class="text-sm text-base-content/50">Completion</span>
-                      <span class="text-sm font-semibold text-primary">
-                        {card.completion_percentage}%
-                      </span>
+                    <%!-- Progress bar with segments for each status --%>
+                    <div class="h-2 w-full rounded-full overflow-hidden flex">
+                      <%!-- accepted (green) --%>
+                      <div
+                        :if={card.status_percentages["accepted"] > 0}
+                        class="h-full bg-success"
+                        style={"width: #{card.status_percentages["accepted"]}%"}
+                      />
+                      <%!-- completed (blue) --%>
+                      <div
+                        :if={card.status_percentages["completed"] > 0}
+                        class="h-full bg-info"
+                        style={"width: #{card.status_percentages["completed"]}%"}
+                      />
+                      <%!-- assigned (gold) --%>
+                      <div
+                        :if={card.status_percentages["assigned"] > 0}
+                        class="h-full bg-warning"
+                        style={"width: #{card.status_percentages["assigned"]}%"}
+                      />
+                      <%!-- blocked (red) --%>
+                      <div
+                        :if={card.status_percentages["blocked"] > 0}
+                        class="h-full bg-error"
+                        style={"width: #{card.status_percentages["blocked"]}%"}
+                      />
+                      <%!-- rejected (red) --%>
+                      <div
+                        :if={card.status_percentages["rejected"] > 0}
+                        class="h-full bg-error opacity-60"
+                        style={"width: #{card.status_percentages["rejected"]}%"}
+                      />
+                      <%!-- null/no status (gray) --%>
+                      <div
+                        :if={card.status_percentages[nil] > 0}
+                        class="h-full bg-base-300"
+                        style={"width: #{card.status_percentages[nil]}%"}
+                      />
+                    </div>
+
+                    <%!-- Legend with counts --%>
+                    <div class="flex flex-wrap gap-2 mt-2 text-xs text-base-content/60">
+                      <%= if card.status_percentages["accepted"] > 0 do %>
+                        <span class="flex items-center gap-1">
+                          <span class="w-2 h-2 rounded-full bg-success" /> accepted
+                        </span>
+                      <% end %>
+                      <%= if card.status_percentages["completed"] > 0 do %>
+                        <span class="flex items-center gap-1">
+                          <span class="w-2 h-2 rounded-full bg-info" /> completed
+                        </span>
+                      <% end %>
+                      <%= if card.status_percentages["assigned"] > 0 do %>
+                        <span class="flex items-center gap-1">
+                          <span class="w-2 h-2 rounded-full bg-warning" /> assigned
+                        </span>
+                      <% end %>
+                      <%= if card.status_percentages["blocked"] > 0 do %>
+                        <span class="flex items-center gap-1">
+                          <span class="w-2 h-2 rounded-full bg-error" /> blocked
+                        </span>
+                      <% end %>
+                      <%= if card.status_percentages["rejected"] > 0 do %>
+                        <span class="flex items-center gap-1">
+                          <span class="w-2 h-2 rounded-full bg-error opacity-60" /> rejected
+                        </span>
+                      <% end %>
+                      <%= if card.status_percentages[nil] > 0 do %>
+                        <span class="flex items-center gap-1">
+                          <span class="w-2 h-2 rounded-full bg-base-300" /> no status
+                        </span>
+                      <% end %>
                     </div>
                   </div>
                 </div>
