@@ -21,8 +21,8 @@ defmodule AcaiWeb.FeatureLiveTest do
   end
 
   # data-model.SPECS: Create spec for a product with JSONB requirements
-  defp create_spec_for_feature(team, product, feature_name, opts \\ []) do
-    unique_id = System.unique_integer([:positive])
+  defp create_spec_for_feature(_team, product, feature_name, opts \\ []) do
+    unique_suffix = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
 
     # data-model.SPECS.13: Requirements stored as JSONB
     requirements =
@@ -43,7 +43,8 @@ defmodule AcaiWeb.FeatureLiveTest do
       feature_name: feature_name,
       feature_description: Keyword.get(opts, :description, "Description for #{feature_name}"),
       feature_version: Keyword.get(opts, :version, "1.0.0"),
-      path: "features/#{feature_name}-#{unique_id}/feature.yaml",
+      path: "features/#{feature_name}-#{unique_suffix}/feature.yaml",
+      repo_uri: "github.com/test/repo-#{unique_suffix}",
       requirements: requirements
     })
   end
@@ -57,10 +58,12 @@ defmodule AcaiWeb.FeatureLiveTest do
   end
 
   # data-model.SPEC_IMPL_STATES: Create spec_impl_state with JSONB states
-  defp create_spec_impl_state(spec, implementation, opts \\ []) do
+  defp create_spec_impl_state(spec, implementation, opts) do
+    acid_prefix = spec.feature_name <> ".COMP"
+
     states =
       Keyword.get(opts, :states, %{
-        "#{spec.feature_name}.COMP.1" => %{
+        "#{acid_prefix}.1" => %{
           "status" => Keyword.get(opts, :status, "pending"),
           "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
         }

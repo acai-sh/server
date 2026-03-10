@@ -20,8 +20,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
   end
 
   # data-model.SPECS: Create spec for a product with JSONB requirements
-  defp create_spec_for_feature(team, product, feature_name, opts \\ []) do
-    unique_id = System.unique_integer([:positive])
+  defp create_spec_for_feature(_team, product, feature_name, opts \\ []) do
+    unique_suffix = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
 
     # data-model.SPECS.13: Requirements stored as JSONB keyed by ACID
     requirements =
@@ -42,7 +42,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
     spec_fixture(product, %{
       feature_name: feature_name,
       feature_description: Keyword.get(opts, :description, "Description for #{feature_name}"),
-      path: "features/#{feature_name}-#{unique_id}/feature.yaml",
+      path: "features/#{feature_name}-#{unique_suffix}/feature.yaml",
+      repo_uri: "github.com/test/repo-#{unique_suffix}",
       requirements: requirements
     })
   end
@@ -56,7 +57,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
   end
 
   # data-model.SPEC_IMPL_STATES: Create spec_impl_state with JSONB states
-  defp create_spec_impl_state(spec, implementation, opts \\ []) do
+  defp create_spec_impl_state(spec, implementation, opts) do
     acid_prefix = spec.feature_name <> ".COMP"
 
     states =
@@ -72,7 +73,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
   end
 
   # data-model.SPEC_IMPL_REFS: Create spec_impl_ref with JSONB refs
-  defp create_spec_impl_ref(spec, implementation, opts \\ []) do
+  defp create_spec_impl_ref(spec, implementation, opts) do
     acid_prefix = spec.feature_name <> ".COMP"
 
     refs =
@@ -221,7 +222,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
     test "renders one chip per requirement ordered by ACID", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
-      spec = create_spec_for_feature(team, product, "my-feature")
+      _spec = create_spec_for_feature(team, product, "my-feature")
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)
@@ -303,7 +304,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       product = create_product(team, "TestProduct")
       spec = create_spec_for_feature(team, product, "my-feature")
       impl = create_implementation_for_product(product)
-      branch = tracked_branch_fixture(impl)
+      _branch = tracked_branch_fixture(impl)
 
       # Add test references via spec_impl_refs
       create_spec_impl_ref(spec, impl,
@@ -536,7 +537,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
     test "renders table with correct columns", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
-      spec = create_spec_for_feature(team, product, "my-feature")
+      _spec = create_spec_for_feature(team, product, "my-feature")
       impl = create_implementation_for_product(product)
 
       slug = build_impl_slug(impl)

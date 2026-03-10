@@ -23,14 +23,13 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
 
     spec = spec_fixture(product, %{feature_name: "test-feature", requirements: requirements})
     implementation = implementation_fixture(product, %{name: "Production"})
-    branch = tracked_branch_fixture(implementation)
+    _branch = tracked_branch_fixture(implementation)
 
     %{
       team: team,
       product: product,
       spec: spec,
-      implementation: implementation,
-      branch: branch
+      implementation: implementation
     }
   end
 
@@ -341,7 +340,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
 
       assigns = %{
         id: "test-drawer",
-        acid: "testtest-feature.COMP.1",
+        acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
         visible: true

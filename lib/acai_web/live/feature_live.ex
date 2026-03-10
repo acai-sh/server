@@ -57,15 +57,15 @@ defmodule AcaiWeb.FeatureLive do
             # feature-view.IMPL_CARD.4: Get status counts from spec_impl_states
             impl_counts = Map.get(status_counts_by_impl, impl.id, %{"completed" => 0})
 
-            # Convert new status format to old format for UI compatibility
-            # "accepted" -> "completed" for backward compatibility with progress bar
+            # Build status counts for progress bar
             completed_count = Map.get(impl_counts, "completed", 0)
-            accepted_count = 0
-            null_count = max(0, total_requirements - completed_count)
+            in_progress_count = Map.get(impl_counts, "in_progress", 0)
+            # Null count is everything that's not completed or in_progress
+            null_count = max(0, total_requirements - completed_count - in_progress_count)
 
             status_counts = %{
-              accepted: accepted_count,
               completed: completed_count,
+              in_progress: in_progress_count,
               null: null_count
             }
 
@@ -201,14 +201,15 @@ defmodule AcaiWeb.FeatureLive do
 
   # feature-view.IMPL_CARD.4: Progress bar component
   defp progress_bar(assigns) do
-    %{counts: %{accepted: accepted, completed: completed, null: null}, total: total} = assigns
+    %{counts: %{completed: completed, in_progress: in_progress, null: null}, total: total} =
+      assigns
 
     # Calculate percentages (avoid division by zero)
-    {accepted_pct, completed_pct, null_pct} =
+    {completed_pct, in_progress_pct, null_pct} =
       if total > 0 do
         {
-          round(accepted / total * 100),
           round(completed / total * 100),
+          round(in_progress / total * 100),
           round(null / total * 100)
         }
       else
@@ -217,28 +218,28 @@ defmodule AcaiWeb.FeatureLive do
 
     assigns =
       assigns
-      |> assign(:accepted, accepted)
       |> assign(:completed, completed)
-      |> assign(:accepted_pct, accepted_pct)
+      |> assign(:in_progress, in_progress)
       |> assign(:completed_pct, completed_pct)
+      |> assign(:in_progress_pct, in_progress_pct)
       |> assign(:null_pct, null_pct)
 
     ~H"""
     <div class="flex items-center gap-2">
       <div class="flex-1 h-2 bg-base-200 rounded-full overflow-hidden flex">
-        <%!-- feature-view.IMPL_CARD.4-1: Green for accepted --%>
-        <div
-          :if={@accepted_pct > 0}
-          class="bg-success h-full"
-          style={"width: #{@accepted_pct}%"}
-          title={"#{@accepted_pct}% accepted"}
-        />
-        <%!-- feature-view.IMPL_CARD.4-2: Blue for completed --%>
+        <%!-- feature-view.IMPL_CARD.4-1: Green for completed --%>
         <div
           :if={@completed_pct > 0}
-          class="bg-info h-full"
+          class="bg-success h-full"
           style={"width: #{@completed_pct}%"}
           title={"#{@completed_pct}% completed"}
+        />
+        <%!-- feature-view.IMPL_CARD.4-2: Blue for in_progress --%>
+        <div
+          :if={@in_progress_pct > 0}
+          class="bg-info h-full"
+          style={"width: #{@in_progress_pct}%"}
+          title={"#{@in_progress_pct}% in progress"}
         />
         <%!-- feature-view.IMPL_CARD.4-3: Gray for null/no status --%>
         <div
@@ -249,7 +250,7 @@ defmodule AcaiWeb.FeatureLive do
         />
       </div>
       <span class="text-xs text-base-content/50">
-        {@accepted + @completed}/{@total}
+        {@completed + @in_progress}/{@total}
       </span>
     </div>
     """

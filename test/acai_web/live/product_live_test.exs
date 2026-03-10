@@ -25,18 +25,19 @@ defmodule AcaiWeb.ProductLiveTest do
   end
 
   # data-model.SPECS: Create spec for a product
-  defp create_spec_for_product(team, product, feature_name, opts \\ []) do
-    unique_id = System.unique_integer([:positive])
+  defp create_spec_for_product(_team, product, feature_name, opts \\ []) do
+    unique_suffix = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
 
     spec_fixture(product, %{
       feature_name: feature_name,
       feature_description: Keyword.get(opts, :description, "Description for #{feature_name}"),
-      path: "features/#{feature_name}-#{unique_id}/feature.yaml"
+      path: "features/#{feature_name}-#{unique_suffix}/feature.yaml",
+      repo_uri: "github.com/test/repo-#{unique_suffix}"
     })
   end
 
   # data-model.IMPLS: Create implementation for a product (not a spec)
-  defp create_implementation_for_product(product, opts \\ []) do
+  defp create_implementation_for_product(product, opts) do
     implementation_fixture(product, %{
       name: Keyword.get(opts, :name, "Impl-#{System.unique_integer([:positive])}"),
       is_active: Keyword.get(opts, :is_active, true)

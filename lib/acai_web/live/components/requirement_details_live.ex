@@ -10,13 +10,19 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   alias Acai.Specs
 
   @impl true
-  def update(
-        %{id: id, acid: acid, spec: spec, implementation: implementation} = assigns,
-        socket
-      ) do
-    if acid do
+  def update(assigns, socket) do
+    id = Map.get(assigns, :id) || Map.get(assigns, "id")
+    acid = Map.get(assigns, :acid) || Map.get(assigns, "acid")
+    spec = Map.get(assigns, :spec) || Map.get(assigns, "spec")
+    implementation = Map.get(assigns, :implementation) || Map.get(assigns, "implementation")
+
+    if acid && spec && implementation do
       # data-model.SPECS.13: Get requirement data from JSONB
-      requirement_data = Map.get(spec.requirements, acid)
+      requirements = spec.requirements || %{}
+
+      # Handle both string and atom keys in the requirements map
+      # JSONB data from database uses string keys
+      requirement_data = Map.get(requirements, acid)
 
       # data-model.SPEC_IMPL_STATES: Get status from spec_impl_states JSONB
       spec_impl_state = Specs.get_spec_impl_state(spec, implementation)
@@ -54,7 +60,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
        |> assign(:acid, nil)
        |> assign(:requirement, nil)
        |> assign(:implementation, implementation)
-       |> assign(:visible, Map.get(assigns, :visible, false))}
+       |> assign(:visible, Map.get(assigns, :visible) || Map.get(assigns, "visible") || false)}
     end
   end
 

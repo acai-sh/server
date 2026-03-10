@@ -112,6 +112,7 @@ defmodule Acai.Specs do
             where: s.team_id == ^team.id and s.feature_name == ^actual_feature_name
         )
 
+      # Ensure requirements field is loaded (it should be by default since it's JSONB)
       {actual_feature_name, specs}
     else
       nil

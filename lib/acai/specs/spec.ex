@@ -59,7 +59,9 @@ defmodule Acai.Specs.Spec do
     :feature_description,
     :feature_version,
     :raw_content,
-    :tracked_branch_id
+    :tracked_branch_id,
+    # data-model.SPECS.13: Requirements stored as JSONB
+    :requirements
   ]
 
   @doc false

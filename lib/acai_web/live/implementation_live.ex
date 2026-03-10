@@ -344,10 +344,10 @@ defmodule AcaiWeb.ImplementationLive do
       class={
         [
           "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110",
-          # implementation-view.REQ_COVERAGE.2-1: Green for accepted
-          @requirement.status == "accepted" && "bg-success",
-          # implementation-view.REQ_COVERAGE.2-2: Blue for completed
-          @requirement.status == "completed" && "bg-info",
+          # implementation-view.REQ_COVERAGE.2-1: Green for completed
+          @requirement.status == "completed" && "bg-success",
+          # implementation-view.REQ_COVERAGE.2-2: Blue for in_progress
+          @requirement.status == "in_progress" && "bg-info",
           # implementation-view.REQ_COVERAGE.2-3: Gray for null/no status
           (@requirement.status == nil || @requirement.status == "") && "bg-base-300"
         ]

@@ -13,11 +13,8 @@ defmodule Acai.SeedsTest do
   alias Acai.Repo
   alias Acai.Accounts
   alias Acai.Teams
-  alias Acai.Products
   alias Acai.Products.Product
-  alias Acai.Specs
   alias Acai.Specs.{Spec, SpecImplState, SpecImplRef}
-  alias Acai.Implementations
   alias Acai.Implementations.{Implementation, TrackedBranch}
 
   setup do
