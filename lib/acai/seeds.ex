@@ -1,13 +1,14 @@
 defmodule Acai.Seeds do
   @moduledoc """
-  Database seeding functionality for the new data model.
+  Database seeding functionality for the mapperoni data model.
 
-  This module is used by priv/repo/seeds.exs to populate the database
-  with sample data demonstrating the new data model:
-  - Products as first-class entities
-  - Specs with JSONB requirements
-  - SpecImplState and SpecImplRef tables
-  - Implementations belonging to Products
+  Mapperoni is a survey form builder with shareable maps that users add data to.
+  Team: mapperoni
+  Products: site (web application), api (backend API)
+
+  Features adapted from the actual acai features but mapped to mapperoni domain:
+  - Site features: map-editor, map-viewer, project-view, data-explorer, form-editor, field-settings, map-settings
+  - API features: core, push
   """
 
   import Ecto.Query
@@ -24,7 +25,7 @@ defmodule Acai.Seeds do
   """
   def run do
     users = seed_users()
-    team = seed_team("testing-team")
+    team = seed_team("mapperoni")
     seed_roles(team, users)
 
     products = seed_products(team)
@@ -40,8 +41,13 @@ defmodule Acai.Seeds do
     IO.puts("  - Users: #{Enum.map(users, & &1.email) |> Enum.join(", ")}")
     IO.puts("  - Team: #{team.name}")
     IO.puts("  - Products: #{Enum.map(products, & &1.name) |> Enum.join(", ")}")
-    IO.puts("  - Specs: #{Enum.map(specs, & &1.feature_name) |> Enum.join(", ")}")
-    IO.puts("  - Implementations: Production, Staging environments")
+
+    IO.puts(
+      "  - Site Specs: map-editor, map-viewer, project-view, data-explorer, form-editor, field-settings, map-settings"
+    )
+
+    IO.puts("  - API Specs: core-api, push-api")
+    IO.puts("  - Implementations: production, staging environments")
     IO.puts("")
     IO.puts("All passwords are: Password123!")
 
@@ -56,9 +62,9 @@ defmodule Acai.Seeds do
     IO.puts("\n=== Seeding Users ===")
 
     [
-      seed_user("admin@example.com"),
-      seed_user("developer@example.com"),
-      seed_user("readonly@example.com")
+      seed_user("owner@mapperoni.com"),
+      seed_user("developer@mapperoni.com"),
+      seed_user("readonly@mapperoni.com")
     ]
   end
 
@@ -98,10 +104,10 @@ defmodule Acai.Seeds do
   # Role Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_roles(team, [admin, dev, readonly]) do
+  defp seed_roles(team, [owner, dev, readonly]) do
     IO.puts("\n=== Seeding Roles ===")
 
-    seed_role(team, admin, "owner")
+    seed_role(team, owner, "owner")
     seed_role(team, dev, "developer")
     seed_role(team, readonly, "readonly")
   end
@@ -126,30 +132,22 @@ defmodule Acai.Seeds do
   # Product Seeding
   # ---------------------------------------------------------------------------
 
-  # data-model.PRODUCTS
   defp seed_products(team) do
     IO.puts("\n=== Seeding Products ===")
 
-    auth_product =
-      seed_product(team, "auth-service", %{
-        description: "Authentication and authorization service"
+    site_product =
+      seed_product(team, "site", %{
+        description: "Mapperoni web application - map-based survey builder and viewer"
       })
 
-    billing_product =
-      seed_product(team, "billing-service", %{
-        description: "Billing and payment processing service"
+    api_product =
+      seed_product(team, "api", %{
+        description: "Mapperoni API - backend services for maps, forms, and data"
       })
 
-    notifications_product =
-      seed_product(team, "notifications-service", %{
-        description: "Email and push notification service"
-      })
-
-    [auth_product, billing_product, notifications_product]
+    [site_product, api_product]
   end
 
-  # data-model.PRODUCTS.2: product belongs to team
-  # data-model.PRODUCTS.6: (team_id, name) is unique
   defp seed_product(team, name, attrs) do
     existing = Repo.one(from p in Product, where: p.team_id == ^team.id and p.name == ^name)
 
@@ -161,7 +159,7 @@ defmodule Acai.Seeds do
         Map.merge(
           %{
             name: name,
-            description: "Sample product for demonstration",
+            description: "Product for demonstration",
             is_active: true,
             team_id: team.id
           },
@@ -178,51 +176,87 @@ defmodule Acai.Seeds do
   # Spec Seeding
   # ---------------------------------------------------------------------------
 
-  # data-model.SPECS
-  defp seed_specs(team, [auth_product, billing_product, notifications_product]) do
+  defp seed_specs(team, [site_product, api_product]) do
     IO.puts("\n=== Seeding Specs with JSONB Requirements ===")
 
-    auth_spec = seed_auth_spec(team, auth_product)
-    billing_spec = seed_billing_spec(team, billing_product)
-    notifications_spec = seed_notifications_spec(team, notifications_product)
+    # Site product specs
+    map_editor_spec = seed_map_editor_spec(team, site_product)
+    map_viewer_spec = seed_map_viewer_spec(team, site_product)
+    project_view_spec = seed_project_view_spec(team, site_product)
+    data_explorer_spec = seed_data_explorer_spec(team, site_product)
+    form_editor_spec = seed_form_editor_spec(team, site_product)
+    field_settings_spec = seed_field_settings_spec(team, site_product)
+    map_settings_spec = seed_map_settings_spec(team, site_product)
 
-    [auth_spec, billing_spec, notifications_spec]
+    # API product specs
+    core_api_spec = seed_core_api_spec(team, api_product)
+    push_api_spec = seed_push_api_spec(team, api_product)
+
+    [
+      map_editor_spec,
+      map_viewer_spec,
+      project_view_spec,
+      data_explorer_spec,
+      form_editor_spec,
+      field_settings_spec,
+      map_settings_spec,
+      core_api_spec,
+      push_api_spec
+    ]
   end
 
-  # data-model.SPECS.13: Requirements are stored as JSONB keyed by ACID
-  defp seed_auth_spec(team, product) do
+  # Site: map-editor feature
+  defp seed_map_editor_spec(team, product) do
     seed_spec(team, product, %{
-      feature_name: "user-auth",
-      feature_description: "User authentication and session management",
-      repo_uri: "github.com/acai-sh/auth-service",
+      feature_name: "map-editor",
+      feature_description:
+        "Interactive map creation and editing interface for building shareable maps",
+      repo_uri: "github.com/mapperoni/mapperoni-site",
       branch_name: "main",
-      path: "features/auth/user-auth.yaml",
+      path: "features/site/map-editor.feature.yaml",
       requirements: %{
-        "user-auth.LOGIN.1" => %{
-          "definition" => "Users must be able to log in with email and password.",
-          "note" => "Supports magic-link fallback when no password is set.",
+        "map-editor.CANVAS.1" => %{
+          "definition" => "Users must be able to create a new map with a name and description.",
+          "note" => "Map names must be unique within a project",
           "is_deprecated" => false,
           "replaced_by" => []
         },
-        "user-auth.LOGIN.1-1" => %{
-          "definition" => "The login form must validate email format before submission.",
-          "is_deprecated" => false,
-          "replaced_by" => []
-        },
-        "user-auth.LOGIN.2" => %{
+        "map-editor.CANVAS.2" => %{
           "definition" =>
-            "Failed login attempts must be rate-limited to prevent brute force attacks.",
+            "The canvas must support zooming from 10% to 500% with smooth transitions.",
           "is_deprecated" => false,
           "replaced_by" => []
         },
-        "user-auth.SESSION.1" => %{
-          "definition" => "Sessions must expire after 24 hours of inactivity.",
-          "note" => "Configurable per-tenant",
+        "map-editor.CANVAS.3" => %{
+          "definition" => "Users must be able to pan the canvas by click-dragging.",
           "is_deprecated" => false,
           "replaced_by" => []
         },
-        "user-auth.SESSION.2" => %{
-          "definition" => "Users must be able to view and revoke active sessions.",
+        "map-editor.LAYERS.1" => %{
+          "definition" =>
+            "Users must be able to add multiple layers to a map (base, data, annotations).",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "map-editor.LAYERS.2" => %{
+          "definition" => "Layers must be reorderable via drag-and-drop in the layers panel.",
+          "note" => "Layer order affects rendering - top layers overlay bottom layers",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "map-editor.MARKERS.1" => %{
+          "definition" =>
+            "Users must be able to place markers on the map at specific coordinates.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "map-editor.MARKERS.2" => %{
+          "definition" => "Markers must support custom icons and colors.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "map-editor.EXPORT.1" => %{
+          "definition" => "Maps must be exportable as PNG, SVG, or GeoJSON formats.",
           "is_deprecated" => false,
           "replaced_by" => []
         }
@@ -230,27 +264,43 @@ defmodule Acai.Seeds do
     })
   end
 
-  defp seed_billing_spec(team, product) do
+  # Site: map-viewer feature
+  defp seed_map_viewer_spec(team, product) do
     seed_spec(team, product, %{
-      feature_name: "subscription-management",
-      feature_description: "Subscription lifecycle management",
-      repo_uri: "github.com/acai-sh/billing-service",
+      feature_name: "map-viewer",
+      feature_description: "Public and embedded map viewing interface for shared maps",
+      repo_uri: "github.com/mapperoni/mapperoni-site",
       branch_name: "main",
-      path: "features/billing/subscription.yaml",
+      path: "features/site/map-viewer.feature.yaml",
       requirements: %{
-        "subscription-management.BILLING.1" => %{
-          "definition" => "Users must be able to upgrade their subscription tier.",
+        "map-viewer.RENDER.1" => %{
+          "definition" => "Maps must render correctly on mobile, tablet, and desktop viewports.",
           "is_deprecated" => false,
           "replaced_by" => []
         },
-        "subscription-management.BILLING.2" => %{
-          "definition" => "Prorated charges must be calculated on mid-cycle upgrades.",
-          "note" => "Uses Stripe's proration logic",
+        "map-viewer.RENDER.2" => %{
+          "definition" => "Map tiles must load progressively as the user pans and zooms.",
           "is_deprecated" => false,
           "replaced_by" => []
         },
-        "subscription-management.BILLING.3" => %{
-          "definition" => "Failed payments must retry with exponential backoff.",
+        "map-viewer.INTERACT.1" => %{
+          "definition" => "Clicking a marker must open an info panel with submission data.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "map-viewer.INTERACT.2" => %{
+          "definition" => "Info panels must support rich text and image attachments.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "map-viewer.EMBED.1" => %{
+          "definition" => "Users must be able to generate an embed code for external websites.",
+          "note" => "Embeds use an iframe with responsive sizing",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "map-viewer.SHARE.1" => %{
+          "definition" => "Maps must have shareable URLs with optional password protection.",
           "is_deprecated" => false,
           "replaced_by" => []
         }
@@ -258,21 +308,43 @@ defmodule Acai.Seeds do
     })
   end
 
-  defp seed_notifications_spec(team, product) do
+  # Site: project-view feature
+  defp seed_project_view_spec(team, product) do
     seed_spec(team, product, %{
-      feature_name: "email-delivery",
-      feature_description: "Reliable email delivery system",
-      repo_uri: "github.com/acai-sh/notifications-service",
+      feature_name: "project-view",
+      feature_description: "Project dashboard showing all maps, forms, and data for a project",
+      repo_uri: "github.com/mapperoni/mapperoni-site",
       branch_name: "main",
-      path: "features/notifications/email.yaml",
+      path: "features/site/project-view.feature.yaml",
       requirements: %{
-        "email-delivery.NOTIFY.1" => %{
-          "definition" => "Emails must be queued for delivery within 5 seconds.",
+        "project-view.DASHBOARD.1" => %{
+          "definition" => "The dashboard must display a list of all maps in the project.",
           "is_deprecated" => false,
           "replaced_by" => []
         },
-        "email-delivery.NOTIFY.2" => %{
-          "definition" => "Bounced emails must be tracked and retried with backoff.",
+        "project-view.DASHBOARD.2" => %{
+          "definition" => "Each map card must show submission count and last updated timestamp.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "project-view.DASHBOARD.3" => %{
+          "definition" => "The dashboard must include a quick-create button for new maps.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "project-view.ANALYTICS.1" => %{
+          "definition" => "Project analytics must show total submissions over time.",
+          "note" => "Chart is a line graph with daily aggregation",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "project-view.ANALYTICS.2" => %{
+          "definition" => "Analytics must show geographic distribution of submissions.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "project-view.MEMBERS.1" => %{
+          "definition" => "Project owners must be able to invite collaborators.",
           "is_deprecated" => false,
           "replaced_by" => []
         }
@@ -280,15 +352,336 @@ defmodule Acai.Seeds do
     })
   end
 
-  # data-model.SPECS.14: spec belongs to product
-  # data-model.SPECS.13: requirements stored as JSONB
+  # Site: data-explorer feature
+  defp seed_data_explorer_spec(team, product) do
+    seed_spec(team, product, %{
+      feature_name: "data-explorer",
+      feature_description: "Tabular and visual data exploration interface for form submissions",
+      repo_uri: "github.com/mapperoni/mapperoni-site",
+      branch_name: "main",
+      path: "features/site/data-explorer.feature.yaml",
+      requirements: %{
+        "data-explorer.TABLE.1" => %{
+          "definition" => "Submissions must be viewable in a sortable, filterable table.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "data-explorer.TABLE.2" => %{
+          "definition" => "Table columns must be configurable (show/hide/reorder).",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "data-explorer.TABLE.3" => %{
+          "definition" => "Bulk operations must support export and delete for selected rows.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "data-explorer.FILTER.1" => %{
+          "definition" =>
+            "Users must be able to filter by date range, field values, and location.",
+          "note" => "Location filter uses a map bounding box selection",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "data-explorer.VISUAL.1" => %{
+          "definition" => "Data must be visualizable as charts (bar, pie, line, heatmap).",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "data-explorer.EXPORT.1" => %{
+          "definition" => "Filtered data must be exportable as CSV, Excel, or GeoJSON.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+    })
+  end
+
+  # Site: form-editor feature
+  defp seed_form_editor_spec(team, product) do
+    seed_spec(team, product, %{
+      feature_name: "form-editor",
+      feature_description: "Survey form builder for collecting data on maps",
+      repo_uri: "github.com/mapperoni/mapperoni-site",
+      branch_name: "main",
+      path: "features/site/form-editor.feature.yaml",
+      requirements: %{
+        "form-editor.FIELDS.1" => %{
+          "definition" => "Users must be able to add text, number, date, and choice fields.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "form-editor.FIELDS.2" => %{
+          "definition" => "Fields must support required/optional validation.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "form-editor.FIELDS.3" => %{
+          "definition" => "Fields must be reorderable via drag-and-drop.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "form-editor.LOCATION.1" => %{
+          "definition" =>
+            "Forms must capture GPS coordinates automatically or allow manual placement.",
+          "note" => "Manual placement uses the map click-to-place interaction",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "form-editor.LOCATION.2" => %{
+          "definition" =>
+            "Forms must support geofencing - restricting submissions to a defined area.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "form-editor.PREVIEW.1" => %{
+          "definition" => "Users must be able to preview the form before publishing.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "form-editor.CONDITIONAL.1" => %{
+          "definition" =>
+            "Fields must support conditional visibility based on other field values.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+    })
+  end
+
+  # Site: field-settings feature
+  defp seed_field_settings_spec(team, product) do
+    seed_spec(team, product, %{
+      feature_name: "field-settings",
+      feature_description: "Configuration interface for form field properties and validation",
+      repo_uri: "github.com/mapperoni/mapperoni-site",
+      branch_name: "main",
+      path: "features/site/field-settings.feature.yaml",
+      requirements: %{
+        "field-settings.VALIDATION.1" => %{
+          "definition" => "Text fields must support min/max length and regex pattern validation.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "field-settings.VALIDATION.2" => %{
+          "definition" => "Number fields must support min/max value and step increments.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "field-settings.CHOICE.1" => %{
+          "definition" =>
+            "Choice fields must support single-select, multi-select, and dropdown variants.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "field-settings.CHOICE.2" => %{
+          "definition" =>
+            "Choice options must be editable inline with add/remove/reorder capabilities.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "field-settings.DEFAULT.1" => %{
+          "definition" => "Fields must support default values and placeholder text.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "field-settings.HELP.1" => %{
+          "definition" => "Fields must support help text and tooltips for user guidance.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+    })
+  end
+
+  # Site: map-settings feature
+  defp seed_map_settings_spec(team, product) do
+    seed_spec(team, product, %{
+      feature_name: "map-settings",
+      feature_description: "Configuration interface for map appearance, behavior, and sharing",
+      repo_uri: "github.com/mapperoni/mapperoni-site",
+      branch_name: "main",
+      path: "features/site/map-settings.feature.yaml",
+      requirements: %{
+        "map-settings.BASEMAP.1" => %{
+          "definition" =>
+            "Users must be able to choose from multiple basemap styles (satellite, terrain, street).",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "map-settings.BASEMAP.2" => %{
+          "definition" => "Users must be able to provide a custom tile server URL.",
+          "note" => "Useful for organizations with private map data",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "map-settings.BOUNDS.1" => %{
+          "definition" => "Users must be able to set the initial map view bounds and zoom level.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "map-settings.BOUNDS.2" => %{
+          "definition" => "Users must be able to restrict the map to a maximum bounding box.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "map-settings.CONTROLS.1" => %{
+          "definition" =>
+            "Users must be able to toggle UI controls (zoom, fullscreen, layer switcher, search).",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "map-settings.PERMISSIONS.1" => %{
+          "definition" => "Users must be able to set map visibility (private, team, public).",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "map-settings.PERMISSIONS.2" => %{
+          "definition" => "Public maps must support optional password protection.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+    })
+  end
+
+  # API: core feature
+  defp seed_core_api_spec(team, product) do
+    seed_spec(team, product, %{
+      feature_name: "core-api",
+      feature_description: "Core API infrastructure - OpenAPI spec, authentication, and routing",
+      repo_uri: "github.com/mapperoni/mapperoni-api",
+      branch_name: "main",
+      path: "features/api/core.feature.yaml",
+      requirements: %{
+        "core-api.OPENAPI.1" => %{
+          "definition" => "API must expose a public /api/openapi.json route with complete spec.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "core-api.OPENAPI.2" => %{
+          "definition" => "All endpoints must be namespaced under /api/v1.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "core-api.AUTH.1" => %{
+          "definition" =>
+            "All routes must require Authorization: Bearer <token> header unless explicitly public.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "core-api.AUTH.2" => %{
+          "definition" => "Token validation must check expiration and revocation status.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "core-api.RESPONSE.1" => %{
+          "definition" => "All 2xx JSON responses must wrap payload in a root 'data' key.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "core-api.ERROR.1" => %{
+          "definition" =>
+            "Errors must use a consistent format with code, message, and details fields.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "core-api.STATELESS.1" => %{
+          "definition" => "API pipeline must be strictly stateless (no sessions or flash).",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+    })
+  end
+
+  # API: push feature
+  defp seed_push_api_spec(team, product) do
+    seed_spec(team, product, %{
+      feature_name: "push-api",
+      feature_description: "Push endpoint for CLI to ingest specs, code references, and states",
+      repo_uri: "github.com/mapperoni/mapperoni-api",
+      branch_name: "main",
+      path: "features/api/push.feature.yaml",
+      requirements: %{
+        "push-api.SPEC.1" => %{
+          "definition" =>
+            "Push creates a new spec if no matching (repo_uri, branch_name, feature_name) exists.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "push-api.SPEC.2" => %{
+          "definition" => "Push updates the existing spec if the combination already exists.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "push-api.SPEC.3" => %{
+          "definition" =>
+            "Each push must capture the commit hash and raw content for traceability.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "push-api.REF.1" => %{
+          "definition" =>
+            "Pushing code references must overwrite all existing refs for the spec + implementation.",
+          "note" => "References include repo, file path, line/column location, and is_test flag",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "push-api.REF.2" => %{
+          "definition" => "Invalid or unknown ACIDs in the push must be skipped and reported.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "push-api.STATE.1" => %{
+          "definition" => "States map keys must be full ACID strings.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "push-api.STATE.2" => %{
+          "definition" => "States must merge with existing values, overwriting on key collision.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "push-api.IMPL.1" => %{
+          "definition" => "Pushing to an untracked branch may auto-create an implementation.",
+          "note" => "Implementation name defaults to the branch name",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "push-api.IMPL.2" => %{
+          "definition" =>
+            "Parent implementation is determined by git upstream or explicit parent field.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "push-api.INHERIT.1" => %{
+          "definition" => "Gaining a parent must snapshot states and refs from parent to child.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "push-api.INHERIT.2" => %{
+          "definition" =>
+            "Uninheriting (setting parent to null) must sever the link but retain existing states.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "push-api.TX.1" => %{
+          "definition" => "All operations within a push must be atomic with rollback on failure.",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+    })
+  end
+
   defp seed_spec(team, product, attrs) do
     unique_suffix = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
 
     defaults = %{
       repo_uri: "github.com/example/repo",
       branch_name: "main",
-      path: "features/sample-#{unique_suffix}.yaml",
+      path: "features/sample-#{unique_suffix}.feature.yaml",
       last_seen_commit: "abc#{unique_suffix}",
       parsed_at: DateTime.utc_now(:second),
       feature_name: "sample-feature-#{unique_suffix}",
@@ -323,36 +716,38 @@ defmodule Acai.Seeds do
   # Implementation Seeding
   # ---------------------------------------------------------------------------
 
-  # data-model.IMPLS
-  defp seed_implementations(team, [auth_product | _]) do
+  defp seed_implementations(team, [site_product, api_product]) do
     IO.puts("\n=== Seeding Implementations ===")
 
-    # data-model.IMPLS.2: Implementations belong to products, not specs
-    auth_prod_impl =
-      seed_implementation(team, auth_product, %{
-        name: "Production",
-        description: "Production environment for auth service"
+    # Site implementations
+    site_prod_impl =
+      seed_implementation(team, site_product, %{
+        name: "production",
+        description: "Production environment for mapperoni site"
       })
 
-    auth_staging_impl =
-      seed_implementation(team, auth_product, %{
-        name: "Staging",
-        description: "Staging environment for auth service"
+    site_staging_impl =
+      seed_implementation(team, site_product, %{
+        name: "staging",
+        description: "Staging environment for mapperoni site"
       })
 
-    # Get billing product for the third implementation
-    billing_product = Repo.get_by(Product, team_id: team.id, name: "billing-service")
-
-    billing_prod_impl =
-      seed_implementation(team, billing_product, %{
-        name: "Production",
-        description: "Production environment for billing service"
+    # API implementations
+    api_prod_impl =
+      seed_implementation(team, api_product, %{
+        name: "production",
+        description: "Production environment for mapperoni API"
       })
 
-    [auth_prod_impl, auth_staging_impl, billing_prod_impl]
+    api_staging_impl =
+      seed_implementation(team, api_product, %{
+        name: "staging",
+        description: "Staging environment for mapperoni API"
+      })
+
+    [site_prod_impl, site_staging_impl, api_prod_impl, api_staging_impl]
   end
 
-  # data-model.IMPLS.2: implementation belongs to product
   defp seed_implementation(team, product, attrs) do
     defaults = %{
       name: "production",
@@ -384,20 +779,33 @@ defmodule Acai.Seeds do
   # Tracked Branch Seeding
   # ---------------------------------------------------------------------------
 
-  # data-model.BRANCHES
-  defp seed_tracked_branches([auth_prod_impl, auth_staging_impl | _]) do
+  defp seed_tracked_branches([site_prod, site_staging, api_prod, api_staging]) do
     IO.puts("\n=== Seeding Tracked Branches ===")
 
-    seed_tracked_branch(auth_prod_impl, %{
-      repo_uri: "github.com/acai-sh/auth-service",
+    # Site branches
+    seed_tracked_branch(site_prod, %{
+      repo_uri: "github.com/mapperoni/mapperoni-site",
       branch_name: "main",
       last_seen_commit: "a1b2c3d4e5f6"
     })
 
-    seed_tracked_branch(auth_staging_impl, %{
-      repo_uri: "github.com/acai-sh/auth-service",
+    seed_tracked_branch(site_staging, %{
+      repo_uri: "github.com/mapperoni/mapperoni-site",
       branch_name: "develop",
       last_seen_commit: "b2c3d4e5f6a7"
+    })
+
+    # API branches
+    seed_tracked_branch(api_prod, %{
+      repo_uri: "github.com/mapperoni/mapperoni-api",
+      branch_name: "main",
+      last_seen_commit: "c3d4e5f6a7b8"
+    })
+
+    seed_tracked_branch(api_staging, %{
+      repo_uri: "github.com/mapperoni/mapperoni-api",
+      branch_name: "develop",
+      last_seen_commit: "d4e5f6a7b8c9"
     })
 
     :ok
@@ -437,61 +845,104 @@ defmodule Acai.Seeds do
   # SpecImplState Seeding
   # ---------------------------------------------------------------------------
 
-  # data-model.SPEC_IMPL_STATES
-  defp seed_spec_impl_states([auth_spec, billing_spec | _], [
-         auth_prod_impl,
-         auth_staging_impl,
-         billing_prod_impl | _
-       ]) do
+  defp seed_spec_impl_states(
+         specs,
+         [site_prod, site_staging, api_prod, _api_staging]
+       ) do
     IO.puts("\n=== Seeding SpecImplStates ===")
 
-    # data-model.SPEC_IMPL_STATES.4: Store requirement states as JSONB
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
-    seed_spec_impl_state(auth_spec, auth_prod_impl, %{
+    # Helper to find spec by feature_name
+    find_spec = fn name -> Enum.find(specs, &(&1.feature_name == name)) end
+
+    # Site: map-editor states
+    map_editor_spec = find_spec.("map-editor")
+
+    seed_spec_impl_state(map_editor_spec, site_prod, %{
       states: %{
-        "user-auth.LOGIN.1" => %{
-          "status" => "completed",
-          "comment" => "Implemented and tested",
-          "updated_at" => now
-        },
-        "user-auth.LOGIN.1-1" => %{"status" => "completed", "updated_at" => now},
-        "user-auth.LOGIN.2" => %{
+        "map-editor.CANVAS.1" => %{"status" => "completed", "updated_at" => now},
+        "map-editor.CANVAS.2" => %{"status" => "completed", "updated_at" => now},
+        "map-editor.CANVAS.3" => %{
           "status" => "in_progress",
-          "comment" => "Rate limiting logic in review",
+          "comment" => "Touch support pending",
           "updated_at" => now
         },
-        "user-auth.SESSION.1" => %{"status" => "completed", "updated_at" => now},
-        "user-auth.SESSION.2" => %{"status" => "pending", "updated_at" => now}
-      }
-    })
-
-    seed_spec_impl_state(auth_spec, auth_staging_impl, %{
-      states: %{
-        "user-auth.LOGIN.1" => %{"status" => "completed", "updated_at" => now},
-        "user-auth.LOGIN.1-1" => %{"status" => "completed", "updated_at" => now},
-        "user-auth.LOGIN.2" => %{"status" => "completed", "updated_at" => now},
-        "user-auth.SESSION.1" => %{"status" => "completed", "updated_at" => now},
-        "user-auth.SESSION.2" => %{"status" => "completed", "updated_at" => now}
-      }
-    })
-
-    seed_spec_impl_state(billing_spec, billing_prod_impl, %{
-      states: %{
-        "subscription-management.BILLING.1" => %{"status" => "completed", "updated_at" => now},
-        "subscription-management.BILLING.2" => %{"status" => "completed", "updated_at" => now},
-        "subscription-management.BILLING.3" => %{
+        "map-editor.LAYERS.1" => %{"status" => "completed", "updated_at" => now},
+        "map-editor.LAYERS.2" => %{"status" => "completed", "updated_at" => now},
+        "map-editor.MARKERS.1" => %{"status" => "completed", "updated_at" => now},
+        "map-editor.MARKERS.2" => %{"status" => "pending", "updated_at" => now},
+        "map-editor.EXPORT.1" => %{
           "status" => "blocked",
-          "comment" => "Waiting for Stripe integration",
+          "comment" => "Waiting for design specs",
           "updated_at" => now
         }
+      }
+    })
+
+    seed_spec_impl_state(map_editor_spec, site_staging, %{
+      states: %{
+        "map-editor.CANVAS.1" => %{"status" => "completed", "updated_at" => now},
+        "map-editor.CANVAS.2" => %{"status" => "completed", "updated_at" => now},
+        "map-editor.CANVAS.3" => %{"status" => "completed", "updated_at" => now},
+        "map-editor.LAYERS.1" => %{"status" => "completed", "updated_at" => now},
+        "map-editor.LAYERS.2" => %{"status" => "completed", "updated_at" => now},
+        "map-editor.MARKERS.1" => %{"status" => "completed", "updated_at" => now},
+        "map-editor.MARKERS.2" => %{"status" => "completed", "updated_at" => now},
+        "map-editor.EXPORT.1" => %{"status" => "completed", "updated_at" => now}
+      }
+    })
+
+    # Site: form-editor states
+    form_editor_spec = find_spec.("form-editor")
+
+    seed_spec_impl_state(form_editor_spec, site_prod, %{
+      states: %{
+        "form-editor.FIELDS.1" => %{"status" => "completed", "updated_at" => now},
+        "form-editor.FIELDS.2" => %{"status" => "completed", "updated_at" => now},
+        "form-editor.FIELDS.3" => %{"status" => "in_progress", "updated_at" => now},
+        "form-editor.LOCATION.1" => %{
+          "status" => "completed",
+          "comment" => "GPS auto-capture working",
+          "updated_at" => now
+        },
+        "form-editor.LOCATION.2" => %{"status" => "pending", "updated_at" => now},
+        "form-editor.PREVIEW.1" => %{"status" => "completed", "updated_at" => now},
+        "form-editor.CONDITIONAL.1" => %{
+          "status" => "blocked",
+          "comment" => "Complex dependency graph",
+          "updated_at" => now
+        }
+      }
+    })
+
+    # API: push-api states
+    push_api_spec = find_spec.("push-api")
+
+    seed_spec_impl_state(push_api_spec, api_prod, %{
+      states: %{
+        "push-api.SPEC.1" => %{"status" => "completed", "updated_at" => now},
+        "push-api.SPEC.2" => %{"status" => "completed", "updated_at" => now},
+        "push-api.SPEC.3" => %{"status" => "completed", "updated_at" => now},
+        "push-api.REF.1" => %{"status" => "completed", "updated_at" => now},
+        "push-api.REF.2" => %{
+          "status" => "in_progress",
+          "comment" => "Error reporting needs refinement",
+          "updated_at" => now
+        },
+        "push-api.STATE.1" => %{"status" => "completed", "updated_at" => now},
+        "push-api.STATE.2" => %{"status" => "completed", "updated_at" => now},
+        "push-api.IMPL.1" => %{"status" => "completed", "updated_at" => now},
+        "push-api.IMPL.2" => %{"status" => "completed", "updated_at" => now},
+        "push-api.INHERIT.1" => %{"status" => "completed", "updated_at" => now},
+        "push-api.INHERIT.2" => %{"status" => "completed", "updated_at" => now},
+        "push-api.TX.1" => %{"status" => "completed", "updated_at" => now}
       }
     })
 
     :ok
   end
 
-  # data-model.SPEC_IMPL_STATES.4: states stored as JSONB keyed by ACID
   defp seed_spec_impl_state(spec, implementation, attrs) do
     defaults = %{
       states: %{},
@@ -524,101 +975,108 @@ defmodule Acai.Seeds do
   # SpecImplRef Seeding
   # ---------------------------------------------------------------------------
 
-  # data-model.SPEC_IMPL_REFS
-  defp seed_spec_impl_refs([auth_spec, billing_spec | _], [
-         auth_prod_impl,
-         _,
-         billing_prod_impl | _
-       ]) do
+  defp seed_spec_impl_refs(
+         specs,
+         [site_prod, _site_staging, api_prod, _api_staging]
+       ) do
     IO.puts("\n=== Seeding SpecImplRefs ===")
 
-    # data-model.SPEC_IMPL_REFS.4: Store code references as JSONB
-    seed_spec_impl_ref(auth_spec, auth_prod_impl, %{
+    now = DateTime.utc_now()
+
+    # Helper to find spec by feature_name
+    find_spec = fn name -> Enum.find(specs, &(&1.feature_name == name)) end
+
+    # Site: map-editor refs
+    map_editor_spec = find_spec.("map-editor")
+
+    seed_spec_impl_ref(map_editor_spec, site_prod, %{
       refs: %{
-        "user-auth.LOGIN.1" => [
+        "map-editor.CANVAS.1" => [
           %{
-            "repo" => "github.com/acai-sh/auth-service",
-            "path" => "lib/auth/login.ex:42",
-            "loc" => "42:10",
+            "repo" => "github.com/mapperoni/mapperoni-site",
+            "path" => "lib/mapperoni_web/live/map_editor_live.ex:45",
+            "loc" => "45:8",
             "is_test" => false
           },
           %{
-            "repo" => "github.com/acai-sh/auth-service",
-            "path" => "test/auth/login_test.ex:15",
-            "loc" => "15:1",
+            "repo" => "github.com/mapperoni/mapperoni-site",
+            "path" => "test/mapperoni_web/live/map_editor_live_test.exs:23",
+            "loc" => "23:1",
             "is_test" => true
           }
         ],
-        "user-auth.LOGIN.1-1" => [
+        "map-editor.CANVAS.2" => [
           %{
-            "repo" => "github.com/acai-sh/auth-service",
-            "path" => "lib/auth/validation.ex:23",
-            "loc" => "23:5",
+            "repo" => "github.com/mapperoni/mapperoni-site",
+            "path" => "assets/js/map_canvas.js:78",
+            "loc" => "78:15",
             "is_test" => false
           }
         ],
-        "user-auth.LOGIN.2" => [
+        "map-editor.MARKERS.1" => [
           %{
-            "repo" => "github.com/acai-sh/auth-service",
-            "path" => "lib/auth/rate_limiter.ex:56",
-            "loc" => "56:8",
+            "repo" => "github.com/mapperoni/mapperoni-site",
+            "path" => "lib/mapperoni/maps/marker.ex:34",
+            "loc" => "34:5",
             "is_test" => false
           },
           %{
-            "repo" => "github.com/acai-sh/auth-service",
-            "path" => "test/auth/rate_limiter_test.ex:30",
-            "loc" => "30:3",
+            "repo" => "github.com/mapperoni/mapperoni-site",
+            "path" => "test/mapperoni/maps/marker_test.exs:12",
+            "loc" => "12:3",
             "is_test" => true
-          }
-        ],
-        "user-auth.SESSION.1" => [
-          %{
-            "repo" => "github.com/acai-sh/auth-service",
-            "path" => "lib/auth/session.ex:89",
-            "loc" => "89:12",
-            "is_test" => false
           }
         ]
       },
       agent: "github-action",
       commit: "abc123def456",
-      pushed_at: DateTime.utc_now()
+      pushed_at: now
     })
 
-    seed_spec_impl_ref(billing_spec, billing_prod_impl, %{
+    # API: push-api refs
+    push_api_spec = find_spec.("push-api")
+
+    seed_spec_impl_ref(push_api_spec, api_prod, %{
       refs: %{
-        "subscription-management.BILLING.1" => [
+        "push-api.SPEC.1" => [
           %{
-            "repo" => "github.com/acai-sh/billing-service",
-            "path" => "lib/billing/subscription.ex:34",
-            "loc" => "34:5",
+            "repo" => "github.com/mapperoni/mapperoni-api",
+            "path" => "lib/mapperoni_api/controllers/push_controller.ex:56",
+            "loc" => "56:10",
             "is_test" => false
           }
         ],
-        "subscription-management.BILLING.2" => [
+        "push-api.SPEC.2" => [
           %{
-            "repo" => "github.com/acai-sh/billing-service",
-            "path" => "lib/billing/proration.ex:67",
-            "loc" => "67:8",
+            "repo" => "github.com/mapperoni/mapperoni-api",
+            "path" => "lib/mapperoni_api/controllers/push_controller.ex:89",
+            "loc" => "89:12",
             "is_test" => false
           },
           %{
-            "repo" => "github.com/acai-sh/billing-service",
-            "path" => "test/billing/proration_test.ex:45",
+            "repo" => "github.com/mapperoni/mapperoni-api",
+            "path" => "test/mapperoni_api/controllers/push_controller_test.exs:45",
             "loc" => "45:1",
             "is_test" => true
+          }
+        ],
+        "push-api.TX.1" => [
+          %{
+            "repo" => "github.com/mapperoni/mapperoni-api",
+            "path" => "lib/mapperoni_api/push_service.ex:123",
+            "loc" => "123:4",
+            "is_test" => false
           }
         ]
       },
       agent: "seeds",
       commit: "def789abc012",
-      pushed_at: DateTime.utc_now()
+      pushed_at: now
     })
 
     :ok
   end
 
-  # data-model.SPEC_IMPL_REFS.4: refs stored as JSONB keyed by ACID
   defp seed_spec_impl_ref(spec, implementation, attrs) do
     defaults = %{
       refs: %{},

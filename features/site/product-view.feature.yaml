@@ -16,8 +16,9 @@ components:
             2: Rows are distinct feature_names from specs attached to this product.
             3: Cells display completion percentage (completed requirements / total requirements).
             4: Cell text color uses ease-in gradient where 0-50% is uncolored, 100% is saturated green.
-            5: Clicking a row navigates to the feature view using the first active implementation.
+            5: Clicking a row navigates to the feature view.
             6: Empty state shown if product has no features or implementations.
+            7: Clicking a cell navigates to that feature-impl (feature-impl-view.ROUTING.1)
 
     PRODUCT_SELECTOR:
         name: Product dropdown
