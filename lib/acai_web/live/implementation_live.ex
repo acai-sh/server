@@ -71,7 +71,8 @@ defmodule AcaiWeb.ImplementationLive do
   defp mount_implementation_view(socket, team, spec, implementation, feature_name) do
     # data-model.SPECS.13: Requirements are JSONB on the spec
     # data-model.SPECS.14: Preload product association for breadcrumb
-    spec = Acai.Repo.preload(spec, :product)
+    # data-model.SPECS.3-1: Preload branch association for repo info
+    spec = Acai.Repo.preload(spec, [:product, :branch])
 
     # Build requirement rows from the JSONB requirements map
     requirements = build_requirement_rows_from_spec(spec)
@@ -84,7 +85,7 @@ defmodule AcaiWeb.ImplementationLive do
     spec_impl_ref = Specs.get_spec_impl_ref(spec, implementation)
     refs = if spec_impl_ref, do: spec_impl_ref.refs, else: %{}
 
-    # Load tracked branches
+    # Load tracked branches with preloaded branch association
     tracked_branches = Implementations.list_tracked_branches(implementation)
 
     # Build requirement rows with status and counts from JSONB
@@ -247,7 +248,7 @@ defmodule AcaiWeb.ImplementationLive do
               <div class="text-sm text-base-content/70">
                 <div class="mt-2 flex flex-col gap-1 font-mono text-xs">
                   <div class="flex items-center gap-2">
-                    <span class="truncate">{@spec.repo_uri}</span>
+                    <span class="truncate">{@spec.branch.repo_uri}</span>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="truncate">{@spec.path}</span>
@@ -440,11 +441,11 @@ defmodule AcaiWeb.ImplementationLive do
       <%= if @branches == [] do %>
         <p class="text-sm text-base-content/50">No tracked branches</p>
       <% else %>
-        <div :for={branch <- @branches} class="flex items-center gap-2 text-sm">
+        <div :for={tracked_branch <- @branches} class="flex items-center gap-2 text-sm">
           <.icon name="hero-link" class="size-4 text-base-content/50" />
-          <span class="text-base-content/80">{branch.repo_uri}</span>
+          <span class="text-base-content/80">{tracked_branch.branch.repo_uri}</span>
           <span class="text-base-content/40">/</span>
-          <span class="text-primary font-medium">{branch.branch_name}</span>
+          <span class="text-primary font-medium">{tracked_branch.branch.branch_name}</span>
         </div>
       <% end %>
     </div>

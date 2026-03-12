@@ -7,7 +7,7 @@ defmodule Acai.DataModelFixtures do
   alias Acai.Teams.{Team, UserTeamRole, AccessToken}
   alias Acai.Products.Product
   alias Acai.Specs.{Spec, FeatureImplState, FeatureImplRef}
-  alias Acai.Implementations.{Implementation, TrackedBranch}
+  alias Acai.Implementations.{Implementation, Branch, TrackedBranch}
 
   def unique_team_name, do: "team-#{System.unique_integer([:positive])}"
   def unique_product_name, do: "product-#{System.unique_integer([:positive])}"
@@ -80,12 +80,31 @@ defmodule Acai.DataModelFixtures do
     Repo.get!(Product, product.id)
   end
 
-  def spec_fixture(product, attrs \\ %{}) do
+  def unique_branch_name, do: "branch-#{System.unique_integer([:positive])}"
+
+  def branch_fixture(attrs \\ %{}) do
     attrs =
       attrs
       |> Enum.into(%{
         repo_uri: "github.com/acai-sh/server",
-        branch_name: "main",
+        branch_name: unique_branch_name(),
+        last_seen_commit: "abc123"
+      })
+
+    {:ok, branch} =
+      Branch.changeset(%Branch{}, attrs)
+      |> Repo.insert()
+
+    branch
+  end
+
+  def spec_fixture(product, attrs \\ %{}) do
+    # Create a branch if not provided
+    branch = attrs[:branch] || attrs["branch"] || branch_fixture()
+
+    attrs =
+      attrs
+      |> Enum.into(%{
         path: "features/example/feature.yaml",
         last_seen_commit: "abc123",
         parsed_at: DateTime.utc_now(:second),
@@ -96,6 +115,7 @@ defmodule Acai.DataModelFixtures do
         requirements: %{}
       })
       |> Map.put(:product_id, product.id)
+      |> Map.put(:branch_id, branch.id)
 
     {:ok, spec} =
       Spec.changeset(%Spec{}, attrs)
@@ -123,20 +143,42 @@ defmodule Acai.DataModelFixtures do
   end
 
   def tracked_branch_fixture(implementation, attrs \\ %{}) do
+    # Convert keyword list to map if needed
+    attrs = Enum.into(attrs, %{})
+
+    # Create a branch if not provided
+    branch = attrs[:branch] || attrs["branch"]
+
+    branch =
+      branch ||
+        branch_fixture(%{
+          repo_uri: attrs[:repo_uri] || attrs["repo_uri"] || "github.com/acai-sh/server",
+          branch_name: attrs[:branch_name] || attrs["branch_name"] || "main",
+          last_seen_commit:
+            attrs[:last_seen_commit] || attrs["last_seen_commit"] || "abc123def456"
+        })
+
     attrs =
       attrs
       |> Enum.into(%{
-        repo_uri: "github.com/acai-sh/server",
-        branch_name: "main",
-        last_seen_commit: "abc123def456"
+        repo_uri: branch.repo_uri
       })
       |> Map.put(:implementation_id, implementation.id)
+      |> Map.put(:branch_id, branch.id)
+      |> Map.drop([
+        :branch,
+        "branch",
+        :branch_name,
+        "branch_name",
+        :last_seen_commit,
+        "last_seen_commit"
+      ])
 
-    {:ok, branch} =
+    {:ok, tracked_branch} =
       TrackedBranch.changeset(%TrackedBranch{}, attrs)
       |> Repo.insert()
 
-    branch
+    tracked_branch
   end
 
   def spec_impl_state_fixture(spec, implementation, attrs \\ %{}) do

@@ -6,8 +6,6 @@ defmodule Acai.Specs.SpecTest do
   alias Acai.Specs.Spec
 
   @valid_attrs %{
-    repo_uri: "github.com/acai-sh/server",
-    branch_name: "main",
     path: "features/example/feature.yaml",
     last_seen_commit: "abc123",
     parsed_at: ~U[2026-01-01 00:00:00Z],
@@ -19,10 +17,12 @@ defmodule Acai.Specs.SpecTest do
     test "valid with all required fields" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
 
       attrs =
         @valid_attrs
         |> Map.put(:product_id, product.id)
+        |> Map.put(:branch_id, branch.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
 
@@ -38,10 +38,12 @@ defmodule Acai.Specs.SpecTest do
     test "invalid when feature_name contains spaces" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
 
       cs =
         Spec.changeset(%Spec{}, %{@valid_attrs | feature_name: "my feature"})
         |> Ecto.Changeset.put_change(:product_id, product.id)
+        |> Ecto.Changeset.put_change(:branch_id, branch.id)
 
       refute cs.valid?
       assert %{feature_name: [_ | _]} = errors_on(cs)
@@ -50,11 +52,13 @@ defmodule Acai.Specs.SpecTest do
     test "valid feature_name with hyphens and underscores" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
 
       attrs =
         @valid_attrs
         |> Map.put(:feature_name, "my-feature_v2")
         |> Map.put(:product_id, product.id)
+        |> Map.put(:branch_id, branch.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
 
@@ -66,6 +70,7 @@ defmodule Acai.Specs.SpecTest do
     test "accepts optional fields feature_description and feature_version" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
 
       attrs =
         @valid_attrs
@@ -74,6 +79,7 @@ defmodule Acai.Specs.SpecTest do
           feature_version: "2.0.0"
         })
         |> Map.put(:product_id, product.id)
+        |> Map.put(:branch_id, branch.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
 
@@ -84,11 +90,13 @@ defmodule Acai.Specs.SpecTest do
     test "accepts optional raw_content field" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
 
       attrs =
         @valid_attrs
         |> Map.merge(%{raw_content: "feature:\n  name: test\n"})
         |> Map.put(:product_id, product.id)
+        |> Map.put(:branch_id, branch.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
 
@@ -99,11 +107,13 @@ defmodule Acai.Specs.SpecTest do
     test "raw_content can be nil" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
 
       attrs =
         @valid_attrs
         |> Map.put(:raw_content, nil)
         |> Map.put(:product_id, product.id)
+        |> Map.put(:branch_id, branch.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
 
@@ -114,6 +124,7 @@ defmodule Acai.Specs.SpecTest do
     test "raw_content preserves yaml formatting and comments" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
 
       yaml_content = """
       feature:
@@ -130,6 +141,7 @@ defmodule Acai.Specs.SpecTest do
         @valid_attrs
         |> Map.merge(%{raw_content: yaml_content})
         |> Map.put(:product_id, product.id)
+        |> Map.put(:branch_id, branch.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
 
@@ -152,6 +164,7 @@ defmodule Acai.Specs.SpecTest do
     test "accepts requirements as JSONB map" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
 
       attrs =
         @valid_attrs
@@ -164,6 +177,7 @@ defmodule Acai.Specs.SpecTest do
           }
         })
         |> Map.put(:product_id, product.id)
+        |> Map.put(:branch_id, branch.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
 
@@ -174,11 +188,13 @@ defmodule Acai.Specs.SpecTest do
     test "invalid when feature_version does not follow SemVer" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
 
       attrs =
         @valid_attrs
         |> Map.put(:feature_version, "invalid")
         |> Map.put(:product_id, product.id)
+        |> Map.put(:branch_id, branch.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
 
@@ -187,12 +203,16 @@ defmodule Acai.Specs.SpecTest do
     end
   end
 
-  describe "database constraint: SPECS.14 (product_id, repo_uri, branch_name, feature_name)" do
-    test "enforces composite unique constraint" do
+  describe "database constraint: SPECS.14-1 (branch_id, feature_name)" do
+    test "enforces composite unique constraint on branch_id and feature_name" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
 
-      attrs = @valid_attrs |> Map.put(:product_id, product.id)
+      attrs =
+        @valid_attrs
+        |> Map.put(:product_id, product.id)
+        |> Map.put(:branch_id, branch.id)
 
       {:ok, _} =
         Spec.changeset(%Spec{}, attrs)
@@ -202,7 +222,7 @@ defmodule Acai.Specs.SpecTest do
         Spec.changeset(%Spec{}, attrs)
         |> Acai.Repo.insert()
 
-      assert %{product_id: [_ | _]} = errors_on(cs)
+      assert %{branch_id: [_ | _]} = errors_on(cs)
     end
   end
 
@@ -210,14 +230,18 @@ defmodule Acai.Specs.SpecTest do
     test "rejects duplicate specs with same feature_name and same version" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
 
       {:ok, _} =
         Spec.changeset(
           %Spec{},
           @valid_attrs
-          |> Map.merge(%{feature_version: "1.0.0", product_id: product.id})
+          |> Map.merge(%{feature_version: "1.0.0", product_id: product.id, branch_id: branch.id})
         )
         |> Acai.Repo.insert()
+
+      # Same product and feature_version but different branch should fail
+      branch2 = branch_fixture(%{branch_name: "develop"})
 
       {:error, cs} =
         Spec.changeset(
@@ -225,38 +249,72 @@ defmodule Acai.Specs.SpecTest do
           @valid_attrs
           |> Map.merge(%{
             feature_version: "1.0.0",
-            branch_name: "develop",
-            path: "features/other/feature.yaml"
+            path: "features/other/feature.yaml",
+            product_id: product.id,
+            branch_id: branch2.id
           })
-          |> Map.put(:product_id, product.id)
         )
         |> Acai.Repo.insert()
 
       assert %{product_id: [_ | _]} = errors_on(cs)
     end
 
-    test "allows same feature_name with different versions" do
+    test "rejects same feature_name on same branch even with different versions" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
 
       {:ok, _} =
         Spec.changeset(
           %Spec{},
           @valid_attrs
-          |> Map.merge(%{feature_version: "1.0.0", product_id: product.id})
+          |> Map.merge(%{feature_version: "1.0.0", product_id: product.id, branch_id: branch.id})
         )
         |> Acai.Repo.insert()
 
+      # Same feature_name on same branch should fail even with different version
+      # because of SPECS.14-1 constraint (branch_id, feature_name)
+      {:error, cs} =
+        Spec.changeset(
+          %Spec{},
+          @valid_attrs
+          |> Map.merge(%{
+            feature_version: "2.0.0",
+            path: "features/other/feature.yaml",
+            product_id: product.id,
+            branch_id: branch.id
+          })
+        )
+        |> Acai.Repo.insert()
+
+      assert %{branch_id: [_ | _]} = errors_on(cs)
+    end
+
+    test "allows same feature_name with different versions on different branches" do
+      team = team_fixture()
+      product = product_fixture(team)
+      branch1 = branch_fixture()
+      branch2 = branch_fixture()
+
+      {:ok, _} =
+        Spec.changeset(
+          %Spec{},
+          @valid_attrs
+          |> Map.merge(%{feature_version: "1.0.0", product_id: product.id, branch_id: branch1.id})
+        )
+        |> Acai.Repo.insert()
+
+      # Same feature_name on different branch should work
       {:ok, _} =
         Spec.changeset(
           %Spec{},
           @valid_attrs
           |> Map.merge(%{
             feature_version: "2.0.0",
-            branch_name: "develop",
-            path: "features/other/feature.yaml"
+            path: "features/other/feature.yaml",
+            product_id: product.id,
+            branch_id: branch2.id
           })
-          |> Map.put(:product_id, product.id)
         )
         |> Acai.Repo.insert()
     end
@@ -266,12 +324,18 @@ defmodule Acai.Specs.SpecTest do
       team2 = team_fixture()
       product1 = product_fixture(team1)
       product2 = product_fixture(team2)
+      branch1 = branch_fixture()
+      branch2 = branch_fixture()
 
       {:ok, _} =
         Spec.changeset(
           %Spec{},
           @valid_attrs
-          |> Map.merge(%{feature_version: "1.0.0", product_id: product1.id})
+          |> Map.merge(%{
+            feature_version: "1.0.0",
+            product_id: product1.id,
+            branch_id: branch1.id
+          })
         )
         |> Acai.Repo.insert()
 
@@ -279,7 +343,11 @@ defmodule Acai.Specs.SpecTest do
         Spec.changeset(
           %Spec{},
           @valid_attrs
-          |> Map.merge(%{feature_version: "1.0.0", product_id: product2.id})
+          |> Map.merge(%{
+            feature_version: "1.0.0",
+            product_id: product2.id,
+            branch_id: branch2.id
+          })
         )
         |> Acai.Repo.insert()
     end
@@ -289,12 +357,14 @@ defmodule Acai.Specs.SpecTest do
     test "check constraint fires for invalid chars bypassing changeset" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
 
       {:error, cs} =
         Spec.changeset(
           %Spec{},
           @valid_attrs
           |> Map.put(:product_id, product.id)
+          |> Map.put(:branch_id, branch.id)
           |> Map.put(:feature_name, "invalid name!")
         )
         |> Acai.Repo.insert()

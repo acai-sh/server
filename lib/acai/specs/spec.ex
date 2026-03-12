@@ -12,15 +12,11 @@ defmodule Acai.Specs.Spec do
   @semver_pattern ~r/^\d+\.\d+\.\d+$/
 
   schema "specs" do
-    # data-model.SPECS.3
-    belongs_to :tracked_branch, Acai.Implementations.TrackedBranch
-    # data-model.SPECS.14
+    # data-model.SPECS.3-1
+    belongs_to :branch, Acai.Implementations.Branch
+    # data-model.SPECS.2
     belongs_to :product, Acai.Products.Product
 
-    # data-model.SPECS.4
-    field :repo_uri, :string
-    # data-model.SPECS.5
-    field :branch_name, :string
     # data-model.SPECS.6
     field :path, :string
     # data-model.SPECS.7
@@ -43,8 +39,7 @@ defmodule Acai.Specs.Spec do
   end
 
   @required_fields [
-    :repo_uri,
-    :branch_name,
+    :branch_id,
     :last_seen_commit,
     :parsed_at,
     :feature_name,
@@ -56,7 +51,6 @@ defmodule Acai.Specs.Spec do
     :feature_description,
     :feature_version,
     :raw_content,
-    :tracked_branch_id,
     # data-model.SPECS.13: Requirements stored as JSONB
     :requirements
   ]
@@ -73,8 +67,8 @@ defmodule Acai.Specs.Spec do
     |> validate_format(:feature_version, @semver_pattern,
       message: "must follow SemVer format (e.g., 1.0.0)"
     )
-    # data-model.SPECS.14
-    |> unique_constraint([:product_id, :repo_uri, :branch_name, :feature_name])
+    # data-model.SPECS.14-1
+    |> unique_constraint([:branch_id, :feature_name])
     # data-model.SPECS.15
     |> unique_constraint([:product_id, :feature_name, :feature_version])
   end

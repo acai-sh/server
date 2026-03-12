@@ -48,7 +48,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # data-model.TEAMS.2
     create unique_index(:teams, [:name])
     # data-model.TEAMS.2-1
-    create constraint(:teams, :name_url_safe, check: "name ~ '^[a-zA-Z0-9_-]+$'")
+    execute "ALTER TABLE teams ADD CONSTRAINT name_url_safe CHECK (name ~ '^[a-zA-Z0-9_-]+$')"
 
     # data-model.ROLES
     create table(:user_team_roles, primary_key: false) do
@@ -88,7 +88,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # data-model.PRODUCTS.6
     create unique_index(:products, [:team_id, :name])
     # data-model.PRODUCTS.3-1
-    create constraint(:products, :products_name_url_safe, check: "name ~ '^[a-zA-Z0-9_-]+$'")
+    execute "ALTER TABLE products ADD CONSTRAINT products_name_url_safe CHECK (name ~ '^[a-zA-Z0-9_-]+$')"
 
     # ============================================================================
     # ACCESS TOKENS TABLE
@@ -155,17 +155,13 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     create unique_index(:implementations, [:product_id, :name])
 
     # ============================================================================
-    # TRACKED BRANCHES TABLE
+    # BRANCHES TABLE (NEW - stable branch identity)
     # ============================================================================
 
     # data-model.BRANCHES.1
     # data-model.FIELDS.3
-    create table(:tracked_branches, primary_key: false) do
+    create table(:branches, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
-      # data-model.BRANCHES.2
-      add :implementation_id, references(:implementations, type: :uuid, on_delete: :delete_all),
-        null: false
-
       # data-model.BRANCHES.3
       add :repo_uri, :text, null: false
       # data-model.BRANCHES.4
@@ -176,10 +172,40 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
       timestamps(type: :utc_datetime)
     end
 
-    # data-model.BRANCHES.6
+    # data-model.BRANCHES.8: Composite unique on (repo_uri, branch_name)
+    # data-model.BRANCHES.7: Index on (repo_uri, branch_name)
+    create unique_index(:branches, [:repo_uri, :branch_name])
+    # data-model.BRANCHES.9
+    create index(:branches, [:repo_uri])
+
+    # ============================================================================
+    # TRACKED BRANCHES TABLE (junction table: implementations <-> branches)
+    # ============================================================================
+
+    # data-model.TRACKED_BRANCHES.1
+    # data-model.TRACKED_BRANCHES.2
+    # data-model.TRACKED_BRANCHES.3
+    create table(:tracked_branches, primary_key: false) do
+      # data-model.TRACKED_BRANCHES.1
+      add :implementation_id,
+          references(:implementations, type: :uuid, on_delete: :delete_all),
+          primary_key: true,
+          null: false
+
+      # data-model.TRACKED_BRANCHES.2
+      add :branch_id,
+          references(:branches, type: :uuid, on_delete: :delete_all),
+          primary_key: true,
+          null: false
+
+      # data-model.TRACKED_BRANCHES.5
+      add :repo_uri, :text, null: false
+
+      timestamps(type: :utc_datetime)
+    end
+
+    # data-model.TRACKED_BRANCHES.4
     create unique_index(:tracked_branches, [:implementation_id, :repo_uri])
-    # data-model.BRANCHES.7
-    create index(:tracked_branches, [:repo_uri, :branch_name])
 
     # ============================================================================
     # SPECS TABLE
@@ -191,12 +217,8 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
       add :id, :uuid, primary_key: true, null: false
       # data-model.SPECS.2
       add :product_id, references(:products, type: :uuid, on_delete: :delete_all), null: false
-      # data-model.SPECS.3
-      add :tracked_branch_id, references(:tracked_branches, type: :uuid, on_delete: :nilify_all)
-      # data-model.SPECS.4
-      add :repo_uri, :text, null: false
-      # data-model.SPECS.5
-      add :branch_name, :string, null: false
+      # data-model.SPECS.3-1
+      add :branch_id, references(:branches, type: :uuid, on_delete: :delete_all), null: false
       # data-model.SPECS.6
       add :path, :text
       # data-model.SPECS.7
@@ -218,17 +240,17 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     end
 
     # data-model.SPECS.9-1
-    create constraint(:specs, :feature_name_url_safe, check: "feature_name ~ '^[a-zA-Z0-9_-]+$'")
+    execute "ALTER TABLE specs ADD CONSTRAINT feature_name_url_safe CHECK (feature_name ~ '^[a-zA-Z0-9_-]+$')"
 
-    # data-model.SPECS.14, data-model.SPECS.15
-    # If you want to insert a new spec, you have to change either the product, the branch, or the feature name
-    create unique_index(:specs, [:product_id, :repo_uri, :branch_name, :feature_name])
+    # data-model.SPECS.14-1
+    create unique_index(:specs, [:branch_id, :feature_name])
+    # data-model.SPECS.15
     create unique_index(:specs, [:product_id, :feature_name, :feature_version])
 
     # data-model.SPECS.16
     create index(:specs, [:product_id])
-    # data-model.SPECS.17
-    create index(:specs, [:repo_uri, :branch_name])
+    # data-model.SPECS.17-1
+    create index(:specs, [:branch_id])
 
     # ============================================================================
     # FEATURE IMPL STATES TABLE (NEW - replaces requirement_statuses)
@@ -251,9 +273,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     end
 
     # data-model.FEATURE_IMPL_STATES.3-1
-    create constraint(:feature_impl_states, :feature_name_url_safe,
-             check: "feature_name ~ '^[a-zA-Z0-9_-]+$'"
-           )
+    execute "ALTER TABLE feature_impl_states ADD CONSTRAINT feature_name_url_safe CHECK (feature_name ~ '^[a-zA-Z0-9_-]+$')"
 
     # data-model.FEATURE_IMPL_STATES.5
     create unique_index(:feature_impl_states, [:implementation_id, :feature_name])
@@ -289,9 +309,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     end
 
     # data-model.FEATURE_IMPL_REFS.3-1
-    create constraint(:feature_impl_refs, :feature_name_url_safe,
-             check: "feature_name ~ '^[a-zA-Z0-9_-]+$'"
-           )
+    execute "ALTER TABLE feature_impl_refs ADD CONSTRAINT feature_name_url_safe CHECK (feature_name ~ '^[a-zA-Z0-9_-]+$')"
 
     # data-model.FEATURE_IMPL_REFS.8
     create unique_index(:feature_impl_refs, [:implementation_id, :feature_name])

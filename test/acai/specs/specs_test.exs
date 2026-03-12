@@ -79,11 +79,11 @@ defmodule Acai.SpecsTest do
     test "creates a spec linked to the product" do
       team = team_fixture()
       product = product_fixture(team)
+      branch = branch_fixture()
       current_scope = %{user: %{id: 1}}
 
       attrs = %{
-        repo_uri: "github.com/acai-sh/server",
-        branch_name: "main",
+        branch_id: branch.id,
         last_seen_commit: "abc123",
         parsed_at: DateTime.utc_now(),
         feature_name: "new-feature"
@@ -92,6 +92,7 @@ defmodule Acai.SpecsTest do
       assert {:ok, %Spec{} = spec} = Specs.create_spec(current_scope, team, product, attrs)
       assert spec.feature_name == "new-feature"
       assert spec.product_id == product.id
+      assert spec.branch_id == branch.id
     end
 
     test "returns error changeset when attrs are invalid" do

@@ -18,7 +18,7 @@ defmodule Acai.Seeds do
   alias Acai.Teams.{Team, UserTeamRole}
   alias Acai.Products.Product
   alias Acai.Specs.{Spec, FeatureImplState, FeatureImplRef}
-  alias Acai.Implementations.{Implementation, TrackedBranch}
+  alias Acai.Implementations.{Implementation, Branch, TrackedBranch}
 
   @doc """
   Runs all seeds.
@@ -36,9 +36,13 @@ defmodule Acai.Seeds do
     seed_roles(team, users, silent)
 
     products = seed_products(team, silent)
-    specs = seed_specs(team, products, silent)
+
+    # Seed branches first (before specs and tracked_branches)
+    branches = seed_branches(silent)
+
+    specs = seed_specs(team, products, branches, silent)
     impls = seed_implementations(team, products, silent)
-    seed_tracked_branches(impls, silent)
+    seed_tracked_branches(impls, branches, silent)
     seed_spec_impl_states(specs, impls, silent)
     seed_spec_impl_refs(specs, impls, silent)
 
@@ -227,26 +231,109 @@ defmodule Acai.Seeds do
   end
 
   # ---------------------------------------------------------------------------
+  # Branch Seeding
+  # ---------------------------------------------------------------------------
+
+  defp seed_branches(silent) do
+    unless silent do
+      IO.puts("\n=== Seeding Branches ===")
+    end
+
+    # Site branches
+    site_main =
+      seed_branch(
+        %{
+          repo_uri: "github.com/mapperoni/mapperoni-site",
+          branch_name: "main",
+          last_seen_commit: "a1b2c3d4e5f6"
+        },
+        silent
+      )
+
+    site_develop =
+      seed_branch(
+        %{
+          repo_uri: "github.com/mapperoni/mapperoni-site",
+          branch_name: "develop",
+          last_seen_commit: "b2c3d4e5f6a7"
+        },
+        silent
+      )
+
+    # API branches
+    api_main =
+      seed_branch(
+        %{
+          repo_uri: "github.com/mapperoni/mapperoni-api",
+          branch_name: "main",
+          last_seen_commit: "c3d4e5f6a7b8"
+        },
+        silent
+      )
+
+    api_develop =
+      seed_branch(
+        %{
+          repo_uri: "github.com/mapperoni/mapperoni-api",
+          branch_name: "develop",
+          last_seen_commit: "d4e5f6a7b8c9"
+        },
+        silent
+      )
+
+    %{
+      site_main: site_main,
+      site_develop: site_develop,
+      api_main: api_main,
+      api_develop: api_develop
+    }
+  end
+
+  defp seed_branch(attrs, silent) do
+    existing =
+      Repo.one(
+        from b in Branch,
+          where: b.repo_uri == ^attrs.repo_uri and b.branch_name == ^attrs.branch_name
+      )
+
+    if existing do
+      unless silent do
+        IO.puts("Branch already exists: #{attrs.repo_uri}/#{attrs.branch_name}")
+      end
+
+      existing
+    else
+      {:ok, branch} = Repo.insert(Branch.changeset(%Branch{}, attrs))
+
+      unless silent do
+        IO.puts("Created branch: #{branch.repo_uri}/#{branch.branch_name}")
+      end
+
+      branch
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Spec Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_specs(team, [site_product, api_product], silent) do
+  defp seed_specs(team, [site_product, api_product], branches, silent) do
     unless silent do
       IO.puts("\n=== Seeding Specs with JSONB Requirements ===")
     end
 
     # Site product specs
-    map_editor_spec = seed_map_editor_spec(team, site_product, silent)
-    map_viewer_spec = seed_map_viewer_spec(team, site_product, silent)
-    project_view_spec = seed_project_view_spec(team, site_product, silent)
-    data_explorer_spec = seed_data_explorer_spec(team, site_product, silent)
-    form_editor_spec = seed_form_editor_spec(team, site_product, silent)
-    field_settings_spec = seed_field_settings_spec(team, site_product, silent)
-    map_settings_spec = seed_map_settings_spec(team, site_product, silent)
+    map_editor_spec = seed_map_editor_spec(team, site_product, branches.site_main, silent)
+    map_viewer_spec = seed_map_viewer_spec(team, site_product, branches.site_main, silent)
+    project_view_spec = seed_project_view_spec(team, site_product, branches.site_main, silent)
+    data_explorer_spec = seed_data_explorer_spec(team, site_product, branches.site_main, silent)
+    form_editor_spec = seed_form_editor_spec(team, site_product, branches.site_main, silent)
+    field_settings_spec = seed_field_settings_spec(team, site_product, branches.site_main, silent)
+    map_settings_spec = seed_map_settings_spec(team, site_product, branches.site_main, silent)
 
     # API product specs
-    core_api_spec = seed_core_api_spec(team, api_product, silent)
-    push_api_spec = seed_push_api_spec(team, api_product, silent)
+    core_api_spec = seed_core_api_spec(team, api_product, branches.api_main, silent)
+    push_api_spec = seed_push_api_spec(team, api_product, branches.api_main, silent)
 
     [
       map_editor_spec,
@@ -262,16 +349,15 @@ defmodule Acai.Seeds do
   end
 
   # Site: map-editor feature
-  defp seed_map_editor_spec(team, product, silent) do
+  defp seed_map_editor_spec(team, product, branch, silent) do
     seed_spec(
       team,
       product,
+      branch,
       %{
         feature_name: "map-editor",
         feature_description:
           "Interactive map creation and editing interface for building shareable maps",
-        repo_uri: "github.com/mapperoni/mapperoni-site",
-        branch_name: "main",
         path: "features/site/map-editor.feature.yaml",
         requirements: %{
           "map-editor.CANVAS.1" => %{
@@ -326,15 +412,14 @@ defmodule Acai.Seeds do
   end
 
   # Site: map-viewer feature
-  defp seed_map_viewer_spec(team, product, silent) do
+  defp seed_map_viewer_spec(team, product, branch, silent) do
     seed_spec(
       team,
       product,
+      branch,
       %{
         feature_name: "map-viewer",
         feature_description: "Public and embedded map viewing interface for shared maps",
-        repo_uri: "github.com/mapperoni/mapperoni-site",
-        branch_name: "main",
         path: "features/site/map-viewer.feature.yaml",
         requirements: %{
           "map-viewer.RENDER.1" => %{
@@ -376,15 +461,14 @@ defmodule Acai.Seeds do
   end
 
   # Site: project-view feature
-  defp seed_project_view_spec(team, product, silent) do
+  defp seed_project_view_spec(team, product, branch, silent) do
     seed_spec(
       team,
       product,
+      branch,
       %{
         feature_name: "project-view",
         feature_description: "Project dashboard showing all maps, forms, and data for a project",
-        repo_uri: "github.com/mapperoni/mapperoni-site",
-        branch_name: "main",
         path: "features/site/project-view.feature.yaml",
         requirements: %{
           "project-view.DASHBOARD.1" => %{
@@ -426,15 +510,14 @@ defmodule Acai.Seeds do
   end
 
   # Site: data-explorer feature
-  defp seed_data_explorer_spec(team, product, silent) do
+  defp seed_data_explorer_spec(team, product, branch, silent) do
     seed_spec(
       team,
       product,
+      branch,
       %{
         feature_name: "data-explorer",
         feature_description: "Tabular and visual data exploration interface for form submissions",
-        repo_uri: "github.com/mapperoni/mapperoni-site",
-        branch_name: "main",
         path: "features/site/data-explorer.feature.yaml",
         requirements: %{
           "data-explorer.TABLE.1" => %{
@@ -476,15 +559,14 @@ defmodule Acai.Seeds do
   end
 
   # Site: form-editor feature
-  defp seed_form_editor_spec(team, product, silent) do
+  defp seed_form_editor_spec(team, product, branch, silent) do
     seed_spec(
       team,
       product,
+      branch,
       %{
         feature_name: "form-editor",
         feature_description: "Survey form builder for collecting data on maps",
-        repo_uri: "github.com/mapperoni/mapperoni-site",
-        branch_name: "main",
         path: "features/site/form-editor.feature.yaml",
         requirements: %{
           "form-editor.FIELDS.1" => %{
@@ -533,15 +615,14 @@ defmodule Acai.Seeds do
   end
 
   # Site: field-settings feature
-  defp seed_field_settings_spec(team, product, silent) do
+  defp seed_field_settings_spec(team, product, branch, silent) do
     seed_spec(
       team,
       product,
+      branch,
       %{
         feature_name: "field-settings",
         feature_description: "Configuration interface for form field properties and validation",
-        repo_uri: "github.com/mapperoni/mapperoni-site",
-        branch_name: "main",
         path: "features/site/field-settings.feature.yaml",
         requirements: %{
           "field-settings.VALIDATION.1" => %{
@@ -584,15 +665,14 @@ defmodule Acai.Seeds do
   end
 
   # Site: map-settings feature
-  defp seed_map_settings_spec(team, product, silent) do
+  defp seed_map_settings_spec(team, product, branch, silent) do
     seed_spec(
       team,
       product,
+      branch,
       %{
         feature_name: "map-settings",
         feature_description: "Configuration interface for map appearance, behavior, and sharing",
-        repo_uri: "github.com/mapperoni/mapperoni-site",
-        branch_name: "main",
         path: "features/site/map-settings.feature.yaml",
         requirements: %{
           "map-settings.BASEMAP.1" => %{
@@ -641,16 +721,15 @@ defmodule Acai.Seeds do
   end
 
   # API: core feature
-  defp seed_core_api_spec(team, product, silent) do
+  defp seed_core_api_spec(team, product, branch, silent) do
     seed_spec(
       team,
       product,
+      branch,
       %{
         feature_name: "core-api",
         feature_description:
           "Core API infrastructure - OpenAPI spec, authentication, and routing",
-        repo_uri: "github.com/mapperoni/mapperoni-api",
-        branch_name: "main",
         path: "features/api/core.feature.yaml",
         requirements: %{
           "core-api.OPENAPI.1" => %{
@@ -698,15 +777,14 @@ defmodule Acai.Seeds do
   end
 
   # API: push feature
-  defp seed_push_api_spec(team, product, silent) do
+  defp seed_push_api_spec(team, product, branch, silent) do
     seed_spec(
       team,
       product,
+      branch,
       %{
         feature_name: "push-api",
         feature_description: "Push endpoint for CLI to ingest specs, code references, and states",
-        repo_uri: "github.com/mapperoni/mapperoni-api",
-        branch_name: "main",
         path: "features/api/push.feature.yaml",
         requirements: %{
           "push-api.SPEC.1" => %{
@@ -786,19 +864,18 @@ defmodule Acai.Seeds do
     )
   end
 
-  defp seed_spec(_team, product, attrs, silent) do
+  defp seed_spec(_team, product, branch, attrs, silent) do
     defaults = %{
-      repo_uri: "github.com/mapperoni/mapperoni",
-      branch_name: "main",
       path: "features/sample.feature.yaml",
-      last_seen_commit: "abc123def456",
+      last_seen_commit: branch.last_seen_commit,
       parsed_at: DateTime.utc_now(),
       feature_name: "sample-feature",
       feature_description: "A sample feature for seeding",
       feature_version: "1.0.0",
       raw_content: "feature:\n  name: sample",
       requirements: %{},
-      product_id: product.id
+      product_id: product.id,
+      branch_id: branch.id
     }
 
     attrs = Map.merge(defaults, attrs)
@@ -923,7 +1000,7 @@ defmodule Acai.Seeds do
   # Tracked Branch Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_tracked_branches([site_prod, site_staging, api_prod, api_staging], silent) do
+  defp seed_tracked_branches([site_prod, site_staging, api_prod, api_staging], branches, silent) do
     unless silent do
       IO.puts("\n=== Seeding Tracked Branches ===")
     end
@@ -931,81 +1008,68 @@ defmodule Acai.Seeds do
     # Site branches
     seed_tracked_branch(
       site_prod,
-      %{
-        repo_uri: "github.com/mapperoni/mapperoni-site",
-        branch_name: "main",
-        last_seen_commit: "a1b2c3d4e5f6"
-      },
+      branches.site_main,
+      %{repo_uri: branches.site_main.repo_uri},
       silent
     )
 
     seed_tracked_branch(
       site_staging,
-      %{
-        repo_uri: "github.com/mapperoni/mapperoni-site",
-        branch_name: "develop",
-        last_seen_commit: "b2c3d4e5f6a7"
-      },
+      branches.site_develop,
+      %{repo_uri: branches.site_develop.repo_uri},
       silent
     )
 
     # API branches
     seed_tracked_branch(
       api_prod,
-      %{
-        repo_uri: "github.com/mapperoni/mapperoni-api",
-        branch_name: "main",
-        last_seen_commit: "c3d4e5f6a7b8"
-      },
+      branches.api_main,
+      %{repo_uri: branches.api_main.repo_uri},
       silent
     )
 
     seed_tracked_branch(
       api_staging,
-      %{
-        repo_uri: "github.com/mapperoni/mapperoni-api",
-        branch_name: "develop",
-        last_seen_commit: "d4e5f6a7b8c9"
-      },
+      branches.api_develop,
+      %{repo_uri: branches.api_develop.repo_uri},
       silent
     )
 
     :ok
   end
 
-  defp seed_tracked_branch(implementation, attrs, silent) do
+  defp seed_tracked_branch(implementation, branch, attrs, silent) do
     defaults = %{
-      repo_uri: "github.com/example/repo",
-      branch_name: "main",
-      last_seen_commit: "def123",
-      implementation_id: implementation.id
+      repo_uri: branch.repo_uri,
+      implementation_id: implementation.id,
+      branch_id: branch.id
     }
 
     attrs = Map.merge(defaults, attrs)
 
     existing =
       Repo.one(
-        from b in TrackedBranch,
-          where: b.implementation_id == ^implementation.id,
-          where: b.repo_uri == ^attrs.repo_uri
+        from tb in TrackedBranch,
+          where: tb.implementation_id == ^implementation.id,
+          where: tb.branch_id == ^branch.id
       )
 
     if existing do
       unless silent do
         IO.puts(
-          "Tracked branch already exists: #{attrs.repo_uri} for implementation #{implementation.name}"
+          "Tracked branch already exists: #{branch.repo_uri}/#{branch.branch_name} for implementation #{implementation.name}"
         )
       end
 
       existing
     else
-      {:ok, branch} = Repo.insert(TrackedBranch.changeset(%TrackedBranch{}, attrs))
+      {:ok, tracked_branch} = Repo.insert(TrackedBranch.changeset(%TrackedBranch{}, attrs))
 
       unless silent do
         IO.puts("Created tracked branch: #{branch.repo_uri}/#{branch.branch_name}")
       end
 
-      branch
+      tracked_branch
     end
   end
 

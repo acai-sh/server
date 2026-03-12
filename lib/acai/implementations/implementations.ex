@@ -1,11 +1,11 @@
 defmodule Acai.Implementations do
   @moduledoc """
-  Context for implementations and tracked branches.
+  Context for implementations, branches, and tracked branches.
   """
 
   import Ecto.Query
   alias Acai.Repo
-  alias Acai.Implementations.{Implementation, TrackedBranch}
+  alias Acai.Implementations.{Implementation, Branch, TrackedBranch}
   alias Acai.Products.Product
   alias Acai.Specs.FeatureImplState
 
@@ -147,22 +147,95 @@ defmodule Acai.Implementations do
     |> Map.new()
   end
 
+  # --- Branches ---
+
+  @doc """
+  Gets a branch by ID.
+  """
+  def get_branch!(id), do: Repo.get!(Branch, id)
+
+  @doc """
+  Gets a branch by its stable identity (repo_uri, branch_name).
+  Returns nil if not found.
+  """
+  def get_branch_by_identity(repo_uri, branch_name) do
+    Repo.one(
+      from b in Branch,
+        where: b.repo_uri == ^repo_uri and b.branch_name == ^branch_name
+    )
+  end
+
+  @doc """
+  Gets or creates a branch by its stable identity (repo_uri, branch_name).
+  If the branch exists, updates last_seen_commit. Otherwise creates new.
+  """
+  def get_or_create_branch(attrs) do
+    attrs = Map.new(attrs)
+    repo_uri = attrs[:repo_uri] || attrs["repo_uri"]
+    branch_name = attrs[:branch_name] || attrs["branch_name"]
+    last_seen_commit = attrs[:last_seen_commit] || attrs["last_seen_commit"]
+
+    case get_branch_by_identity(repo_uri, branch_name) do
+      nil ->
+        %Branch{}
+        |> Branch.changeset(attrs)
+        |> Repo.insert()
+
+      branch ->
+        branch
+        |> Branch.changeset(%{last_seen_commit: last_seen_commit})
+        |> Repo.update()
+    end
+  end
+
+  @doc """
+  Updates a branch.
+  """
+  def update_branch(%Branch{} = branch, attrs) do
+    branch
+    |> Branch.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Returns a changeset for a branch.
+  """
+  def change_branch(%Branch{} = branch, attrs \\ %{}) do
+    Branch.changeset(branch, attrs)
+  end
+
+  @doc """
+  Lists all branches for an implementation through tracked_branches.
+  """
+  def list_branches_for_implementation(%Implementation{} = implementation) do
+    Repo.all(
+      from b in Branch,
+        join: tb in TrackedBranch,
+        on: tb.branch_id == b.id,
+        where: tb.implementation_id == ^implementation.id
+    )
+  end
+
   # --- Tracked Branches ---
 
   @doc """
   Lists all tracked branches for an implementation.
+  Preloads the branch association.
   """
   def list_tracked_branches(%Implementation{} = implementation) do
-    Repo.all(from b in TrackedBranch, where: b.implementation_id == ^implementation.id)
+    Repo.all(
+      from tb in TrackedBranch,
+        where: tb.implementation_id == ^implementation.id,
+        preload: [:branch]
+    )
   end
 
   @doc """
-  Gets a tracked branch by ID.
-  """
-  def get_tracked_branch!(id), do: Repo.get!(TrackedBranch, id)
+  Creates a tracked branch linking an implementation to a branch.
 
-  @doc """
-  Creates a tracked branch for an implementation.
+  The attrs must contain:
+  - :branch_id - the ID of the branch to track
+  - :repo_uri - the denormalized repo_uri for the unique constraint
   """
   def create_tracked_branch(%Implementation{} = implementation, attrs) do
     attrs =
@@ -187,8 +260,8 @@ defmodule Acai.Implementations do
   """
   def count_tracked_branches(%Implementation{} = implementation) do
     Repo.one(
-      from b in TrackedBranch,
-        where: b.implementation_id == ^implementation.id,
+      from tb in TrackedBranch,
+        where: tb.implementation_id == ^implementation.id,
         select: count()
     )
   end
@@ -201,10 +274,10 @@ defmodule Acai.Implementations do
     impl_ids = Enum.map(implementations, & &1.id)
 
     Repo.all(
-      from b in TrackedBranch,
-        where: b.implementation_id in ^impl_ids,
-        group_by: b.implementation_id,
-        select: {b.implementation_id, count()}
+      from tb in TrackedBranch,
+        where: tb.implementation_id in ^impl_ids,
+        group_by: tb.implementation_id,
+        select: {tb.implementation_id, count()}
     )
     |> Map.new()
   end

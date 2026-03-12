@@ -150,28 +150,34 @@ defmodule Acai.ImplementationsTest do
   end
 
   describe "list_tracked_branches/1" do
-    test "returns branches for the implementation", %{product: product} do
+    test "returns tracked branches for the implementation with preloaded branch", %{
+      product: product
+    } do
       impl = implementation_fixture(product)
-      branch = tracked_branch_fixture(impl)
+      tracked_branch = tracked_branch_fixture(impl)
 
-      assert [^branch] = Implementations.list_tracked_branches(impl)
+      [result] = Implementations.list_tracked_branches(impl)
+      assert result.implementation_id == impl.id
+      assert result.branch_id == tracked_branch.branch_id
+      # Branch association should be preloaded
+      assert %Acai.Implementations.Branch{} = result.branch
     end
   end
 
   describe "create_tracked_branch/2" do
-    test "creates a branch for the implementation", %{product: product} do
+    test "creates a tracked branch for the implementation", %{product: product} do
       impl = implementation_fixture(product)
+      branch = branch_fixture()
 
       attrs = %{
-        repo_uri: "github.com/org/repo",
-        branch_name: "feature-branch",
-        last_seen_commit: "def789"
+        branch_id: branch.id,
+        repo_uri: branch.repo_uri
       }
 
-      assert {:ok, branch} = Implementations.create_tracked_branch(impl, attrs)
-      assert branch.implementation_id == impl.id
-      assert branch.repo_uri == "github.com/org/repo"
-      assert branch.last_seen_commit == "def789"
+      assert {:ok, tracked_branch} = Implementations.create_tracked_branch(impl, attrs)
+      assert tracked_branch.implementation_id == impl.id
+      assert tracked_branch.branch_id == branch.id
+      assert tracked_branch.repo_uri == branch.repo_uri
     end
   end
 

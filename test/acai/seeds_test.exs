@@ -274,19 +274,21 @@ defmodule Acai.SeedsTest do
       assert length(branches) > 0
     end
 
-    test "tracked branch has last_seen_commit" do
+    test "tracked branch links to branch with last_seen_commit" do
       team = Repo.get_by(Teams.Team, name: "mapperoni")
       product = Repo.get_by(Product, team_id: team.id, name: "site")
       impl = Repo.get_by(Implementation, product_id: product.id, name: "production")
 
-      branch =
+      tracked_branch =
         Repo.get_by(TrackedBranch,
           implementation_id: impl.id,
           repo_uri: "github.com/mapperoni/mapperoni-site"
         )
+        |> Repo.preload(:branch)
 
-      assert branch != nil
-      assert branch.last_seen_commit != nil
+      assert tracked_branch != nil
+      assert tracked_branch.branch != nil
+      assert tracked_branch.branch.last_seen_commit != nil
     end
 
     test "idempotent: running seeds twice doesn't duplicate tracked branches" do
