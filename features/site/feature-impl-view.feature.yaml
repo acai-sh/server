@@ -11,13 +11,19 @@ feature:
 
 components:
     MAIN:
-        name: Requirements table
+        name: Main requirements for the feature-impl view.
         requirements:
             1: Renders feature name and description from spec.
             2: Table columns are ACID, Status, Definition, Refs count.
-            3: Status column shows state from spec_impl_states.states JSONB for this ACID.
-            4: Refs column shows count from spec_impl_refs.refs JSONB array for this ACID.
+            2-1: Renders the next nearest ancestor implementation's spec if none exists for this impl.
+            3: Status column shows state of this implementation, or of the inherited implementation
+            4: Refs column shows total number of code references in all branches
             5: Clicking a row opens the requirement details drawer for that ACID.
+            6: Co-located with details about the feature and implementation, the user sees a concise summary the inheritance states;
+            6-1: If refs are inherited
+            6-2: If states are inherited
+            6-3: If the spec and spec requirements are inherited
+            6-note: Consider badges and tooltips here
 
     IMPL_SELECTOR:
         name: Implementation dropdown
@@ -48,3 +54,4 @@ constraints:
         requirements:
             1: If spec not found on impl tracked branches, recurse up parent_implementation_id chain.
             2: States and refs read from snapshot for this implementation only.
+            3: Inheritence is all-or-nothing for spec.reqs, refs, and states. Either the entire jsonb map is inherited or none of it is (because we snapshot at time of first push).
