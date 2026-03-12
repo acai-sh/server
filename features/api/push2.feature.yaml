@@ -92,45 +92,28 @@ components:
 
     IMPLS:
         description:
-            When implementations are created, updated, or linked on push.
+            When implementations (and products) are created, updated, or linked on push.
             To keep this simple for MVP, I am going to assume that re-linking, changing inheritance, and other mutations are done via the frontend only.
             There is no auto-inheritance for MVP-- it must be specified.
         requirements:
-            # Happy path 1 - brand new products & features on a brand new branch
-            1: Push accepts an untracked branch_name
-            1-1: TODO
-            # happy path 2 - brand new products & features on an existing branch
+            # Happy path 1 - pushing anything (a spec, a ref, or a state) on an untracked branch
+            1: Creates a new implementation when the requested `repo_uri`+`branch_name` is not already associated with a tracked branch for any implementation
+            1-1: This is true regardless of payload (if any ref, spec, or state is included in the request)
+            1-2: Names the implementation after the `branch_name` unless `target_impl_name` is included
+            1-3: I can push states and refs even if the implementation does not have any specs or parents.
+            # happy path 2 - brand new products on any tracked or untracked branch
+            2: Creates new `product` record if the request contains a spec that contains a never-before-seen `feature.product` key
             # happy path 3 - new feature on a new branch, inheriting from a parent
             # happy path 4 - mutated spec on a new branch, inheriting from a parent
             # happy path 5 - only edited refs on a new branch
-            # - only edited refs on an existing branch
-            # the refs paths are always the same -
-            # PROBLEM: how do i determine the target implementation for a ref? maybe i cant, just the feature + branch and overlay it by checking what branches are tracked
-            2: I can create a new implementation after branching from a parent one
-            2-1: The system detects that the branch_name is untracked, and takes action based on `target_impl_name`, `parent_impl_name` and `branch_name`'
-            2-1-note: There is no reliable way to know that a new branch should be auto-inherited.
-            3: I can initiate fresh, parentless implementations, for example in a new repo
-            4: I can push specs, refs, and states to existing implementations
-            5: I can create and update in the same push, even across multiple products
-            6: Rejects if the implementation name is already taken and can't be linked
-            6-note: We already have a db constraint that prevents linking two branches from the same repo
-            6-1:
-                Helpful error message; 'The implementation name you provided could not be configured to track this branch,
-                most likely because it already tracks a different branch in this repo. If you want to create a new implementation linked to this branch instead,
-                choose a unique `implementation_name`. Note, if no `implementation_name` is provided, the system will use `branch_name` as the implementation name.'
-            7: When creating a new implementation, uses the `parent_impl_name` to link to
-            8: Creates a new implementation for each unique spec.product contained in the specs list
-            9: TODO TODO - maybe consider a `products` or `implementations` list that allows you to create 2 implementations of 2 products inheriting from 2 different parents? Since parents don't span products but specs might...
-            # How should we deal with the fact that specs may contain new or updated specs for many products?
-            # Multi-implementation naming is not supported. You can only pass in one implementation name. Split up your request otherwise.
-
-    UPDATED_SPEC_PUSH:
-        description: |
-            The user can alter requirements or metadata in an existing feature.yaml
-        requirements:
-            3: Spec version changes update the row but do not create a new spec.
-            4: Renaming a feature creates a new spec; the old spec and its states are preserved.
-            5: Each push captures the commit hash and raw content for traceability.
+            # new backend branch linking to another implementation
+            # multi-product / multi-feature push
+            # sad path - missing product, can't create impl without product
+            # sad path - Rejects if the implementation name is already taken and can't be linked (We already have a db constraint that prevents linking two branches from the same repo)
+            # - # Helpful error message; 'The implementation name you provided could not be configured to track this branch,
+            # most likely because it already tracks a different branch in this repo. If you want to create a new implementation linked to this branch instead,
+            # choose a unique `implementation_name`. Note, if no `implementation_name` is provided, the system will use `branch_name` as the implementation name.'
+            # Implementation naming is all-or-nothing. You can only pass in one implementation name (or one branch name). If you want to create 2 implementations on push, do separate requests.
 
     REF_PUSH:
         name: Code reference push
@@ -190,7 +173,3 @@ constraints:
             1: Feature names must only contain alphanumeric chars, hyphens, and underscores.
             2: Version strings must follow SemVer format when provided.
             3: Duplicate (feature_name, feature_version) combinations are rejected across branches.
-
-    SEMANTICS:
-        name: Additional context for how to discern inserts vs updates, and inheritance rules
-        requirements:
