@@ -79,17 +79,18 @@ Instead, we embrace inheritance and traverse the parent graph to resolve states,
 New implementations are created automatically when `push`ing from an untracked branch.
 
 ## Data Model
+See `setup_database.exs` for complete data model
 
 ### Key Tables
 
-See `setup_database.exs`
+`specs` has a row for each 'spec version', and has a `requirements` column which is a map of ACIDs to requirement definitions, notes and flags.
 
-`specs` has a row for each 'spec version', and has a `requirements` column which is a map of ACIDs to requirement definitions, notes and metadata,
-
-`spec_impl_states` has a `states` column, which is a JSONB bucket for a map of ACIDs to states.
+`feature_impl_states` has a `states` column, which is a JSONB bucket for a map of ACIDs to states.
 The states we support are `null` or `"assigned|blocked|completed|rejected|accepted"` where null is reflected in the UI and api as "no status"
 
-`spec_impl_refs` has a `refs` column, which is a JSONB bucket for a map of ACIDs to file paths (refs). Ref states have an `is_test` property which allows us to track "requirement test coverage" loosely.
+`feature_impl_refs` has a `refs` column, which is a JSONB bucket for a map of ACIDs to file paths (refs). Ref states have an `is_test` property which allows us to track "requirement test coverage" loosely.
+
+The `feature_impl_states` and `feature_impl_refs` tables are keyed by `(implementation_id, feature_name)` rather than `(implementation_id, spec_id)`. This is intentional, to allow pushing refs without requiring a local spec file. Refs and states are observations about *current code state*, not historical artifacts tied to a specific spec version. The `feature_name` (ACID prefix) is stable across versions.
 
 
 ## CLI (MVP)
@@ -108,7 +109,9 @@ It's designed to serve the CLI, with some key read endpoints as well.
 ### `/push`
 Push lists of specs, lists of ref maps, and lists of state maps. All lists are optional.
 Push actions are idempotent.
-When a partial map is pushed, we perform a snapshot and union of whatever the parent held plus whatever was pushed. For example, if I change a file and add 1 new ref, that gets unioned with all the `spec_impl_refs` in the parent's bucket. Same for states, if I update 1 state downstream.
+When a partial map is pushed, we perform a union of whatever the parent held plus whatever was pushed. For example, if I change a file and add 1 new ref, that gets unioned with all the `feature_impl_refs` in the parent's bucket. Same for states, if I update 1 state downstream.
+
+Refs and states are keyed by `feature_name` (the ACID prefix), not `spec_id`. This allows pushing refs/states from any repo in a monorepo, regardless of where the spec file lives.
 
 Spec pushes are rejected when:
 **This feature + version is already taken.**
@@ -134,4 +137,5 @@ All of these journeys must be supported both locally (after changes are made), a
 - **Branch collisions:** `frontend/main` ≠ `backend/main` (scoped to `repo_uri`)
 - **Spec renames:** New `feature_name` = new spec; old spec + states preserved
 - **Parent deletion:** `parent_implementation_id` SET NULL, child survives
-- **Drift prevention:** Snapshots isolate child from parent changes post-creation
+- **Lazy inheritance:** States/refs are resolved by walking the parent chain on each query, not snapshotted at creation time
+- **Cross-repo features:** Refs/states can exist for a feature whose spec lives in a different repo (keyed by feature_name)
