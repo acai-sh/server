@@ -39,8 +39,8 @@ components:
             4: token_hash is a string storing the SHA-256 hash of the raw token.
             4-1: token_hash has a UNIQUE constraint, which serves as its index.
             5: token_prefix is a string storing the unhashed prefix.
-            6: scopes is a JSONB array of strings defining the permitted API actions.
-            6-1: Default new token scopes are specs:read, specs:write, states:read, states:write, refs:read, refs:write, impls:read, impls:write, team:read.
+            6: scopes is a JSONB array of strings defining the permitted API actions, default no scopes.
+            6-1: Default new token scopes are set by the server on creation; specs:read, specs:write, states:read, states:write, refs:read, refs:write, impls:read, impls:write, team:read.
             7: expires_at is a timestamp indicating when the token naturally invalidates. Optional.
             8: revoked_at is a timestamp for manual, soft-delete invalidation. Optional.
             9: last_used_at is a timestamp updated on successful authentication to track stale tokens. Optional.
@@ -79,7 +79,7 @@ components:
             3: repo_uri is the normalized URI (e.g., github.com/org/repo).
             4: branch_name is a string (e.g., main, dev, feature-x).
             5: last_seen_commit is a string storing the commit hash from the most recent CLI push for this branch.
-            6: Composite Unique Constraint enforces (implementation_id, repo_uri) - an implementation can only track one branch per repo.
+            6: Composite Unique Constraint enforces (implementation_id, repo_uri) - an implementation may not track two branches in the same repo
             7: Index on (repo_uri, branch_name) for looking up which implementation tracks a given branch.
 
     SPECS:
@@ -88,9 +88,10 @@ components:
             A stored feature.yaml file at a specific repo + branch + path.
             Requirements are stored as JSONB rather than a separate table for simplicity.
             Denormalized repo_uri and branch_name support uniqueness constraints without joins.
+            Specs belong to a product (not directly to a team) since products already define team ownership.
         requirements:
             1: id field is a UUIDv7 Primary Key.
-            2: team_id is a Foreign Key to teams table.
+            2: product_id is a Foreign Key to products table, non-nullable.
             3: tracked_branch_id is a Foreign Key to tracked_branches table. Optional as FK, but should be populated when the branch is tracked.
             4: repo_uri is the normalized URI, copied from tracked_branch for uniqueness constraint.
             5: branch_name is a string, copied from tracked_branch for uniqueness constraint.
@@ -106,11 +107,10 @@ components:
             12: raw_content is a text field storing the original feature.yaml contents. Optional.
             13: requirements is a JSONB column storing parsed requirement definitions keyed by ACID.
             13-1: Each ACID key maps to an object containing definition (string), note (string, optional), is_deprecated (boolean, defaults to false), replaced_by (array of ACID strings, defaults to empty).
-            14: product_id is a Foreign Key to products table.
-            15: Composite Unique Constraint enforces (team_id, repo_uri, branch_name, feature_name) - one spec per feature per branch.
-            16: Composite Unique Constraint enforces (team_id, feature_name, feature_version) - prevents duplicate feature versions, forces users to re-version when they revise specs.
-            17: Index on (product_id) for listing specs by product.
-            18: Index on (repo_uri, branch_name) for joining specs to tracked_branches.
+            14: Composite Unique Constraint enforces (product_id, repo_uri, branch_name, feature_name) - one spec per feature per branch within a product.
+            15: Composite Unique Constraint enforces (product_id, feature_name, feature_version) - prevents duplicate feature versions within a product, allows same feature name across products.
+            16: Index on (product_id) for listing specs by product.
+            17: Index on (repo_uri, branch_name) for joining specs to tracked_branches.
 
     SPEC_IMPL_STATES:
         name: spec_impl_states table
@@ -159,11 +159,11 @@ constraints:
     SPEC_IDENTITY:
         name: Spec identity and update semantics
         requirements:
-            1: Spec id is stable across updates on the same (repo_uri, branch_name, feature_name) combination.
+            1: Spec id is stable across updates on the same (product_id, repo_uri, branch_name, feature_name) combination.
             2: Pushing an updated feature.yaml to an existing branch updates the existing spec row if feature_name matches.
             3: Renaming a feature creates a new spec; the old spec and its states remain under the old feature_name.
             4: Version changes on an existing spec update the spec row but do not create a new spec.
-            5: Version uniqueness constraint prevents claiming a (feature_name, feature_version) already used by another branch.
+            5: Version uniqueness constraint prevents claiming a (feature_name, feature_version) already used within the same product.
 
     IMPL_CREATION:
         name: Automatic implementation creation

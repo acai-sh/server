@@ -3,21 +3,33 @@ feature:
     key: PUSH_API
     description: |
         The push endpoint is the primary write API for the acai CLI.
-        It ingests specs, code references, states, and manages implementation state.
+        It ingests specs, code references, states, and git metadata in a single json payload.
+        It can be used to update existing product implementations (for example, updates to Production when specs change or code has been refactored)
+        It can also be used to create a new implementation, with inheritence semantics (for example, when branching from Staging to work on a new spec or fix an existing one)
     version: 1.0.0
     product: api
-    prerequisites:
-        - The data-model feature defines the core schema
 
 components:
-    SPEC_PUSH:
-        name: Spec push
+    NEW_SPEC_PUSH:
         description: |
-            Pushing a feature.yaml creates or updates a spec for the branch.
-            Spec identity is stable across updates on the same (product_id, repo_uri, branch_name, feature_name).
+            The user can push a new feature.yaml from an existing branch, or from a new branch.
+            A spec is considered "new" when it has an unseen feature.name, or a new feature.version string.
+            The data model prevents duplicate spec inserts if feature.name exists on this branch (should perform an update instead),
+            or if feature.name + feature.version exist in the team already (should change the version number)
         requirements:
-            1: Push creates a new spec if no matching (product_id, repo_uri, branch_name, feature_name) exists.
-            2: Push updates the existing spec if the combination already exists.
+            1: Rejects the spec push if feature name + version already exist in the team.
+            1-note: This is already enforced as a db-level constraint
+            2: The system can automatically determine if the spec is new-- the user never needs to specify update vs. insert.
+            3:
+
+    NEW_IMPL:
+        description: |
+            The api follows a simple heuristic to decide if a new Product Implementation is needed.
+
+    UPDATED_SPEC_PUSH:
+        description: |
+            The user can alter requirements or metadata in an existing feature.yaml
+        requirements:
             3: Spec version changes update the row but do not create a new spec.
             4: Renaming a feature creates a new spec; the old spec and its states are preserved.
             5: Each push captures the commit hash and raw content for traceability.
@@ -117,4 +129,4 @@ constraints:
         requirements:
             1: Feature names must only contain alphanumeric chars, hyphens, and underscores.
             2: Version strings must follow SemVer format when provided.
-            3: Duplicate (feature_name, feature_version) combinations are rejected within the same product, allowing same feature names across different products.
+            3: Duplicate (feature_name, feature_version) combinations are rejected across branches.

@@ -10,6 +10,7 @@ Each requirement in the spec has a stable ID e.g. `my-feature.COMPONENT.1-1` or 
 ```yaml
 feature:
     name: my-feature
+    product: my-website
 
 components:
     EXAMPLE:

@@ -110,12 +110,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
       add :token_prefix, :string, null: false
       # data-model.TOKENS.6
       # data-model.TOKENS.6-1
-      add :scopes, :jsonb,
-        null: false,
-        default:
-          fragment(
-            "'[\"specs:read\",\"specs:write\",\"states:read\",\"states:write\",\"refs:read\",\"refs:write\",\"impls:read\",\"impls:write\",\"team:read\"]'::jsonb"
-          )
+      add :scopes, :jsonb, null: false
 
       # data-model.TOKENS.7
       add :expires_at, :utc_datetime
@@ -195,7 +190,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     create table(:specs, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
       # data-model.SPECS.2
-      add :team_id, references(:teams, type: :uuid, on_delete: :delete_all), null: false
+      add :product_id, references(:products, type: :uuid, on_delete: :delete_all), null: false
       # data-model.SPECS.3
       add :tracked_branch_id, references(:tracked_branches, type: :uuid, on_delete: :nilify_all)
       # data-model.SPECS.4
@@ -217,27 +212,22 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
       # data-model.SPECS.12
       add :raw_content, :text
       # data-model.SPECS.13
-      add :requirements, :jsonb, null: false, default: fragment("'{}'::jsonb")
-      # data-model.SPECS.14
-      add :product_id, references(:products, type: :uuid, on_delete: :delete_all), null: false
+      add :requirements, :map, null: false, default: %{}
 
       timestamps(type: :utc_datetime)
     end
 
-    # data-model.SPECS.15
-    create unique_index(:specs, [:team_id, :repo_uri, :branch_name, :feature_name])
     # data-model.SPECS.9-1
     create constraint(:specs, :feature_name_url_safe, check: "feature_name ~ '^[a-zA-Z0-9_-]+$'")
 
-    # data-model.SPECS.16
-    execute """
-    CREATE UNIQUE INDEX specs_team_feature_version_unique_idx
-    ON specs (team_id, feature_name, COALESCE(feature_version, ''))
-    """
+    # data-model.SPECS.14, data-model.SPECS.15
+    # If you want to insert a new spec, you have to change either the product, the branch, or the feature name
+    create unique_index(:specs, [:product_id, :repo_uri, :branch_name, :feature_name])
+    create unique_index(:specs, [:product_id, :feature_name, :feature_version])
 
-    # data-model.SPECS.17
+    # data-model.SPECS.16
     create index(:specs, [:product_id])
-    # data-model.SPECS.18
+    # data-model.SPECS.17
     create index(:specs, [:repo_uri, :branch_name])
 
     # ============================================================================
@@ -255,7 +245,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
       # data-model.SPEC_IMPL_STATES.3
       add :spec_id, references(:specs, type: :uuid, on_delete: :delete_all), null: false
       # data-model.SPEC_IMPL_STATES.4
-      add :states, :jsonb, null: false, default: fragment("'{}'::jsonb")
+      add :states, :map, null: false, default: %{}
 
       timestamps(type: :utc_datetime)
     end
@@ -263,10 +253,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # data-model.SPEC_IMPL_STATES.5
     create unique_index(:spec_impl_states, [:implementation_id, :spec_id])
     # data-model.SPEC_IMPL_STATES.6
-    execute(
-      "CREATE INDEX spec_impl_states_states_gin_idx ON spec_impl_states USING gin (states)",
-      "DROP INDEX spec_impl_states_states_gin_idx"
-    )
+    create index(:spec_impl_states, [:states], using: "gin")
 
     # ============================================================================
     # SPEC IMPL REFS TABLE (NEW - replaces code_references)
@@ -283,7 +270,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
       # data-model.SPEC_IMPL_REFS.3
       add :spec_id, references(:specs, type: :uuid, on_delete: :delete_all), null: false
       # data-model.SPEC_IMPL_REFS.4
-      add :refs, :jsonb, null: false, default: fragment("'{}'::jsonb")
+      add :refs, :map, null: false, default: %{}
       # data-model.SPEC_IMPL_REFS.5
       add :agent, :string, null: false
       # data-model.SPEC_IMPL_REFS.6
@@ -297,9 +284,6 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # data-model.SPEC_IMPL_REFS.8
     create unique_index(:spec_impl_refs, [:implementation_id, :spec_id])
     # data-model.SPEC_IMPL_REFS.9
-    execute(
-      "CREATE INDEX spec_impl_refs_refs_gin_idx ON spec_impl_refs USING gin (refs)",
-      "DROP INDEX spec_impl_refs_refs_gin_idx"
-    )
+    create index(:spec_impl_refs, [:refs], using: "gin")
   end
 end
