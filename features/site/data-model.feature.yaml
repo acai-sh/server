@@ -112,33 +112,40 @@ components:
             16: Index on (product_id) for listing specs by product.
             17: Index on (repo_uri, branch_name) for joining specs to tracked_branches.
 
-    SPEC_IMPL_STATES:
-        name: spec_impl_states table
+    FEATURE_IMPL_STATES:
+        name: feature_impl_states table
         description: |
-            Snapshot of ACID states for a specific spec + implementation combination, stored as JSONB.
+            Stores ACID states for a specific feature + implementation combination, stored as JSONB.
+            Keyed by feature_name (not spec_id) to allow states to exist without a local spec file.
+            This enables pushing states from a backend repo for a feature whose spec lives in the frontend repo.
             States are keyed by full ACID (e.g., my-feature.MY_COMPONENT.1-1).
             Orphaned states (ACIDs removed from spec) are retained for potential reinstatement.
         requirements:
             1: id field is a UUIDv7 Primary Key.
             2: implementation_id is a Foreign Key to implementations table.
-            3: spec_id is a Foreign Key to specs table.
+            3: feature_name is a string matching the feature.name from the spec file (ACID prefix).
+            3-1: feature_name field only supports alphanumeric chars, hyphens, and underscores.
             4: states is a JSONB column storing ACID statuses.
             4-1: states format is an object keyed by full ACID string.
             4-2: Each ACID entry contains status (string), comment (string, optional), metadata (object, optional), updated_at (timestamp).
             4-3: Valid status values are null (no status), assigned, blocked, completed, rejected, accepted.
-            5: Composite Unique Constraint enforces (implementation_id, spec_id).
+            5: Composite Unique Constraint enforces (implementation_id, feature_name).
             6: GIN Index on (states) for querying by ACID key within the JSONB.
+            7: Index on (implementation_id) for listing all features for an implementation.
 
-    SPEC_IMPL_REFS:
-        name: spec_impl_refs table
+    FEATURE_IMPL_REFS:
+        name: feature_impl_refs table
         description: |
             Stores code references linking ACIDs to implementation locations in the codebase.
-            Pushed exclusively by CLI, keyed by spec + implementation.
+            Keyed by feature_name (not spec_id) to allow refs to exist without a local spec file.
+            This enables pushing refs from a backend repo for a feature whose spec lives in the frontend repo.
+            Pushed exclusively by CLI.
             Includes metadata about the push agent (CI, user, etc.).
         requirements:
             1: id field is a UUIDv7 Primary Key.
             2: implementation_id is a Foreign Key to implementations table.
-            3: spec_id is a Foreign Key to specs table.
+            3: feature_name is a string matching the feature.name from the spec file (ACID prefix).
+            3-1: feature_name field only supports alphanumeric chars, hyphens, and underscores.
             4: refs is a JSONB column storing ACID references.
             4-1: refs format is an object keyed by full ACID string.
             4-2: Each ACID entry contains an array of reference objects.
@@ -146,8 +153,9 @@ components:
             5: agent is a string identifying the source of the refs (e.g., github-action, @username, robot-label).
             6: commit is a string storing the commit hash when refs were pushed.
             7: pushed_at is a timestamp of when the refs were pushed.
-            8: Composite Unique Constraint enforces (implementation_id, spec_id).
+            8: Composite Unique Constraint enforces (implementation_id, feature_name).
             9: GIN Index on (refs) for querying by ACID key within the JSONB.
+            10: Index on (implementation_id) for listing all features for an implementation.
 
 constraints:
     FIELDS:
@@ -183,5 +191,7 @@ constraints:
             3: If a spec exists on both parent and child implementation's tracked branches, child's spec takes precedence.
             4: If a spec only exists on a parent implementation's tracked branch, states/refs inherit from parent.
             5: Inheritance recurses up the chain with worst case depth of 3 to 4 levels (e.g., prod to dev to feature to task).
-            6: States and refs are snapshotted from parent at child creation time to prevent drift.
-            7: Push operations may overwrite snapshotted refs; states persist unless explicitly modified.
+            6: States and refs are NOT snapshotted at child creation time. Instead, they are resolved lazily by walking the parent chain.
+            7: Push operations create or update feature_impl_states and feature_impl_refs keyed by feature_name, not spec_id.
+            8: Partial pushes merge pushed refs/states with inherited parent values (union strategy).
+            9: feature_name-based keys allow refs/states to exist for features whose spec lives in a different repo (monorepo support).

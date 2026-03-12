@@ -7,7 +7,7 @@ defmodule Acai.SeedsTest do
   - Site specs: map-editor, map-viewer, project-view, data-explorer, form-editor, field-settings, map-settings
   - API specs: core-api, push-api
   - Specs with JSONB requirements
-  - SpecImplState and SpecImplRef tables
+  - FeatureImplState and FeatureImplRef tables
   - Implementations belonging to Products
   """
 
@@ -17,7 +17,7 @@ defmodule Acai.SeedsTest do
   alias Acai.Accounts
   alias Acai.Teams
   alias Acai.Products.Product
-  alias Acai.Specs.{Spec, SpecImplState, SpecImplRef}
+  alias Acai.Specs.{Spec, FeatureImplState, FeatureImplRef}
   alias Acai.Implementations.{Implementation, TrackedBranch}
 
   setup do
@@ -28,6 +28,15 @@ defmodule Acai.SeedsTest do
     Acai.Seeds.run(silent: true)
 
     :ok
+  end
+
+  defp get_product!(team_name, product_name) do
+    team = Repo.get_by!(Teams.Team, name: team_name)
+    Repo.get_by!(Product, team_id: team.id, name: product_name)
+  end
+
+  defp get_spec!(product, feature_name) do
+    Repo.get_by!(Spec, product_id: product.id, feature_name: feature_name)
   end
 
   describe "user seeding" do
@@ -116,8 +125,8 @@ defmodule Acai.SeedsTest do
   # data-model.SPECS.13: Requirements stored as JSONB
   describe "site spec seeding" do
     test "creates map-editor spec" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "map-editor")
+      product = get_product!("mapperoni", "site")
+      spec = get_spec!(product, "map-editor")
       assert spec != nil
 
       assert spec.feature_description ==
@@ -125,20 +134,20 @@ defmodule Acai.SeedsTest do
     end
 
     test "creates map-viewer spec" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "map-viewer")
+      product = get_product!("mapperoni", "site")
+      spec = get_spec!(product, "map-viewer")
       assert spec != nil
     end
 
     test "creates form-editor spec" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "form-editor")
+      product = get_product!("mapperoni", "site")
+      spec = get_spec!(product, "form-editor")
       assert spec != nil
     end
 
     test "map-editor spec has JSONB requirements" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "map-editor")
+      product = get_product!("mapperoni", "site")
+      spec = get_spec!(product, "map-editor")
 
       # data-model.SPECS.13-1: Requirements keyed by ACID
       assert is_map(spec.requirements)
@@ -148,8 +157,8 @@ defmodule Acai.SeedsTest do
     end
 
     test "requirement JSONB has correct structure" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "map-editor")
+      product = get_product!("mapperoni", "site")
+      spec = get_spec!(product, "map-editor")
 
       req = spec.requirements["map-editor.CANVAS.1"]
 
@@ -162,32 +171,32 @@ defmodule Acai.SeedsTest do
     end
 
     test "site spec belongs to site product" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "map-editor")
+      product = get_product!("mapperoni", "site")
+      spec = get_spec!(product, "map-editor")
 
       # data-model.SPECS.14: spec belongs to product
-      product = Repo.get(Product, spec.product_id)
-      assert product != nil
-      assert product.name == "site"
+      spec_product = Repo.get(Product, spec.product_id)
+      assert spec_product != nil
+      assert spec_product.name == "site"
     end
   end
 
   describe "api spec seeding" do
     test "creates core-api spec" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "core-api")
+      product = get_product!("mapperoni", "api")
+      spec = get_spec!(product, "core-api")
       assert spec != nil
     end
 
     test "creates push-api spec" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "push-api")
+      product = get_product!("mapperoni", "api")
+      spec = get_spec!(product, "push-api")
       assert spec != nil
     end
 
     test "push-api spec has JSONB requirements" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "push-api")
+      product = get_product!("mapperoni", "api")
+      spec = get_spec!(product, "push-api")
 
       assert is_map(spec.requirements)
       assert Map.has_key?(spec.requirements, "push-api.SPEC.1")
@@ -195,12 +204,12 @@ defmodule Acai.SeedsTest do
     end
 
     test "api spec belongs to api product" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "push-api")
+      product = get_product!("mapperoni", "api")
+      spec = get_spec!(product, "push-api")
 
-      product = Repo.get(Product, spec.product_id)
-      assert product != nil
-      assert product.name == "api"
+      spec_product = Repo.get(Product, spec.product_id)
+      assert spec_product != nil
+      assert spec_product.name == "api"
     end
 
     test "idempotent: running seeds twice doesn't duplicate specs" do
@@ -288,42 +297,44 @@ defmodule Acai.SeedsTest do
     end
   end
 
-  # data-model.SPEC_IMPL_STATES
-  describe "spec_impl_state seeding" do
-    test "creates spec_impl_state for map-editor spec and production impl" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "map-editor")
-      product = Repo.get_by(Product, team_id: team.id, name: "site")
+  # data-model.FEATURE_IMPL_STATES
+  describe "feature_impl_state seeding" do
+    test "creates feature_impl_state for map-editor spec and production impl" do
+      product = get_product!("mapperoni", "site")
+      spec = get_spec!(product, "map-editor")
       impl = Repo.get_by(Implementation, product_id: product.id, name: "production")
 
-      state = Repo.get_by(SpecImplState, spec_id: spec.id, implementation_id: impl.id)
+      state =
+        Repo.get_by(FeatureImplState, feature_name: spec.feature_name, implementation_id: impl.id)
+
       assert state != nil
     end
 
-    test "spec_impl_state has JSONB states keyed by ACID" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "map-editor")
-      product = Repo.get_by(Product, team_id: team.id, name: "site")
+    test "feature_impl_state has JSONB states keyed by ACID" do
+      product = get_product!("mapperoni", "site")
+      spec = get_spec!(product, "map-editor")
       impl = Repo.get_by(Implementation, product_id: product.id, name: "production")
 
-      state = Repo.get_by(SpecImplState, spec_id: spec.id, implementation_id: impl.id)
+      state =
+        Repo.get_by(FeatureImplState, feature_name: spec.feature_name, implementation_id: impl.id)
 
-      # data-model.SPEC_IMPL_STATES.4: States keyed by ACID
+      # data-model.FEATURE_IMPL_STATES.4: States keyed by ACID
       assert is_map(state.states)
       assert Map.has_key?(state.states, "map-editor.CANVAS.1")
       assert Map.has_key?(state.states, "map-editor.LAYERS.1")
     end
 
-    test "spec_impl_state entry has correct status values" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "map-editor")
-      product = Repo.get_by(Product, team_id: team.id, name: "site")
+    test "feature_impl_state entry has correct status values" do
+      product = get_product!("mapperoni", "site")
+      spec = get_spec!(product, "map-editor")
       impl = Repo.get_by(Implementation, product_id: product.id, name: "production")
 
-      state = Repo.get_by(SpecImplState, spec_id: spec.id, implementation_id: impl.id)
+      state =
+        Repo.get_by(FeatureImplState, feature_name: spec.feature_name, implementation_id: impl.id)
+
       canvas_state = state.states["map-editor.CANVAS.1"]
 
-      # data-model.SPEC_IMPL_STATES.4-3: Valid status values
+      # data-model.FEATURE_IMPL_STATES.4-3: Valid status values
       assert canvas_state["status"] in [
                "pending",
                "in_progress",
@@ -335,49 +346,51 @@ defmodule Acai.SeedsTest do
       assert canvas_state["updated_at"] != nil
     end
 
-    test "idempotent: running seeds twice doesn't duplicate spec_impl_states" do
-      state_count_before = Repo.aggregate(SpecImplState, :count)
+    test "idempotent: running seeds twice doesn't duplicate feature_impl_states" do
+      state_count_before = Repo.aggregate(FeatureImplState, :count)
       Acai.Seeds.run(silent: true)
-      state_count_after = Repo.aggregate(SpecImplState, :count)
+      state_count_after = Repo.aggregate(FeatureImplState, :count)
       assert state_count_before == state_count_after
     end
   end
 
-  # data-model.SPEC_IMPL_REFS
-  describe "spec_impl_ref seeding" do
-    test "creates spec_impl_ref for map-editor spec and production impl" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "map-editor")
-      product = Repo.get_by(Product, team_id: team.id, name: "site")
+  # data-model.FEATURE_IMPL_REFS
+  describe "feature_impl_ref seeding" do
+    test "creates feature_impl_ref for map-editor spec and production impl" do
+      product = get_product!("mapperoni", "site")
+      spec = get_spec!(product, "map-editor")
       impl = Repo.get_by(Implementation, product_id: product.id, name: "production")
 
-      ref = Repo.get_by(SpecImplRef, spec_id: spec.id, implementation_id: impl.id)
+      ref =
+        Repo.get_by(FeatureImplRef, feature_name: spec.feature_name, implementation_id: impl.id)
+
       assert ref != nil
     end
 
-    test "spec_impl_ref has JSONB refs keyed by ACID" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "map-editor")
-      product = Repo.get_by(Product, team_id: team.id, name: "site")
+    test "feature_impl_ref has JSONB refs keyed by ACID" do
+      product = get_product!("mapperoni", "site")
+      spec = get_spec!(product, "map-editor")
       impl = Repo.get_by(Implementation, product_id: product.id, name: "production")
 
-      ref = Repo.get_by(SpecImplRef, spec_id: spec.id, implementation_id: impl.id)
+      ref =
+        Repo.get_by(FeatureImplRef, feature_name: spec.feature_name, implementation_id: impl.id)
 
-      # data-model.SPEC_IMPL_REFS.4: Refs keyed by ACID
+      # data-model.FEATURE_IMPL_REFS.4: Refs keyed by ACID
       assert is_map(ref.refs)
       assert Map.has_key?(ref.refs, "map-editor.CANVAS.1")
     end
 
-    test "spec_impl_ref entry has correct reference structure" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "map-editor")
-      product = Repo.get_by(Product, team_id: team.id, name: "site")
+    test "feature_impl_ref entry has correct reference structure" do
+      product = get_product!("mapperoni", "site")
+      spec = get_spec!(product, "map-editor")
       impl = Repo.get_by(Implementation, product_id: product.id, name: "production")
 
-      ref = Repo.get_by(SpecImplRef, spec_id: spec.id, implementation_id: impl.id)
+      ref =
+        Repo.get_by(FeatureImplRef, feature_name: spec.feature_name, implementation_id: impl.id)
+
       canvas_refs = ref.refs["map-editor.CANVAS.1"]
 
-      # data-model.SPEC_IMPL_REFS.4-3: Each reference has repo, path, loc, is_test
+      # data-model.FEATURE_IMPL_REFS.4-3: Each reference has repo, path, loc, is_test
       assert is_list(canvas_refs)
       first_ref = List.first(canvas_refs)
       assert first_ref["repo"] != nil
@@ -386,24 +399,24 @@ defmodule Acai.SeedsTest do
       assert is_boolean(first_ref["is_test"])
     end
 
-    test "spec_impl_ref has agent, commit, and pushed_at" do
-      team = Repo.get_by(Teams.Team, name: "mapperoni")
-      spec = Repo.get_by(Spec, team_id: team.id, feature_name: "map-editor")
-      product = Repo.get_by(Product, team_id: team.id, name: "site")
+    test "feature_impl_ref has agent, commit, and pushed_at" do
+      product = get_product!("mapperoni", "site")
+      spec = get_spec!(product, "map-editor")
       impl = Repo.get_by(Implementation, product_id: product.id, name: "production")
 
-      ref = Repo.get_by(SpecImplRef, spec_id: spec.id, implementation_id: impl.id)
+      ref =
+        Repo.get_by(FeatureImplRef, feature_name: spec.feature_name, implementation_id: impl.id)
 
-      # data-model.SPEC_IMPL_REFS.5,6,7
+      # data-model.FEATURE_IMPL_REFS.5,6,7
       assert ref.agent != nil
       assert ref.commit != nil
       assert ref.pushed_at != nil
     end
 
-    test "idempotent: running seeds twice doesn't duplicate spec_impl_refs" do
-      ref_count_before = Repo.aggregate(SpecImplRef, :count)
+    test "idempotent: running seeds twice doesn't duplicate feature_impl_refs" do
+      ref_count_before = Repo.aggregate(FeatureImplRef, :count)
       Acai.Seeds.run(silent: true)
-      ref_count_after = Repo.aggregate(SpecImplRef, :count)
+      ref_count_after = Repo.aggregate(FeatureImplRef, :count)
       assert ref_count_before == ref_count_after
     end
   end

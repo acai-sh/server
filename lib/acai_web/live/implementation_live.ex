@@ -59,10 +59,9 @@ defmodule AcaiWeb.ImplementationLive do
   end
 
   # Find a spec by feature_name for a given product
-  defp find_spec_for_feature(team, product_id, feature_name) do
+  defp find_spec_for_feature(_team, product_id, feature_name) do
     Acai.Repo.one(
       from s in Acai.Specs.Spec,
-        where: s.team_id == ^team.id,
         where: s.product_id == ^product_id,
         where: s.feature_name == ^feature_name,
         limit: 1
@@ -77,11 +76,11 @@ defmodule AcaiWeb.ImplementationLive do
     # Build requirement rows from the JSONB requirements map
     requirements = build_requirement_rows_from_spec(spec)
 
-    # data-model.SPEC_IMPL_STATES: Load states from spec_impl_states JSONB
+    # data-model.FEATURE_IMPL_STATES: Load states from feature_impl_states JSONB
     spec_impl_state = Specs.get_spec_impl_state(spec, implementation)
     states = if spec_impl_state, do: spec_impl_state.states, else: %{}
 
-    # data-model.SPEC_IMPL_REFS: Load refs from spec_impl_refs JSONB
+    # data-model.FEATURE_IMPL_REFS: Load refs from feature_impl_refs JSONB
     spec_impl_ref = Specs.get_spec_impl_ref(spec, implementation)
     refs = if spec_impl_ref, do: spec_impl_ref.refs, else: %{}
 

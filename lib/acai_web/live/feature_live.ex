@@ -36,7 +36,7 @@ defmodule AcaiWeb.FeatureLive do
         # feature-view.PERF.1: Preload product association for each implementation
         implementations = Acai.Repo.preload(implementations, :product)
 
-        # data-model.SPEC_IMPL_STATES: Get status counts from spec_impl_states JSONB
+        # data-model.FEATURE_IMPL_STATES: Get status counts from feature_impl_states JSONB
         # For each implementation, aggregate status counts for only the relevant specs
         status_counts_by_impl =
           Implementations.batch_get_spec_impl_state_counts(implementations, specs)
@@ -51,7 +51,7 @@ defmodule AcaiWeb.FeatureLive do
         implementation_cards =
           implementations
           |> Enum.map(fn impl ->
-            # feature-view.MAIN.3: Get status counts from spec_impl_states
+            # feature-view.MAIN.3: Get status counts from feature_impl_states
             impl_counts = Map.get(status_counts_by_impl, impl.id, %{})
 
             # Calculate status percentages for progress bar

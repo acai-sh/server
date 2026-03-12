@@ -24,11 +24,11 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
       # JSONB data from database uses string keys
       requirement_data = Map.get(requirements, acid)
 
-      # data-model.SPEC_IMPL_STATES: Get status from spec_impl_states JSONB
+      # data-model.FEATURE_IMPL_STATES: Get status from feature_impl_states JSONB
       spec_impl_state = Specs.get_spec_impl_state(spec, implementation)
       state_data = get_in(spec_impl_state && spec_impl_state.states, [acid])
 
-      # data-model.SPEC_IMPL_REFS: Get refs from spec_impl_refs JSONB
+      # data-model.FEATURE_IMPL_REFS: Get refs from feature_impl_refs JSONB
       spec_impl_ref = Specs.get_spec_impl_ref(spec, implementation)
       refs_data = Map.get((spec_impl_ref && spec_impl_ref.refs) || %{}, acid, [])
 

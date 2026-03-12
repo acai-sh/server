@@ -4,7 +4,7 @@ defmodule Acai.SpecsTest do
   import Acai.DataModelFixtures
 
   alias Acai.Specs
-  alias Acai.Specs.{Spec, SpecImplState, SpecImplRef}
+  alias Acai.Specs.{Spec, FeatureImplState, FeatureImplRef}
 
   # Shared setup: team -> product -> spec -> implementation
   defp setup_spec_chain(_ctx \\ %{}) do
@@ -76,7 +76,7 @@ defmodule Acai.SpecsTest do
   end
 
   describe "create_spec/4" do
-    test "creates a spec linked to the team and product" do
+    test "creates a spec linked to the product" do
       team = team_fixture()
       product = product_fixture(team)
       current_scope = %{user: %{id: 1}}
@@ -91,7 +91,6 @@ defmodule Acai.SpecsTest do
 
       assert {:ok, %Spec{} = spec} = Specs.create_spec(current_scope, team, product, attrs)
       assert spec.feature_name == "new-feature"
-      assert spec.team_id == team.id
       assert spec.product_id == product.id
     end
 
@@ -241,9 +240,224 @@ defmodule Acai.SpecsTest do
     end
   end
 
-  # --- SpecImplState tests ---
+  # --- FeatureImplState tests ---
 
-  describe "get_spec_impl_state/2" do
+  describe "get_feature_impl_state/2" do
+    test "returns the state for feature_name and implementation" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      state = spec_impl_state_fixture(spec, impl)
+
+      assert Specs.get_feature_impl_state(spec.feature_name, impl).id == state.id
+    end
+
+    test "returns nil when no state exists" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      assert Specs.get_feature_impl_state(spec.feature_name, impl) == nil
+    end
+  end
+
+  describe "create_feature_impl_state/3" do
+    test "creates a state for feature_name and implementation" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      attrs = %{
+        states: %{
+          "test.COMP.1" => %{"status" => "pending", "comment" => "Test"}
+        }
+      }
+
+      assert {:ok, %FeatureImplState{} = state} =
+               Specs.create_feature_impl_state(spec.feature_name, impl, attrs)
+
+      assert state.feature_name == spec.feature_name
+      assert state.implementation_id == impl.id
+      assert state.states["test.COMP.1"]["status"] == "pending"
+    end
+
+    test "returns error changeset when attrs are invalid" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      assert {:error, changeset} =
+               Specs.create_feature_impl_state(spec.feature_name, impl, %{states: nil})
+
+      refute changeset.valid?
+    end
+  end
+
+  describe "update_feature_impl_state/2" do
+    test "updates the state" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      state = spec_impl_state_fixture(spec, impl)
+
+      new_states = %{
+        "test.COMP.1" => %{"status" => "completed", "comment" => "Done"}
+      }
+
+      assert {:ok, %FeatureImplState{} = updated} =
+               Specs.update_feature_impl_state(state, %{states: new_states})
+
+      assert updated.states["test.COMP.1"]["status"] == "completed"
+    end
+  end
+
+  describe "upsert_feature_impl_state/3" do
+    test "inserts a new state when none exists" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      attrs = %{
+        states: %{
+          "test.COMP.1" => %{"status" => "in_progress"}
+        }
+      }
+
+      assert {:ok, %FeatureImplState{} = state} =
+               Specs.upsert_feature_impl_state(spec.feature_name, impl, attrs)
+
+      assert state.feature_name == spec.feature_name
+      assert state.implementation_id == impl.id
+    end
+
+    test "updates existing state on conflict" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      {:ok, original} =
+        Specs.upsert_feature_impl_state(spec.feature_name, impl, %{
+          states: %{"a" => %{"status" => "pending"}}
+        })
+
+      {:ok, updated} =
+        Specs.upsert_feature_impl_state(spec.feature_name, impl, %{
+          states: %{"a" => %{"status" => "completed"}}
+        })
+
+      assert updated.id == original.id
+      assert updated.states["a"]["status"] == "completed"
+    end
+  end
+
+  # --- FeatureImplRef tests ---
+
+  describe "get_feature_impl_ref/2" do
+    test "returns the ref for feature_name and implementation" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      ref_record = spec_impl_ref_fixture(spec, impl)
+
+      assert Specs.get_feature_impl_ref(spec.feature_name, impl).id == ref_record.id
+    end
+
+    test "returns nil when no ref exists" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      assert Specs.get_feature_impl_ref(spec.feature_name, impl) == nil
+    end
+  end
+
+  describe "create_feature_impl_ref/3" do
+    test "creates a ref for feature_name and implementation" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      attrs = %{
+        refs: %{
+          "test.COMP.1" => [
+            %{
+              "repo" => "github.com/org/repo",
+              "path" => "lib/foo.ex",
+              "loc" => "10:5",
+              "is_test" => false
+            }
+          ]
+        },
+        agent: "github-action",
+        commit: "abc123",
+        pushed_at: DateTime.utc_now()
+      }
+
+      assert {:ok, %FeatureImplRef{} = ref_record} =
+               Specs.create_feature_impl_ref(spec.feature_name, impl, attrs)
+
+      assert ref_record.feature_name == spec.feature_name
+      assert ref_record.implementation_id == impl.id
+      assert ref_record.agent == "github-action"
+    end
+
+    test "returns error changeset when attrs are invalid" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      assert {:error, changeset} =
+               Specs.create_feature_impl_ref(spec.feature_name, impl, %{refs: nil})
+
+      refute changeset.valid?
+    end
+  end
+
+  describe "update_feature_impl_ref/2" do
+    test "updates the ref" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+      ref_record = spec_impl_ref_fixture(spec, impl)
+
+      new_refs = %{
+        "test.COMP.1" => [
+          %{
+            "repo" => "github.com/org/repo",
+            "path" => "lib/bar.ex",
+            "loc" => "20:10",
+            "is_test" => true
+          }
+        ]
+      }
+
+      assert {:ok, %FeatureImplRef{} = updated} =
+               Specs.update_feature_impl_ref(ref_record, %{refs: new_refs})
+
+      assert updated.refs["test.COMP.1"] |> hd() |> Map.get("path") == "lib/bar.ex"
+    end
+  end
+
+  describe "upsert_feature_impl_ref/3" do
+    test "inserts a new ref when none exists" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      attrs = %{
+        refs: %{"a" => [%{"path" => "lib/foo.ex"}]},
+        agent: "cli",
+        commit: "def456",
+        pushed_at: DateTime.utc_now()
+      }
+
+      assert {:ok, %FeatureImplRef{} = ref_record} =
+               Specs.upsert_feature_impl_ref(spec.feature_name, impl, attrs)
+
+      assert ref_record.feature_name == spec.feature_name
+      assert ref_record.implementation_id == impl.id
+    end
+
+    test "updates existing ref on conflict" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      {:ok, original} =
+        Specs.upsert_feature_impl_ref(spec.feature_name, impl, %{
+          refs: %{"a" => [%{"path" => "lib/foo.ex"}]},
+          agent: "cli",
+          commit: "abc",
+          pushed_at: DateTime.utc_now()
+        })
+
+      {:ok, updated} =
+        Specs.upsert_feature_impl_ref(spec.feature_name, impl, %{
+          refs: %{"a" => [%{"path" => "lib/bar.ex"}]},
+          agent: "github-action",
+          commit: "def",
+          pushed_at: DateTime.utc_now()
+        })
+
+      assert updated.id == original.id
+      assert updated.agent == "github-action"
+      assert updated.refs["a"] |> hd() |> Map.get("path") == "lib/bar.ex"
+    end
+  end
+
+  # --- Legacy API tests (backwards compatibility) ---
+
+  describe "get_spec_impl_state/2 (legacy)" do
     test "returns the state for spec and implementation" do
       %{spec: spec, impl: impl} = setup_spec_chain()
       state = spec_impl_state_fixture(spec, impl)
@@ -257,7 +471,7 @@ defmodule Acai.SpecsTest do
     end
   end
 
-  describe "create_spec_impl_state/3" do
+  describe "create_spec_impl_state/3 (legacy)" do
     test "creates a state for spec and implementation" do
       %{spec: spec, impl: impl} = setup_spec_chain()
 
@@ -267,36 +481,14 @@ defmodule Acai.SpecsTest do
         }
       }
 
-      assert {:ok, %SpecImplState{} = state} = Specs.create_spec_impl_state(spec, impl, attrs)
-      assert state.spec_id == spec.id
+      assert {:ok, %FeatureImplState{} = state} = Specs.create_spec_impl_state(spec, impl, attrs)
+      assert state.feature_name == spec.feature_name
       assert state.implementation_id == impl.id
       assert state.states["test.COMP.1"]["status"] == "pending"
     end
-
-    test "returns error changeset when attrs are invalid" do
-      %{spec: spec, impl: impl} = setup_spec_chain()
-      assert {:error, changeset} = Specs.create_spec_impl_state(spec, impl, %{states: nil})
-      refute changeset.valid?
-    end
   end
 
-  describe "update_spec_impl_state/2" do
-    test "updates the state" do
-      %{spec: spec, impl: impl} = setup_spec_chain()
-      state = spec_impl_state_fixture(spec, impl)
-
-      new_states = %{
-        "test.COMP.1" => %{"status" => "completed", "comment" => "Done"}
-      }
-
-      assert {:ok, %SpecImplState{} = updated} =
-               Specs.update_spec_impl_state(state, %{states: new_states})
-
-      assert updated.states["test.COMP.1"]["status"] == "completed"
-    end
-  end
-
-  describe "upsert_spec_impl_state/3" do
+  describe "upsert_spec_impl_state/3 (legacy)" do
     test "inserts a new state when none exists" do
       %{spec: spec, impl: impl} = setup_spec_chain()
 
@@ -306,42 +498,22 @@ defmodule Acai.SpecsTest do
         }
       }
 
-      assert {:ok, %SpecImplState{} = state} = Specs.upsert_spec_impl_state(spec, impl, attrs)
-      assert state.spec_id == spec.id
+      assert {:ok, %FeatureImplState{} = state} = Specs.upsert_spec_impl_state(spec, impl, attrs)
+      assert state.feature_name == spec.feature_name
       assert state.implementation_id == impl.id
-    end
-
-    test "updates existing state on conflict" do
-      %{spec: spec, impl: impl} = setup_spec_chain()
-
-      {:ok, original} =
-        Specs.upsert_spec_impl_state(spec, impl, %{states: %{"a" => %{"status" => "pending"}}})
-
-      {:ok, updated} =
-        Specs.upsert_spec_impl_state(spec, impl, %{states: %{"a" => %{"status" => "completed"}}})
-
-      assert updated.id == original.id
-      assert updated.states["a"]["status"] == "completed"
     end
   end
 
-  # --- SpecImplRef tests ---
-
-  describe "get_spec_impl_ref/2" do
+  describe "get_spec_impl_ref/2 (legacy)" do
     test "returns the ref for spec and implementation" do
       %{spec: spec, impl: impl} = setup_spec_chain()
       ref_record = spec_impl_ref_fixture(spec, impl)
 
       assert Specs.get_spec_impl_ref(spec, impl).id == ref_record.id
     end
-
-    test "returns nil when no ref exists" do
-      %{spec: spec, impl: impl} = setup_spec_chain()
-      assert Specs.get_spec_impl_ref(spec, impl) == nil
-    end
   end
 
-  describe "create_spec_impl_ref/3" do
+  describe "create_spec_impl_ref/3 (legacy)" do
     test "creates a ref for spec and implementation" do
       %{spec: spec, impl: impl} = setup_spec_chain()
 
@@ -361,43 +533,13 @@ defmodule Acai.SpecsTest do
         pushed_at: DateTime.utc_now()
       }
 
-      assert {:ok, %SpecImplRef{} = ref_record} = Specs.create_spec_impl_ref(spec, impl, attrs)
-      assert ref_record.spec_id == spec.id
+      assert {:ok, %FeatureImplRef{} = ref_record} = Specs.create_spec_impl_ref(spec, impl, attrs)
+      assert ref_record.feature_name == spec.feature_name
       assert ref_record.implementation_id == impl.id
-      assert ref_record.agent == "github-action"
-    end
-
-    test "returns error changeset when attrs are invalid" do
-      %{spec: spec, impl: impl} = setup_spec_chain()
-      assert {:error, changeset} = Specs.create_spec_impl_ref(spec, impl, %{refs: nil})
-      refute changeset.valid?
     end
   end
 
-  describe "update_spec_impl_ref/2" do
-    test "updates the ref" do
-      %{spec: spec, impl: impl} = setup_spec_chain()
-      ref_record = spec_impl_ref_fixture(spec, impl)
-
-      new_refs = %{
-        "test.COMP.1" => [
-          %{
-            "repo" => "github.com/org/repo",
-            "path" => "lib/bar.ex",
-            "loc" => "20:10",
-            "is_test" => true
-          }
-        ]
-      }
-
-      assert {:ok, %SpecImplRef{} = updated} =
-               Specs.update_spec_impl_ref(ref_record, %{refs: new_refs})
-
-      assert updated.refs["test.COMP.1"] |> hd() |> Map.get("path") == "lib/bar.ex"
-    end
-  end
-
-  describe "upsert_spec_impl_ref/3" do
+  describe "upsert_spec_impl_ref/3 (legacy)" do
     test "inserts a new ref when none exists" do
       %{spec: spec, impl: impl} = setup_spec_chain()
 
@@ -408,33 +550,9 @@ defmodule Acai.SpecsTest do
         pushed_at: DateTime.utc_now()
       }
 
-      assert {:ok, %SpecImplRef{} = ref_record} = Specs.upsert_spec_impl_ref(spec, impl, attrs)
-      assert ref_record.spec_id == spec.id
+      assert {:ok, %FeatureImplRef{} = ref_record} = Specs.upsert_spec_impl_ref(spec, impl, attrs)
+      assert ref_record.feature_name == spec.feature_name
       assert ref_record.implementation_id == impl.id
-    end
-
-    test "updates existing ref on conflict" do
-      %{spec: spec, impl: impl} = setup_spec_chain()
-
-      {:ok, original} =
-        Specs.upsert_spec_impl_ref(spec, impl, %{
-          refs: %{"a" => [%{"path" => "lib/foo.ex"}]},
-          agent: "cli",
-          commit: "abc",
-          pushed_at: DateTime.utc_now()
-        })
-
-      {:ok, updated} =
-        Specs.upsert_spec_impl_ref(spec, impl, %{
-          refs: %{"a" => [%{"path" => "lib/bar.ex"}]},
-          agent: "github-action",
-          commit: "def",
-          pushed_at: DateTime.utc_now()
-        })
-
-      assert updated.id == original.id
-      assert updated.agent == "github-action"
-      assert updated.refs["a"] |> hd() |> Map.get("path") == "lib/bar.ex"
     end
   end
 end

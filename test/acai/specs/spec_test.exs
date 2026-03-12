@@ -22,7 +22,6 @@ defmodule Acai.Specs.SpecTest do
 
       attrs =
         @valid_attrs
-        |> Map.put(:team_id, team.id)
         |> Map.put(:product_id, product.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
@@ -42,7 +41,6 @@ defmodule Acai.Specs.SpecTest do
 
       cs =
         Spec.changeset(%Spec{}, %{@valid_attrs | feature_name: "my feature"})
-        |> Ecto.Changeset.put_change(:team_id, team.id)
         |> Ecto.Changeset.put_change(:product_id, product.id)
 
       refute cs.valid?
@@ -56,7 +54,6 @@ defmodule Acai.Specs.SpecTest do
       attrs =
         @valid_attrs
         |> Map.put(:feature_name, "my-feature_v2")
-        |> Map.put(:team_id, team.id)
         |> Map.put(:product_id, product.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
@@ -76,7 +73,6 @@ defmodule Acai.Specs.SpecTest do
           feature_description: "A description",
           feature_version: "2.0.0"
         })
-        |> Map.put(:team_id, team.id)
         |> Map.put(:product_id, product.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
@@ -92,7 +88,6 @@ defmodule Acai.Specs.SpecTest do
       attrs =
         @valid_attrs
         |> Map.merge(%{raw_content: "feature:\n  name: test\n"})
-        |> Map.put(:team_id, team.id)
         |> Map.put(:product_id, product.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
@@ -108,7 +103,6 @@ defmodule Acai.Specs.SpecTest do
       attrs =
         @valid_attrs
         |> Map.put(:raw_content, nil)
-        |> Map.put(:team_id, team.id)
         |> Map.put(:product_id, product.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
@@ -135,7 +129,6 @@ defmodule Acai.Specs.SpecTest do
       attrs =
         @valid_attrs
         |> Map.merge(%{raw_content: yaml_content})
-        |> Map.put(:team_id, team.id)
         |> Map.put(:product_id, product.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
@@ -170,7 +163,6 @@ defmodule Acai.Specs.SpecTest do
             }
           }
         })
-        |> Map.put(:team_id, team.id)
         |> Map.put(:product_id, product.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
@@ -186,7 +178,6 @@ defmodule Acai.Specs.SpecTest do
       attrs =
         @valid_attrs
         |> Map.put(:feature_version, "invalid")
-        |> Map.put(:team_id, team.id)
         |> Map.put(:product_id, product.id)
 
       cs = Spec.changeset(%Spec{}, attrs)
@@ -196,12 +187,12 @@ defmodule Acai.Specs.SpecTest do
     end
   end
 
-  describe "database constraint: SPECS.15 (team_id, repo_uri, branch_name, feature_name)" do
+  describe "database constraint: SPECS.14 (product_id, repo_uri, branch_name, feature_name)" do
     test "enforces composite unique constraint" do
       team = team_fixture()
       product = product_fixture(team)
 
-      attrs = @valid_attrs |> Map.put(:team_id, team.id) |> Map.put(:product_id, product.id)
+      attrs = @valid_attrs |> Map.put(:product_id, product.id)
 
       {:ok, _} =
         Spec.changeset(%Spec{}, attrs)
@@ -211,11 +202,11 @@ defmodule Acai.Specs.SpecTest do
         Spec.changeset(%Spec{}, attrs)
         |> Acai.Repo.insert()
 
-      assert %{team_id: [_ | _]} = errors_on(cs)
+      assert %{product_id: [_ | _]} = errors_on(cs)
     end
   end
 
-  describe "database constraint: SPECS.16 (team_id, feature_name, feature_version)" do
+  describe "database constraint: SPECS.15 (product_id, feature_name, feature_version)" do
     test "rejects duplicate specs with same feature_name and same version" do
       team = team_fixture()
       product = product_fixture(team)
@@ -224,7 +215,7 @@ defmodule Acai.Specs.SpecTest do
         Spec.changeset(
           %Spec{},
           @valid_attrs
-          |> Map.merge(%{feature_version: "1.0.0", team_id: team.id, product_id: product.id})
+          |> Map.merge(%{feature_version: "1.0.0", product_id: product.id})
         )
         |> Acai.Repo.insert()
 
@@ -237,12 +228,11 @@ defmodule Acai.Specs.SpecTest do
             branch_name: "develop",
             path: "features/other/feature.yaml"
           })
-          |> Map.put(:team_id, team.id)
           |> Map.put(:product_id, product.id)
         )
         |> Acai.Repo.insert()
 
-      assert %{team_id: [_ | _]} = errors_on(cs)
+      assert %{product_id: [_ | _]} = errors_on(cs)
     end
 
     test "allows same feature_name with different versions" do
@@ -253,7 +243,7 @@ defmodule Acai.Specs.SpecTest do
         Spec.changeset(
           %Spec{},
           @valid_attrs
-          |> Map.merge(%{feature_version: "1.0.0", team_id: team.id, product_id: product.id})
+          |> Map.merge(%{feature_version: "1.0.0", product_id: product.id})
         )
         |> Acai.Repo.insert()
 
@@ -266,13 +256,12 @@ defmodule Acai.Specs.SpecTest do
             branch_name: "develop",
             path: "features/other/feature.yaml"
           })
-          |> Map.put(:team_id, team.id)
           |> Map.put(:product_id, product.id)
         )
         |> Acai.Repo.insert()
     end
 
-    test "different teams can have same feature_name and version" do
+    test "different products can have same feature_name and version" do
       team1 = team_fixture()
       team2 = team_fixture()
       product1 = product_fixture(team1)
@@ -282,7 +271,7 @@ defmodule Acai.Specs.SpecTest do
         Spec.changeset(
           %Spec{},
           @valid_attrs
-          |> Map.merge(%{feature_version: "1.0.0", team_id: team1.id, product_id: product1.id})
+          |> Map.merge(%{feature_version: "1.0.0", product_id: product1.id})
         )
         |> Acai.Repo.insert()
 
@@ -290,7 +279,7 @@ defmodule Acai.Specs.SpecTest do
         Spec.changeset(
           %Spec{},
           @valid_attrs
-          |> Map.merge(%{feature_version: "1.0.0", team_id: team2.id, product_id: product2.id})
+          |> Map.merge(%{feature_version: "1.0.0", product_id: product2.id})
         )
         |> Acai.Repo.insert()
     end
@@ -305,7 +294,6 @@ defmodule Acai.Specs.SpecTest do
         Spec.changeset(
           %Spec{},
           @valid_attrs
-          |> Map.put(:team_id, team.id)
           |> Map.put(:product_id, product.id)
           |> Map.put(:feature_name, "invalid name!")
         )

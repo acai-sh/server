@@ -12,8 +12,6 @@ defmodule Acai.Specs.Spec do
   @semver_pattern ~r/^\d+\.\d+\.\d+$/
 
   schema "specs" do
-    # data-model.SPECS.2
-    belongs_to :team, Acai.Teams.Team
     # data-model.SPECS.3
     belongs_to :tracked_branch, Acai.Implementations.TrackedBranch
     # data-model.SPECS.14
@@ -50,8 +48,7 @@ defmodule Acai.Specs.Spec do
     :last_seen_commit,
     :parsed_at,
     :feature_name,
-    :product_id,
-    :team_id
+    :product_id
   ]
 
   @optional_fields [
@@ -76,11 +73,9 @@ defmodule Acai.Specs.Spec do
     |> validate_format(:feature_version, @semver_pattern,
       message: "must follow SemVer format (e.g., 1.0.0)"
     )
+    # data-model.SPECS.14
+    |> unique_constraint([:product_id, :repo_uri, :branch_name, :feature_name])
     # data-model.SPECS.15
-    |> unique_constraint([:team_id, :repo_uri, :branch_name, :feature_name])
-    # data-model.SPECS.16
-    |> unique_constraint([:team_id, :feature_name, :feature_version],
-      name: :specs_team_feature_version_unique_idx
-    )
+    |> unique_constraint([:product_id, :feature_name, :feature_version])
   end
 end

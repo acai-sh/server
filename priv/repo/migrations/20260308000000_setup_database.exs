@@ -231,59 +231,73 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     create index(:specs, [:repo_uri, :branch_name])
 
     # ============================================================================
-    # SPEC IMPL STATES TABLE (NEW - replaces requirement_statuses)
+    # FEATURE IMPL STATES TABLE (NEW - replaces requirement_statuses)
     # ============================================================================
 
-    # data-model.SPEC_IMPL_STATES.1
+    # data-model.FEATURE_IMPL_STATES.1
     # data-model.FIELDS.3
-    create table(:spec_impl_states, primary_key: false) do
+    create table(:feature_impl_states, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
-      # data-model.SPEC_IMPL_STATES.2
+      # data-model.FEATURE_IMPL_STATES.2
       add :implementation_id, references(:implementations, type: :uuid, on_delete: :delete_all),
         null: false
 
-      # data-model.SPEC_IMPL_STATES.3
-      add :spec_id, references(:specs, type: :uuid, on_delete: :delete_all), null: false
-      # data-model.SPEC_IMPL_STATES.4
+      # data-model.FEATURE_IMPL_STATES.3
+      add :feature_name, :string, null: false
+      # data-model.FEATURE_IMPL_STATES.4
       add :states, :map, null: false, default: %{}
 
       timestamps(type: :utc_datetime)
     end
 
-    # data-model.SPEC_IMPL_STATES.5
-    create unique_index(:spec_impl_states, [:implementation_id, :spec_id])
-    # data-model.SPEC_IMPL_STATES.6
-    create index(:spec_impl_states, [:states], using: "gin")
+    # data-model.FEATURE_IMPL_STATES.3-1
+    create constraint(:feature_impl_states, :feature_name_url_safe,
+             check: "feature_name ~ '^[a-zA-Z0-9_-]+$'"
+           )
+
+    # data-model.FEATURE_IMPL_STATES.5
+    create unique_index(:feature_impl_states, [:implementation_id, :feature_name])
+    # data-model.FEATURE_IMPL_STATES.6
+    create index(:feature_impl_states, [:states], using: "gin")
+    # data-model.FEATURE_IMPL_STATES.7
+    create index(:feature_impl_states, [:implementation_id])
 
     # ============================================================================
-    # SPEC IMPL REFS TABLE (NEW - replaces code_references)
+    # FEATURE IMPL REFS TABLE (NEW - replaces code_references)
     # ============================================================================
 
-    # data-model.SPEC_IMPL_REFS.1
+    # data-model.FEATURE_IMPL_REFS.1
     # data-model.FIELDS.3
-    create table(:spec_impl_refs, primary_key: false) do
+    create table(:feature_impl_refs, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
-      # data-model.SPEC_IMPL_REFS.2
+      # data-model.FEATURE_IMPL_REFS.2
       add :implementation_id, references(:implementations, type: :uuid, on_delete: :delete_all),
         null: false
 
-      # data-model.SPEC_IMPL_REFS.3
-      add :spec_id, references(:specs, type: :uuid, on_delete: :delete_all), null: false
-      # data-model.SPEC_IMPL_REFS.4
+      # data-model.FEATURE_IMPL_REFS.3
+      add :feature_name, :string, null: false
+      # data-model.FEATURE_IMPL_REFS.4
       add :refs, :map, null: false, default: %{}
-      # data-model.SPEC_IMPL_REFS.5
+      # data-model.FEATURE_IMPL_REFS.5
       add :agent, :string, null: false
-      # data-model.SPEC_IMPL_REFS.6
+      # data-model.FEATURE_IMPL_REFS.6
       add :commit, :string, null: false
-      # data-model.SPEC_IMPL_REFS.7
+      # data-model.FEATURE_IMPL_REFS.7
       add :pushed_at, :utc_datetime, null: false
 
       timestamps(type: :utc_datetime)
     end
 
-    # data-model.SPEC_IMPL_REFS.8
-    create unique_index(:spec_impl_refs, [:implementation_id, :spec_id])
-    # data-model.SPEC_IMPL_REFS.9
-    create index(:spec_impl_refs, [:refs], using: "gin")
+    # data-model.FEATURE_IMPL_REFS.3-1
+    create constraint(:feature_impl_refs, :feature_name_url_safe,
+             check: "feature_name ~ '^[a-zA-Z0-9_-]+$'"
+           )
+
+    # data-model.FEATURE_IMPL_REFS.8
+    create unique_index(:feature_impl_refs, [:implementation_id, :feature_name])
+    # data-model.FEATURE_IMPL_REFS.9
+    create index(:feature_impl_refs, [:refs], using: "gin")
+    # data-model.FEATURE_IMPL_REFS.10
+    create index(:feature_impl_refs, [:implementation_id])
   end
 end

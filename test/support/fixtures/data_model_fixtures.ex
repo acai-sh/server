@@ -6,7 +6,7 @@ defmodule Acai.DataModelFixtures do
   alias Acai.Repo
   alias Acai.Teams.{Team, UserTeamRole, AccessToken}
   alias Acai.Products.Product
-  alias Acai.Specs.{Spec, SpecImplState, SpecImplRef}
+  alias Acai.Specs.{Spec, FeatureImplState, FeatureImplRef}
   alias Acai.Implementations.{Implementation, TrackedBranch}
 
   def unique_team_name, do: "team-#{System.unique_integer([:positive])}"
@@ -96,7 +96,6 @@ defmodule Acai.DataModelFixtures do
         requirements: %{}
       })
       |> Map.put(:product_id, product.id)
-      |> Map.put(:team_id, product.team_id)
 
     {:ok, spec} =
       Spec.changeset(%Spec{}, attrs)
@@ -152,11 +151,11 @@ defmodule Acai.DataModelFixtures do
           }
         }
       })
-      |> Map.put(:spec_id, spec.id)
+      |> Map.put(:feature_name, spec.feature_name)
       |> Map.put(:implementation_id, implementation.id)
 
     {:ok, state} =
-      SpecImplState.changeset(%SpecImplState{}, attrs)
+      FeatureImplState.changeset(%FeatureImplState{}, attrs)
       |> Repo.insert()
 
     state
@@ -180,11 +179,11 @@ defmodule Acai.DataModelFixtures do
         commit: "abc123def456",
         pushed_at: DateTime.utc_now()
       })
-      |> Map.put(:spec_id, spec.id)
+      |> Map.put(:feature_name, spec.feature_name)
       |> Map.put(:implementation_id, implementation.id)
 
     {:ok, ref} =
-      SpecImplRef.changeset(%SpecImplRef{}, attrs)
+      FeatureImplRef.changeset(%FeatureImplRef{}, attrs)
       |> Repo.insert()
 
     ref

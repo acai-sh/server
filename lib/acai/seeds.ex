@@ -17,7 +17,7 @@ defmodule Acai.Seeds do
   alias Acai.Accounts
   alias Acai.Teams.{Team, UserTeamRole}
   alias Acai.Products.Product
-  alias Acai.Specs.{Spec, SpecImplState, SpecImplRef}
+  alias Acai.Specs.{Spec, FeatureImplState, FeatureImplRef}
   alias Acai.Implementations.{Implementation, TrackedBranch}
 
   @doc """
@@ -786,21 +786,18 @@ defmodule Acai.Seeds do
     )
   end
 
-  defp seed_spec(team, product, attrs, silent) do
-    unique_suffix = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
-
+  defp seed_spec(_team, product, attrs, silent) do
     defaults = %{
-      repo_uri: "github.com/example/repo",
+      repo_uri: "github.com/mapperoni/mapperoni",
       branch_name: "main",
-      path: "features/sample-#{unique_suffix}.feature.yaml",
-      last_seen_commit: "abc#{unique_suffix}",
-      parsed_at: DateTime.utc_now(:second),
-      feature_name: "sample-feature-#{unique_suffix}",
-      feature_description: "A sample feature for demonstration",
+      path: "features/sample.feature.yaml",
+      last_seen_commit: "abc123def456",
+      parsed_at: DateTime.utc_now(),
+      feature_name: "sample-feature",
+      feature_description: "A sample feature for seeding",
       feature_version: "1.0.0",
       raw_content: "feature:\n  name: sample",
       requirements: %{},
-      team_id: team.id,
       product_id: product.id
     }
 
@@ -809,13 +806,13 @@ defmodule Acai.Seeds do
     existing =
       Repo.one(
         from s in Spec,
-          where: s.team_id == ^team.id,
+          where: s.product_id == ^product.id,
           where: s.feature_name == ^attrs.feature_name
       )
 
     if existing do
       unless silent do
-        IO.puts("Spec already exists: #{attrs.feature_name} in team #{team.name}")
+        IO.puts("Spec already exists: #{attrs.feature_name} in product #{product.name}")
       end
 
       existing
@@ -1013,7 +1010,7 @@ defmodule Acai.Seeds do
   end
 
   # ---------------------------------------------------------------------------
-  # SpecImplState Seeding
+  # FeatureImplState Seeding
   # ---------------------------------------------------------------------------
 
   defp seed_spec_impl_states(
@@ -1022,7 +1019,7 @@ defmodule Acai.Seeds do
          silent
        ) do
     unless silent do
-      IO.puts("\n=== Seeding SpecImplStates ===")
+      IO.puts("\n=== Seeding FeatureImplStates ===")
     end
 
     now = DateTime.utc_now() |> DateTime.to_iso8601()
@@ -1140,7 +1137,7 @@ defmodule Acai.Seeds do
   defp seed_spec_impl_state(spec, implementation, attrs, silent) do
     defaults = %{
       states: %{},
-      spec_id: spec.id,
+      feature_name: spec.feature_name,
       implementation_id: implementation.id
     }
 
@@ -1148,23 +1145,25 @@ defmodule Acai.Seeds do
 
     existing =
       Repo.one(
-        from sis in SpecImplState,
-          where: sis.spec_id == ^spec.id and sis.implementation_id == ^implementation.id
+        from fis in FeatureImplState,
+          where:
+            fis.feature_name == ^spec.feature_name and
+              fis.implementation_id == ^implementation.id
       )
 
     if existing do
       unless silent do
         IO.puts(
-          "SpecImplState already exists for spec #{spec.feature_name} and implementation #{implementation.name}"
+          "FeatureImplState already exists for spec #{spec.feature_name} and implementation #{implementation.name}"
         )
       end
 
       existing
     else
-      {:ok, state} = Repo.insert(SpecImplState.changeset(%SpecImplState{}, attrs))
+      {:ok, state} = Repo.insert(FeatureImplState.changeset(%FeatureImplState{}, attrs))
 
       unless silent do
-        IO.puts("Created spec_impl_state for spec #{spec.feature_name}")
+        IO.puts("Created feature_impl_state for spec #{spec.feature_name}")
       end
 
       state
@@ -1172,7 +1171,7 @@ defmodule Acai.Seeds do
   end
 
   # ---------------------------------------------------------------------------
-  # SpecImplRef Seeding
+  # FeatureImplRef Seeding
   # ---------------------------------------------------------------------------
 
   defp seed_spec_impl_refs(
@@ -1181,7 +1180,7 @@ defmodule Acai.Seeds do
          silent
        ) do
     unless silent do
-      IO.puts("\n=== Seeding SpecImplRefs ===")
+      IO.puts("\n=== Seeding FeatureImplRefs ===")
     end
 
     now = DateTime.utc_now()
@@ -1724,7 +1723,7 @@ defmodule Acai.Seeds do
       agent: "seeds",
       commit: "abc123",
       pushed_at: DateTime.utc_now(),
-      spec_id: spec.id,
+      feature_name: spec.feature_name,
       implementation_id: implementation.id
     }
 
@@ -1732,23 +1731,25 @@ defmodule Acai.Seeds do
 
     existing =
       Repo.one(
-        from sir in SpecImplRef,
-          where: sir.spec_id == ^spec.id and sir.implementation_id == ^implementation.id
+        from fir in FeatureImplRef,
+          where:
+            fir.feature_name == ^spec.feature_name and
+              fir.implementation_id == ^implementation.id
       )
 
     if existing do
       unless silent do
         IO.puts(
-          "SpecImplRef already exists for spec #{spec.feature_name} and implementation #{implementation.name}"
+          "FeatureImplRef already exists for spec #{spec.feature_name} and implementation #{implementation.name}"
         )
       end
 
       existing
     else
-      {:ok, ref} = Repo.insert(SpecImplRef.changeset(%SpecImplRef{}, attrs))
+      {:ok, ref} = Repo.insert(FeatureImplRef.changeset(%FeatureImplRef{}, attrs))
 
       unless silent do
-        IO.puts("Created spec_impl_ref for spec #{spec.feature_name}")
+        IO.puts("Created feature_impl_ref for spec #{spec.feature_name}")
       end
 
       ref
