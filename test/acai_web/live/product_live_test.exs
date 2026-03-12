@@ -63,11 +63,25 @@ defmodule AcaiWeb.ProductLiveTest do
   end
 
   # data-model.IMPLS: Create implementation for a product (not a spec)
+  # If :for option is provided with a spec, creates a tracked branch for that spec's branch
   defp create_implementation_for_product(product, opts) do
-    implementation_fixture(product, %{
-      name: Keyword.get(opts, :name, "Impl-#{System.unique_integer([:positive])}"),
-      is_active: Keyword.get(opts, :is_active, true)
-    })
+    implementation =
+      implementation_fixture(product, %{
+        name: Keyword.get(opts, :name, "Impl-#{System.unique_integer([:positive])}"),
+        is_active: Keyword.get(opts, :is_active, true)
+      })
+
+    # If spec is provided, create tracked branch to link implementation to spec's branch
+    if spec = Keyword.get(opts, :for) do
+      branch =
+        Acai.Repo.get!(Acai.Specs.Spec, spec.id)
+        |> Map.get(:branch_id)
+        |> then(&Acai.Repo.get!(Acai.Implementations.Branch, &1))
+
+      tracked_branch_fixture(implementation, branch: branch)
+    end
+
+    implementation
   end
 
   # Create spec_impl_state with completion data
@@ -193,7 +207,7 @@ defmodule AcaiWeb.ProductLiveTest do
           }
         )
 
-      impl = create_implementation_for_product(product, name: "Test-Impl")
+      impl = create_implementation_for_product(product, name: "Test-Impl", for: spec)
 
       # Set 2 out of 4 requirements as completed (50%)
       create_spec_impl_state(spec, impl, %{
@@ -214,8 +228,8 @@ defmodule AcaiWeb.ProductLiveTest do
     test "cells show 0% when no spec_impl_state exists", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "MyProduct")
-      create_spec_for_product(team, product, "my-feature")
-      create_implementation_for_product(product, name: "Test-Impl")
+      spec = create_spec_for_product(team, product, "my-feature")
+      create_implementation_for_product(product, name: "Test-Impl", for: spec)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
 
@@ -235,7 +249,7 @@ defmodule AcaiWeb.ProductLiveTest do
           }
         )
 
-      impl = create_implementation_for_product(product, name: "Test-Impl")
+      impl = create_implementation_for_product(product, name: "Test-Impl", for: spec)
 
       create_spec_impl_state(spec, impl, %{
         "req.1" => %{"status" => "completed"},
@@ -251,8 +265,8 @@ defmodule AcaiWeb.ProductLiveTest do
     test "clicking feature row navigates to feature view", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "MyProduct")
-      create_spec_for_product(team, product, "my-feature")
-      create_implementation_for_product(product, name: "Impl-1")
+      spec = create_spec_for_product(team, product, "my-feature")
+      create_implementation_for_product(product, name: "Impl-1", for: spec)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
 
@@ -263,8 +277,8 @@ defmodule AcaiWeb.ProductLiveTest do
     test "clicking cell navigates to feature-impl view", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "MyProduct")
-      create_spec_for_product(team, product, "my-feature")
-      impl = create_implementation_for_product(product, name: "Test-Impl")
+      spec = create_spec_for_product(team, product, "my-feature")
+      impl = create_implementation_for_product(product, name: "Test-Impl", for: spec)
 
       slug = Implementations.implementation_slug(impl)
 
@@ -370,8 +384,8 @@ defmodule AcaiWeb.ProductLiveTest do
     test "0% completion shows default color", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "MyProduct")
-      create_spec_for_product(team, product, "my-feature")
-      create_implementation_for_product(product, name: "Test-Impl")
+      spec = create_spec_for_product(team, product, "my-feature")
+      create_implementation_for_product(product, name: "Test-Impl", for: spec)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
 
@@ -394,7 +408,7 @@ defmodule AcaiWeb.ProductLiveTest do
           }
         )
 
-      impl = create_implementation_for_product(product, name: "Test-Impl")
+      impl = create_implementation_for_product(product, name: "Test-Impl", for: spec)
 
       # 1 of 2 completed = 50%
       create_spec_impl_state(spec, impl, %{
@@ -421,7 +435,7 @@ defmodule AcaiWeb.ProductLiveTest do
           }
         )
 
-      impl = create_implementation_for_product(product, name: "Test-Impl")
+      impl = create_implementation_for_product(product, name: "Test-Impl", for: spec)
 
       create_spec_impl_state(spec, impl, %{
         "req.1" => %{"status" => "completed"}
@@ -445,6 +459,8 @@ defmodule AcaiWeb.ProductLiveTest do
       product = create_product(team, "MyProduct")
 
       # Create two specs with the same feature_name but different versions
+      # Note: Each spec is on a different branch, and an implementation can only track
+      # one branch per repository due to unique constraint. So we need separate implementations.
       spec1 =
         create_spec_for_product(team, product, "shared-feature",
           feature_version: "1.0.0",
@@ -464,15 +480,18 @@ defmodule AcaiWeb.ProductLiveTest do
           }
         )
 
-      impl = create_implementation_for_product(product, name: "Test-Impl")
+      # Create two implementations - one for each spec (different branches)
+      impl1 = create_implementation_for_product(product, name: "Test-Impl-v1", for: spec1)
+      impl2 = create_implementation_for_product(product, name: "Test-Impl-v2", for: spec2)
 
-      # Complete 1/2 from spec1 and 2/3 from spec2 = 3/5 total = 60%
-      create_spec_impl_state(spec1, impl, %{
+      # Complete 1/2 from spec1
+      create_spec_impl_state(spec1, impl1, %{
         "spec1.req.1" => %{"status" => "completed"},
         "spec1.req.2" => %{"status" => "pending"}
       })
 
-      create_spec_impl_state(spec2, impl, %{
+      # Complete 2/3 from spec2
+      create_spec_impl_state(spec2, impl2, %{
         "spec2.req.1" => %{"status" => "completed"},
         "spec2.req.2" => %{"status" => "completed"},
         "spec2.req.3" => %{"status" => "pending"}
@@ -480,9 +499,12 @@ defmodule AcaiWeb.ProductLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
 
-      # Should show 60% (3/5)
-      assert has_element?(view, "table td", "60%")
-      assert has_element?(view, "table td", "3/5")
+      # Each implementation shows its own completion for the feature
+      # impl1: 50% (1/2), impl2: 67% (2/3)
+      assert has_element?(view, "table td", "50%")
+      assert has_element?(view, "table td", "1/2")
+      assert has_element?(view, "table td", "67%")
+      assert has_element?(view, "table td", "2/3")
     end
   end
 
@@ -492,16 +514,16 @@ defmodule AcaiWeb.ProductLiveTest do
     test "only shows features for the correct team", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "MyProduct")
-      create_spec_for_product(team, product, "my-feature")
-      create_implementation_for_product(product, name: "Impl-1")
+      spec = create_spec_for_product(team, product, "my-feature")
+      create_implementation_for_product(product, name: "Impl-1", for: spec)
 
       # Create another team with a different user
       other_user = user_fixture()
       other_team = team_fixture()
       user_team_role_fixture(other_team, other_user, %{title: "owner"})
       other_product = create_product(other_team, "MyProduct")
-      create_spec_for_product(other_team, other_product, "other-feature")
-      create_implementation_for_product(other_product, name: "Impl-1")
+      other_spec = create_spec_for_product(other_team, other_product, "other-feature")
+      create_implementation_for_product(other_product, name: "Impl-1", for: other_spec)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
       # Should only show features from the current team
@@ -513,10 +535,10 @@ defmodule AcaiWeb.ProductLiveTest do
       {team, _role} = create_team_with_owner(user)
       product1 = create_product(team, "MyProduct")
       product2 = create_product(team, "OtherProduct")
-      create_spec_for_product(team, product1, "feature-1")
-      create_spec_for_product(team, product2, "feature-2")
-      create_implementation_for_product(product1, name: "Impl-1")
-      create_implementation_for_product(product2, name: "Impl-1")
+      spec1 = create_spec_for_product(team, product1, "feature-1")
+      spec2 = create_spec_for_product(team, product2, "feature-2")
+      create_implementation_for_product(product1, name: "Impl-1", for: spec1)
+      create_implementation_for_product(product2, name: "Impl-1", for: spec2)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
       assert has_element?(view, "td", "feature-1")
@@ -533,7 +555,7 @@ defmodule AcaiWeb.ProductLiveTest do
       product = create_product(team, "MyProduct")
 
       # Create an implementation with no parent and no tracked branches
-      impl = create_implementation_for_product(product, name: "StandaloneImpl")
+      _impl = create_implementation_for_product(product, name: "StandaloneImpl")
 
       # Create a spec on a different branch not tracked by this implementation
       _spec = create_spec_for_product(team, product, "unreachable-feature")
@@ -557,8 +579,8 @@ defmodule AcaiWeb.ProductLiveTest do
           }
         )
 
-      # Create parent with completed states
-      parent_impl = create_implementation_for_product(product, name: "ParentImpl")
+      # Create parent with completed states (tracks the spec's branch)
+      parent_impl = create_implementation_for_product(product, name: "ParentImpl", for: spec)
 
       create_spec_impl_state(spec, parent_impl, %{
         "req.1" => %{"status" => "completed"},
@@ -566,7 +588,7 @@ defmodule AcaiWeb.ProductLiveTest do
       })
 
       # Create child that inherits from parent
-      child_impl =
+      _child_impl =
         implementation_fixture(product, %{
           name: "ChildImpl",
           parent_implementation_id: parent_impl.id
@@ -590,8 +612,8 @@ defmodule AcaiWeb.ProductLiveTest do
           }
         )
 
-      # Create parent with 50% completion
-      parent_impl = create_implementation_for_product(product, name: "ParentImpl")
+      # Create parent with 50% completion (tracks the spec's branch)
+      parent_impl = create_implementation_for_product(product, name: "ParentImpl", for: spec)
 
       create_spec_impl_state(spec, parent_impl, %{
         "req.1" => %{"status" => "completed"},
@@ -599,6 +621,7 @@ defmodule AcaiWeb.ProductLiveTest do
       })
 
       # Create child with 100% completion (should override parent's 50%)
+      # Child inherits parent's tracked branches via parent chain
       child_impl =
         implementation_fixture(product, %{
           name: "ChildImpl",
@@ -624,7 +647,7 @@ defmodule AcaiWeb.ProductLiveTest do
       product = create_product(team, "MyProduct")
 
       # Create implementation with no tracked branches
-      impl = create_implementation_for_product(product, name: "StandaloneImpl")
+      _impl = create_implementation_for_product(product, name: "StandaloneImpl")
 
       # Create spec that implementation cannot access
       _spec = create_spec_for_product(team, product, "unreachable-feature")

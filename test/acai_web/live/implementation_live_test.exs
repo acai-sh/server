@@ -220,8 +220,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
       # Create an impl to track the spec, but use a fake slug in the test
-      _impl = create_implementation_for_product(product)
-      create_spec_for_feature(team, product, "my-feature", for: _impl)
+      impl = create_implementation_for_product(product)
+      create_spec_for_feature(team, product, "my-feature", for: impl)
 
       # Use a non-existent UUID
       fake_slug = "some-impl+018f1a2b3c4d5e6f7a8b9c0d1e2f3a4b"
@@ -237,8 +237,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
       # Create an impl to track the spec, but use a fake slug in the test
-      _impl = create_implementation_for_product(product)
-      create_spec_for_feature(team, product, "my-feature", for: _impl)
+      impl = create_implementation_for_product(product)
+      create_spec_for_feature(team, product, "my-feature", for: impl)
 
       fake_slug = "some-impl+018f1a2b3c4d5e6f7a8b9c0d1e2f3a4b"
 

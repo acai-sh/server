@@ -81,6 +81,7 @@ defmodule AcaiWeb.ProductLive do
     feature_names = Enum.map(features_by_name, & &1.name)
 
     # Batch resolve specs for all feature/implementation pairs with inheritance
+    # Used for product-view.MATRIX.8 to determine if feature is in ancestor tree
     spec_resolution =
       if feature_names != [] and active_implementations != [] do
         Specs.batch_resolve_specs_for_implementations(feature_names, active_implementations)
@@ -88,10 +89,11 @@ defmodule AcaiWeb.ProductLive do
         %{}
       end
 
-    # Batch get completion data with inheritance
-    feature_impl_completion =
-      if feature_names != [] and active_implementations != [] do
-        Specs.batch_get_feature_impl_completion(feature_names, active_implementations)
+    # Batch get spec-level completion data with inheritance
+    # product-view.ROUTING.3: Uses batch_get_spec_impl_completion for correct inheritance handling
+    spec_impl_completion =
+      if specs != [] and active_implementations != [] do
+        Specs.batch_get_spec_impl_completion(specs, active_implementations)
       else
         %{}
       end
@@ -118,55 +120,28 @@ defmodule AcaiWeb.ProductLive do
                 percentage: nil
               }
             else
-              # Sum completion across all specs for this feature/implementation pair
+              # Sum completion across specs tracked by this implementation
+              # product-view.ROUTING.3: Uses spec-level completion data with inheritance
+              # Only include specs that this implementation can access (via tracked branches)
               {completed, total} =
                 feature.specs
                 |> Enum.reduce({0, 0}, fn spec, {acc_completed, acc_total} ->
-                  spec_total = map_size(spec.requirements)
+                  # Check if this spec is tracked by the implementation (via spec_resolution)
+                  # spec_resolution tells us which spec (if any) provides the feature for this impl
+                  resolved = Map.get(spec_resolution, {feature.name, impl.id})
 
-                  # Get completion from inherited feature_impl_state
-                  completion_data =
-                    Map.get(feature_impl_completion, {feature.name, impl.id}, %{
-                      completed: 0,
-                      total: 0
-                    })
+                  # Only count this spec if it's the one resolved for this implementation
+                  if resolved != :not_found and is_map(resolved) and resolved.id == spec.id do
+                    completion_data =
+                      Map.get(spec_impl_completion, {spec.id, impl.id}, %{
+                        completed: 0,
+                        total: 0
+                      })
 
-                  # Filter to only count this spec's ACIDs
-                  spec_completed =
-                    if completion_data.total > 0 do
-                      spec_acids = Map.keys(spec.requirements)
-
-                      Enum.count(spec_acids, fn _acid ->
-                        # This is an approximation - we count based on the ratio
-                        # In practice, the completion_data is already filtered to the spec
-                        true
-                      end)
-                      # Use the ratio of completed to total from the batch result
-                      |> then(fn _ ->
-                        # Calculate spec-specific completion from the states
-                        {state_row, _} =
-                          Acai.Specs.get_feature_impl_state_with_inheritance(
-                            feature.name,
-                            impl.id
-                          )
-
-                        states = if state_row, do: state_row.states, else: %{}
-
-                        Enum.count(Map.keys(spec.requirements), fn spec_acid ->
-                          case states[spec_acid] do
-                            %{"status" => status} when status in ["completed", "accepted"] ->
-                              true
-
-                            _ ->
-                              false
-                          end
-                        end)
-                      end)
-                    else
-                      0
-                    end
-
-                  {acc_completed + spec_completed, acc_total + spec_total}
+                    {acc_completed + completion_data.completed, acc_total + completion_data.total}
+                  else
+                    {acc_completed, acc_total}
+                  end
                 end)
 
               percentage = if total > 0, do: round(completed / total * 100), else: 0
