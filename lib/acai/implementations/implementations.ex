@@ -7,7 +7,7 @@ defmodule Acai.Implementations do
   alias Acai.Repo
   alias Acai.Implementations.{Implementation, TrackedBranch}
   alias Acai.Products.Product
-  alias Acai.Specs.SpecImplState
+  alias Acai.Specs.FeatureImplState
 
   # --- Implementations ---
 
@@ -209,18 +209,18 @@ defmodule Acai.Implementations do
     |> Map.new()
   end
 
-  # --- SpecImplState Counts ---
+  # --- FeatureImplState Counts ---
 
   @doc """
-  Gets spec_impl_state counts for an implementation.
+  Gets feature_impl_state counts for an implementation.
   Returns %{nil => count, assigned: count, blocked: count, completed: count, accepted: count, rejected: count}
   """
-  def get_spec_impl_state_counts(%Implementation{} = implementation) do
+  def get_feature_impl_state_counts(%Implementation{} = implementation) do
     state =
       Repo.one(
-        from sis in SpecImplState,
-          where: sis.implementation_id == ^implementation.id,
-          select: sis.states
+        from fis in FeatureImplState,
+          where: fis.implementation_id == ^implementation.id,
+          select: fis.states
       ) || %{}
 
     counts = %{
@@ -238,33 +238,43 @@ defmodule Acai.Implementations do
     end)
   end
 
+  # Deprecated: Use get_feature_impl_state_counts/1 instead
+  def get_spec_impl_state_counts(%Implementation{} = implementation) do
+    get_feature_impl_state_counts(implementation)
+  end
+
   @doc """
-  Batch gets spec_impl_state counts for multiple implementations and optional specs.
+  Batch gets feature_impl_state counts for multiple implementations and optional feature_names.
   Returns a map of implementation_id => %{nil => count, assigned: count, blocked: count, completed: count, accepted: count, rejected: count}
 
-  When specs are provided, only counts states for those specs. Otherwise counts all states.
+  When feature_names are provided, only counts states for those features. Otherwise counts all states.
   """
-  def batch_get_spec_impl_state_counts(implementations, specs \\ nil)
+  def batch_get_feature_impl_state_counts(implementations, specs \\ nil)
       when is_list(implementations) do
     impl_ids = Enum.map(implementations, & &1.id)
-    spec_ids = if specs, do: Enum.map(specs, & &1.id), else: nil
+    feature_names = if specs, do: Enum.map(specs, & &1.feature_name) |> Enum.uniq(), else: nil
 
     states =
-      if spec_ids do
+      if feature_names do
         Repo.all(
-          from sis in SpecImplState,
-            where: sis.implementation_id in ^impl_ids and sis.spec_id in ^spec_ids,
-            select: {sis.implementation_id, sis.states}
+          from fis in FeatureImplState,
+            where: fis.implementation_id in ^impl_ids and fis.feature_name in ^feature_names,
+            select: {fis.implementation_id, fis.states}
         )
       else
         Repo.all(
-          from sis in SpecImplState,
-            where: sis.implementation_id in ^impl_ids,
-            select: {sis.implementation_id, sis.states}
+          from fis in FeatureImplState,
+            where: fis.implementation_id in ^impl_ids,
+            select: {fis.implementation_id, fis.states}
         )
       end
 
-    states_by_impl = Map.new(states)
+    # Aggregate states from multiple feature_names per implementation
+    # Each implementation may have multiple rows (one per feature_name), so we merge them
+    states_by_impl =
+      Enum.reduce(states, %{}, fn {impl_id, feature_states}, acc ->
+        Map.update(acc, impl_id, feature_states, &Map.merge(&1, feature_states))
+      end)
 
     impl_ids
     |> Map.new(fn impl_id ->
@@ -287,6 +297,11 @@ defmodule Acai.Implementations do
 
       {impl_id, final_counts}
     end)
+  end
+
+  # Deprecated: Use batch_get_feature_impl_state_counts/2 instead
+  def batch_get_spec_impl_state_counts(implementations, specs \\ nil) do
+    batch_get_feature_impl_state_counts(implementations, specs)
   end
 
   # --- Active Implementations for Specs ---
