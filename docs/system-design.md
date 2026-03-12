@@ -30,13 +30,13 @@ components:
 
 A spec can have multiple versions, as long as each version lives on a different git branch, and the `feature.version` numbers are different.
 
-The `specs` table maintains 1 row *per spec version*. In other words, insert new specs to the specs table only when:
+The `specs` table maintains 1 row *per branch-local spec identity*. In other words, insert new specs to the specs table only when:
   -> feature.product + feature.name combo is new (its a brand new feature)
-  -> branch + version combo is new (its an iteration of an existing feature)
+  -> branch + feature.name combo is new (its the first time that feature appears on that branch)
 
 ```elixir
 # to prevent user from duplicating a featre on the same branch
-create unique_index(:specs, [:product_id, :repo_uri, :branch_name, :feature_name])
+create unique_index(:specs, [:branch_id, :feature_name])
 # to prevent a user from iterating on specs across branches without changing the version
 create unique_index(:specs, [:product_id, :feature_name, :feature_version])
 ```
@@ -49,7 +49,7 @@ Otherwise, we can update existing specs. The following data is mutable in a spec
 
 # What is an Implementation?
 
-1 product can have many Implementations. An Implementation is a group of related branches, and an optional parent Implementation from which it should inherit state.
+1 product can have many Implementations. An Implementation is a group of related tracked branches, and an optional parent Implementation from which it should inherit state.
 
 For example:
 `Production` can track `frontend/main` and `backend/main`, and have no parent
@@ -64,7 +64,7 @@ Constraints:
 create unique_index(:tracked_branches, [:implementation_id, :repo_uri])
 ```
 
-Imlement
+Under the normalized model, `branches` stores one stable row per `(repo_uri, branch_name)`, while `tracked_branches` is the join table that associates implementations to the branches they track.
 
 ### Implementation Inheritance
 
@@ -83,7 +83,12 @@ See `setup_database.exs` for complete data model
 
 ### Key Tables
 
-`specs` has a row for each 'spec version', and has a `requirements` column which is a map of ACIDs to requirement definitions, notes and flags.
+`branches` stores the stable identity for each repo branch. Specs belong to `branches` by `branch_id`, so branch renames can be migrated without breaking spec foreign keys.
+
+`tracked_branches` is a relation table between implementations and branches. This is how an implementation declares which branches it currently tracks.
+
+`specs` has a row for each branch-local spec identity, and has a `requirements` column which is a map of ACIDs to requirement definitions, notes and flags.
+Each spec belongs to exactly one branch via `branch_id`, and a branch can have many specs.
 
 `feature_impl_states` has a `states` column, which is a JSONB bucket for a map of ACIDs to states.
 The states we support are `null` or `"assigned|blocked|completed|rejected|accepted"` where null is reflected in the UI and api as "no status"
@@ -112,6 +117,8 @@ Push actions are idempotent.
 When a partial map is pushed, we perform a union of whatever the parent held plus whatever was pushed. For example, if I change a file and add 1 new ref, that gets unioned with all the `feature_impl_refs` in the parent's bucket. Same for states, if I update 1 state downstream.
 
 Refs and states are keyed by `feature_name` (the ACID prefix), not `spec_id`. This allows pushing refs/states from any repo in a monorepo, regardless of where the spec file lives.
+
+Because implementations track branches through the join table, all specs pushed to any tracked branch are discoverable from that implementation. This keeps the existing implementation semantics while removing the need for `specs` to store a denormalized branch name.
 
 Spec pushes are rejected when:
 **This feature + version is already taken.**

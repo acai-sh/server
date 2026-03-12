@@ -71,30 +71,72 @@ components:
             8: Composite Unique Constraint enforces (product_id, name).
 
     BRANCHES:
-        name: tracked_branches table
-        description: A junction table linking repository branches to an implementation. One implementation can track multiple branches across repos.
+        name: branches table
+        description: |
+            Stores unique repository branches with stable IDs.
+            A branch is identified by its repo_uri + branch_name combination.
+            This allows branch metadata (like name) to be updated without breaking references.
         requirements:
             1: id field is a UUIDv7 Primary Key.
-            2: implementation_id is a Foreign Key to implementations table, non-nullable.
+            2:
+                requirement: implementation_id is a Foreign Key to implementations table, non-nullable.
+                deprecated: true
+                replaced-by:
+                    - data-model.TRACKED_BRANCHES.1
             3: repo_uri is the normalized URI (e.g., github.com/org/repo).
             4: branch_name is a string (e.g., main, dev, feature-x).
             5: last_seen_commit is a string storing the commit hash from the most recent CLI push for this branch.
-            6: Composite Unique Constraint enforces (implementation_id, repo_uri) - an implementation may not track two branches in the same repo
-            7: Index on (repo_uri, branch_name) for looking up which implementation tracks a given branch.
+            6:
+                requirement: Composite Unique Constraint enforces (implementation_id, repo_uri) - an implementation may not track two branches in the same repo
+                deprecated: true
+                replaced-by:
+                    - data-model.BRANCHES.8
+                    - data-model.TRACKED_BRANCHES.4
+            7: Index on (repo_uri, branch_name) for looking up a branch by its stable identity.
+            8: Composite Unique Constraint enforces (repo_uri, branch_name) - each branch is unique globally.
+            9: Index on (repo_uri) for listing branches by repository.
+
+    TRACKED_BRANCHES:
+        name: tracked_branches table
+        description: |
+            A junction table linking implementations to branches they track.
+            One implementation can track multiple branches across repos.
+            This is a many-to-many relationship between implementations and branches.
+        requirements:
+            1: implementation_id is a Foreign Key to implementations table, non-nullable.
+            2: branch_id is a Foreign Key to branches table, non-nullable.
+            3: Composite Primary Key on (implementation_id, branch_id).
+            4: Composite Unique Constraint enforces (implementation_id, repo_uri) - an implementation may not track two branches in the same repo.
+            5: repo_uri is the normalized URI, denormalized from branches table for the unique constraint.
 
     SPECS:
         name: specs table
         description: |
             A stored feature.yaml file at a specific repo + branch + path.
             Requirements are stored as JSONB rather than a separate table for simplicity.
-            Denormalized repo_uri and branch_name support uniqueness constraints without joins.
             Specs belong to a product (not directly to a team) since products already define team ownership.
+            A spec belongs to exactly one branch, but a branch can have many specs.
         requirements:
             1: id field is a UUIDv7 Primary Key.
             2: product_id is a Foreign Key to products table, non-nullable.
-            3: tracked_branch_id is a Foreign Key to tracked_branches table. Optional as FK, but should be populated when the branch is tracked.
-            4: repo_uri is the normalized URI, copied from tracked_branch for uniqueness constraint.
-            5: branch_name is a string, copied from tracked_branch for uniqueness constraint.
+            3:
+                requirement: tracked_branch_id is a Foreign Key to tracked_branches table. Optional as FK, but should be populated when the branch is tracked.
+                deprecated: true
+                replaced-by:
+                    - data-model.SPECS.3-1
+            3-1: branch_id is a Foreign Key to branches table, non-nullable.
+            4:
+                requirement: repo_uri is the normalized URI, copied from tracked_branch for uniqueness constraint.
+                deprecated: true
+                replaced-by:
+                    - data-model.SPECS.3-1
+                    - data-model.BRANCHES.3
+            5:
+                requirement: branch_name is a string, copied from tracked_branch for uniqueness constraint.
+                deprecated: true
+                replaced-by:
+                    - data-model.SPECS.3-1
+                    - data-model.BRANCHES.4
             6: path is text starting from the repo root without a leading slash (e.g., features/auth.feature.yaml). Optional.
             6-1: path is metadata only and not part of spec identity.
             7: last_seen_commit is a string storing the commit hash from the most recent CLI push.
@@ -107,10 +149,20 @@ components:
             12: raw_content is a text field storing the original feature.yaml contents. Optional.
             13: requirements is a JSONB column storing parsed requirement definitions keyed by ACID.
             13-1: Each ACID key maps to an object containing definition (string), note (string, optional), is_deprecated (boolean, defaults to false), replaced_by (array of ACID strings, defaults to empty).
-            14: Composite Unique Constraint enforces (product_id, repo_uri, branch_name, feature_name) - one spec per feature per branch within a product.
+            14:
+                requirement: Composite Unique Constraint enforces (product_id, repo_uri, branch_name, feature_name) - one spec per feature per branch within a product.
+                deprecated: true
+                replaced-by:
+                    - data-model.SPECS.14-1
+            14-1: Composite Unique Constraint enforces (branch_id, feature_name) - one spec per feature per branch.
             15: Composite Unique Constraint enforces (product_id, feature_name, feature_version) - prevents duplicate feature versions within a product, allows same feature name across products.
             16: Index on (product_id) for listing specs by product.
-            17: Index on (repo_uri, branch_name) for joining specs to tracked_branches.
+            17:
+                requirement: Index on (repo_uri, branch_name) for joining specs to tracked_branches.
+                deprecated: true
+                replaced-by:
+                    - data-model.SPECS.17-1
+            17-1: Index on (branch_id) for joining specs to branches.
 
     FEATURE_IMPL_STATES:
         name: feature_impl_states table
@@ -167,18 +219,24 @@ constraints:
     SPEC_IDENTITY:
         name: Spec identity and update semantics
         requirements:
-            1: Spec id is stable across updates on the same (product_id, repo_uri, branch_name, feature_name) combination.
+            1:
+                requirement: Spec id is stable across updates on the same (product_id, repo_uri, branch_name, feature_name) combination.
+                deprecated: true
+                replaced-by:
+                    - data-model.SPEC_IDENTITY.1-1
+            1-1: Spec id is stable across updates on the same (branch_id, feature_name) combination.
             2: Pushing an updated feature.yaml to an existing branch updates the existing spec row if feature_name matches.
             3: Renaming a feature creates a new spec; the old spec and its states remain under the old feature_name.
             4: Version changes on an existing spec update the spec row but do not create a new spec.
             5: Version uniqueness constraint prevents claiming a (feature_name, feature_version) already used within the same product.
+            6: Branch id is stable even if branch_name changes, allowing branch renames without breaking spec references.
 
     IMPL_CREATION:
         name: Automatic implementation creation
         requirements:
             1: When CLI pushes to an untracked branch, the server may auto-create an implementation.
             2: Implementation name defaults to the branch name being pushed.
-            3: Parent implementation is inferred via git upstream branch lookup against tracked_branches table.
+            3: Parent implementation is inferred via git upstream branch lookup against branches and tracked_branches tables.
             4: If parent branch is tracked, new implementation inherits from that implementation.
             5: If parent branch is not tracked or no upstream exists, parent_implementation_id is null.
             6: CLI may override auto-detection with explicit --parent-impl or --parent-branch flags.
