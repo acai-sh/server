@@ -17,10 +17,10 @@ You are responsible for git ops - create and integrate branches as you see fit, 
 * [ ] Check your git status. If needed prepare a root integration branch e.g. `feat/{feature_name}`. If we are working on many features, it's fine to merge into a central branch as long as the subtasks are done elsewhere.
 
 ## Process
-Oversee project completion from beginning to end, following this sequential process.
+Oversee project completion of a project beginning to end, following this sequential process.
 
-1. Dispatch `prepare-task` agent.
-  - `prepare-task` decides what the next chunk of work is. They create one or more task .md files in the `.tasks` folder.
+1. Dispatch `prepare-tasks` agent.
+  - `prepare-tasks` agent plans the entire project and breaks the work up into one or more tasks, the write these to the `.tasks/` directory.
 2. Dispatch `implement-task` agent to a task.
   - `implement-task` agent will read the task file, makes code changes, write tests, make commits to the working task branch.
 3. Dispatch `review-task` agent.

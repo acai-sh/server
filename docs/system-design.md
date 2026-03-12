@@ -124,9 +124,7 @@ Spec pushes are rejected when:
 **This feature + version is already taken.**
   -> The system tried to insert a new spec version, but failed because this feature + version exists already. You can simply change the feature.version, the feature.product, or the feature.name and try again. Most likely, you encountered this while pushing a spec from a new branch.
 **This implementation name is already taken**
-  -> The system tried to create a new Implementation of a product, but failed because the implementation name must be unique. If you do not include an implementation name in the params, the branch name is taken as a fallback.
-**The target implementation does not track the source branch**
-  -> The push included a target implementation (name or id) which is already tracking a different branch in this repo. You must choose a new implementation name, or omit the implemtnation name, or update the tracked branches for that implementation and try again. Target implementation was: <name, id>, source branch was: <source_branch_name>
+  -> The implementation name you provided could not be configured to track this branch, most likely because it already tracks a different branch in this repo. If you want to create a new implementation linked to this branch instead, choose a unique `implementation_name`. Note, if no `implementation_name` is provided, the system will use `branch_name` as the implementation name.
 
 ## Key User Journeys
 There are many ways to edit, branch and iterate on specs and on the code that implements the specs. This covers the key journeys we have considered.
