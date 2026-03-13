@@ -5,8 +5,8 @@ feature:
     prerequisites:
         - data-model.SPECS
         - data-model.IMPLS
-        - data-model.SPEC_IMPL_STATES
-        - data-model.SPEC_IMPL_REFS
+        - data-model.FEATURE_IMPL_STATES
+        - data-model.FEATURE_BRANCH_REFS
         - feature-view
 
 components:
@@ -17,7 +17,7 @@ components:
             2: Table columns are ACID, Status, Definition, Refs count.
             2-1: Renders the next nearest ancestor implementation's spec if none exists for this impl.
             3: Status column shows state of this implementation, or of the inherited implementation
-            4: Refs column shows total number of code references in all branches
+            4: Refs column shows total number of code references across all tracked branches for this implementation
             5: Clicking a row opens the requirement details drawer for that ACID.
             6: Co-located with details about the feature and implementation, the user sees a concise summary the inheritance states;
             6-1: If refs are inherited
@@ -36,8 +36,9 @@ components:
         requirements:
             1: Opens when a requirement row is clicked.
             2: Shows ACID as title, full definition text, and note if present.
-            3: Shows status and comment from spec_impl_states.states for this ACID.
-            4: Lists all refs from spec_impl_refs.refs for this ACID with repo, path, loc, is_test.
+            3: Shows status and comment from feature_impl_states.states for this ACID.
+            4: Lists all refs from feature_branch_refs.refs for this ACID, aggregated across all tracked branches for this implementation.
+            4-note: Each ref is sourced from a specific branch. Consider showing which branch each ref comes from.
             5: Each ref renders as clickable link to source file at the specific line.
             6: Test refs visually distinguished from non-test refs.
             7: Drawer dismisses without navigation.
@@ -53,5 +54,5 @@ constraints:
     INHERITANCE:
         requirements:
             1: If spec not found on impl tracked branches, recurse up parent_implementation_id chain.
-            2: States and refs read from snapshot for this implementation only.
-            3: Inheritence is all-or-nothing for spec.reqs, refs, and states. Either the entire jsonb map is inherited or none of it is (because we snapshot at time of first push).
+            2: States are read from feature_impl_states for this implementation. If not found, walk parent chain.
+            3: Refs are aggregated from feature_branch_refs across all tracked branches for this implementation. If not found, walk parent chain's tracked branches.

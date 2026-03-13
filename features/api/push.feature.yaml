@@ -1,87 +1,198 @@
 feature:
     name: push
-    key: PUSH_API
     description: |
         The push endpoint is the primary write API for the acai CLI.
-        It ingests specs, code references, states, and manages implementation state.
+        It ingests multiple specs, code references, states, and git metadata in a single json payload.
+        It can be used to update existing product implementations (for example, updates to Production when specs change or code has been refactored).
+        It can also be used to create a new implementation, with inheritance semantics (for example, when branching from Staging to work on a new spec or fix an existing one).
     version: 1.0.0
     product: api
-    prerequisites:
-        - The data-model feature defines the core schema
+    draft: true
 
 components:
-    SPEC_PUSH:
-        name: Spec push
-        description: |
-            Pushing a feature.yaml creates or updates a spec for the branch.
-            Spec identity is stable across updates on the same (product_id, repo_uri, branch_name, feature_name).
+    ENDPOINT:
+        description: HTTP interface
         requirements:
-            1: Push creates a new spec if no matching (product_id, repo_uri, branch_name, feature_name) exists.
-            2: Push updates the existing spec if the combination already exists.
-            3: Spec version changes update the row but do not create a new spec.
-            4: Renaming a feature creates a new spec; the old spec and its states are preserved.
-            5: Each push captures the commit hash and raw content for traceability.
+            1: "POST /api/v1/push"
+            2: Content-Type application/json
+            3: Requires Authorization Bearer token header
 
-    REF_PUSH:
-        name: Code reference push
-        description: |
-            Pushing code references links ACIDs to implementation locations.
-            References are scoped to a spec + implementation combination.
+    REQUEST:
+        description: Describes the top level request body shape
         requirements:
-            1: Push overwrites all existing refs for the spec + implementation with the new set.
-            2: References include repo, file path, line/column location, and whether it's a test.
-            3: Invalid or unknown ACIDs in the push are skipped and reported.
-            4: Refs can be pushed independently of specs (common in multi-repo setups).
+            1: Requires `repo_uri` string
+            2: Requires `branch_name` string
+            3: Requires `commit_hash` string
+            3-note: Used to update the branch record's `last_seen_commit` field
+            4: Accepts optional `specs` list of spec objects
+            4-note: "Example - `[{ feature, requirements, meta }, { feature, requirements, meta }]`"
+            4-1: Each requires `feature` object (see FEAT)
+            4-2: Each requires `requirements` object (see SPEC_REQS)
+            4-3: Each requires `meta` object (see FEAT_META)
+            5: Accepts optional `references` map (see REFS)
+            6: Accepts optional `states` map (see STATES)
+            7: Accepts optional `target_impl_name` string
+            7-note: When provided, all specs in the push must belong to the same product as the target implementation. Resolved within the product determined by the pushed specs.
+            8: Accepts optional `parent_impl_name` string
+            8-note: When provided, all specs in the push must belong to the same product as the parent implementation. Resolved within the product determined by the pushed specs.
 
-    STATES_PUSH:
-        name: States push
-        description: |
-            Pushing a states map allows setting ACID statuses directly.
-            States are merged into the spec_impl_states JSONB column.
+    FEAT:
+        description: The shape of the `feature` object contained in a spec object
         requirements:
-            1: States map keys are full ACID strings.
-            2: States map values include status, optional comment, and optional metadata.
-            3: Pushed states are merged with existing states, overwriting on key collision.
-            4: States pushed to an inherited implementation overwrite inherited snapshotted values.
-            5: States can be pushed independently of specs and refs.
+            1: Requires `name` string
+            2: Requires `product` string
+            3: Accepts optional `description` string
+            4: Accepts optional `version` string, defaults to "1.0.0"
+            5: Accepts optional `prerequisites` list of strings
+            5-note: Prerequisites are persisted only via raw_content and are not stored as a dedicated column.
 
-    IMPL_CREATION:
-        name: Implementation creation
-        description: |
-            Pushing to an untracked branch may create an implementation.
-            This links the branch to a product environment.
+    FEAT_META:
+        description: The shape of the `meta` object contained in a spec object
         requirements:
-            1: When pushing to an untracked branch, the system may create an implementation.
-            2: Implementation name defaults to the branch name.
-            3: Parent is determined by the parent field semantics defined in IMPL_PARENT semantics.
+            1: Requires `path` string (path from repo root, e.g. features/auth.feature.yaml)
+            2: Accepts optional `raw_content` string
+            3: Requires `last_seen_commit` string
+            3-note: The commit hash where this spec file was last modified. May differ from the top-level `commit_hash` if the spec file hasn't changed since an older commit.
 
-    IMPL_PARENT:
-        name: Implementation parent semantics
-        description: |
-            The parent field controls inheritance behavior and has different semantics
-            depending on whether the implementation is new or existing, and whether
-            the field is undefined, null, or a value.
+    SPEC_REQS:
+        description: The `requirements` object contained in a spec object (see REQUEST)
         requirements:
-            1: For NEW implementations, undefined parent triggers git upstream auto-detection.
-            2: For NEW implementations, null parent explicitly creates with NO parent.
-            3: For NEW implementations, a parent UUID explicitly sets that parent.
-            4: For EXISTING implementations, undefined parent leaves the current parent unchanged.
-            5: For EXISTING implementations, null parent removes the current parent link (uninherit).
-            6: For EXISTING implementations, a parent UUID changes to that parent (reparent).
+            1: Contains a map of ACIDs to Definition objects. Each definition object contains...
+            1-1: Required `requirement` string
+            1-2: Optional `deprecated` boolean
+            1-3: Optional `note` string
+            1-4: Optional `replaced_by` list of strings
 
-    INHERITANCE:
-        name: Implementation inheritance
-        description: |
-            When an implementation gains a parent (at creation or via reparenting),
-            states and refs are snapshotted from the parent.
+    REFS:
+        description: The `references` top level property. Refs are stored per feature + branch (not per implementation) since they represent file locations at a specific branch.
         requirements:
-            1: Gaining a parent snapshots states from parent to child.
-            2: Gaining a parent snapshots refs from parent to child.
-            3: Snapshotted values are merged with any existing values; existing takes precedence.
-            4: Child specs take precedence over parent specs for the same feature.
-            5: Post-creation, parent changes do not affect the child's snapshotted state.
-            6: Uninheriting (setting parent to null) severs the link but retains existing states.
-            7: Specs only visible via inheritance are no longer accessible after uninherit.
+            1: Accepts optional `override` boolean, default false, which indicates if the refs should override rather than merge
+            1-note:
+                Default false because we assume the push was partial (only some refs from some files on the branch).
+                In the db we store refs in buckets, grouped by feature + branch. `true` would reset any bucket that is touched.
+            2: Requires `data` object
+            2-1: |
+                `data` contains a map of ACIDs to ref arrays e.g. `{ "my-feature.MAIN.1-1": [{ path: "lib/foo.ex:102", is_test: false }] }`
+            2-2: Each ref object requires a `path` string, and optional `is_test` boolean (default false)
+            3: Refs can contain any ACID for any feature, including non-existent features, and they are always persisted as long as the format is valid
+            3-note: This permissiveness allows pushing refs from repos that don't contain the spec file. Unknown ACIDs are not skipped or reported as errors.
+            4: Refs can be pushed independently of specs (common in multi-repo setups)
+            5: When override is false, incoming refs replace existing refs per-ACID key; untouched ACIDs in the existing bucket are preserved
+            6: When override is true, all existing refs for each touched feature + branch bucket are replaced entirely
+
+    STATES:
+        description: The `states` top level property. States are stored per feature + implementation since they represent acceptance progress for an environment.
+        requirements:
+            1: Accepts optional `override` boolean, default false, which indicates if the states should override rather than merge
+            1-note:
+                Default false because we assume the state updates are partial.
+                In the db we store states in buckets, grouped by feature + implementation. `true` would reset any bucket that is touched.
+            2: Requires `data` object
+            2-1: |
+                `data` contains a map of ACIDs to state objects e.g. `{ "my-feature.MAIN.1-1": { status: "completed", comment: "High priority for QA" } }`
+            2-2: Each state object requires a nullable `status` string, supported strings are defined in data-model.FEATURE_IMPL_STATES.4-3
+            2-3: Each state object accepts an optional `comment` string
+            3: States can contain any ACID for any feature, including non-existent features, and they are always persisted as long as the format is valid
+
+    RESPONSE:
+        description: The response shape for successful and failed pushes
+        requirements:
+            1: "On success, returns HTTP 200 with a JSON body containing a `data` object"
+            2: "The `data` object includes: `implementation_name` (string, nullable), `implementation_id` (string, nullable), `product_name` (string, nullable), `branch_id` (string)"
+            2-note: Implementation and product fields are null when the push did not involve an implementation (e.g. refs-only push to an untracked branch).
+            3: "The `data` object includes `specs_created` (integer) and `specs_updated` (integer) counts"
+            3-note: Both counts may be zero on idempotent re-pushes where spec content is unchanged.
+            4: "The `data` object includes a `warnings` list of human-readable strings for non-fatal issues (e.g. dangling states)"
+            5: "On validation error, returns HTTP 422 with an `errors` object containing a `detail` string"
+            6: "On auth error, returns HTTP 401 with an `errors` object containing a `detail` string"
+            7: "On scope/permission error, returns HTTP 403 with an `errors` object containing a `detail` string"
+
+    INSERT_SPEC:
+        description: When new spec records are created
+        requirements:
+            1: Inserts a new spec record when it is the first time that feature_name has been pushed from this branch
+            2: On feature name clash within the same branch, performs an update instead (see UPDATE_SPEC)
+            2-note: This means INSERT_SPEC and UPDATE_SPEC are mutually exclusive based on whether (branch_id, feature_name) already exists
+
+    UPDATE_SPEC:
+        description: When existing spec records are updated
+        requirements:
+            1: Updates an existing spec record when this branch already has a spec with this feature_name
+            2: Accepts changes to version, path, description, raw_content, and requirements
+            3: The requirements map is always overwritten completely, never merged with the previous version
+
+    WRITE_REFS:
+        description: When refs are written
+        requirements:
+            1: Refs are grouped by feature_name (derived from the ACID prefix) and written to feature_branch_ref rows keyed by (branch_id, feature_name)
+            2: The system silently allows dangling refs (e.g. ACIDs that don't map to an actual spec)
+            3: Refs are written to the branch even if the branch is not tracked by any implementation
+            3-note: If another part of the same push causes a rejection (e.g. states without an implementation), atomicity applies and nothing is written (see TX.1).
+            4: The top-level commit_hash is stored on each feature_branch_ref record as the commit field
+
+    WRITE_STATES:
+        description: When states are written or inherited
+        requirements:
+            1: States can only be written when the branch is tracked by an implementation (states require an implementation to attach to)
+            1-note: If the branch is not tracked and states are provided alongside specs, states are written after the implementation is created. If no implementation exists or is created, states in the push are rejected with a helpful error.
+            2: On first push of states for a given feature_name + implementation, states are snapshotted from the parent implementation (if one exists) then merged with the incoming states
+            2-note: First push means the first time a feature_impl_states row is created for this (implementation_id, feature_name) combination. Incoming states take precedence over snapshotted parent states.
+            3: On subsequent pushes, incoming states are patched into the existing states (merge, incoming wins on key collision)
+            3-note: Under the hood the app is grouping ACIDs by feature_name and writing each group to a feature_impl_states row
+            4: The system silently allows dangling states (e.g. ACIDs that don't map to an actual spec)
+
+    PERMANENCE:
+        description: Semantics for what can be undone and what can not
+        requirements:
+            1: If I accidentally overwrite a spec (e.g. if I accidentally copy paste a feature name), related states and refs are not destroyed
+            2: State and ref overwrites and deletions are permanent and do not have any explicit undo semantics
+            2-note: For refs and specs you can just re-push since they are derived from your codebase
+
+    NEW_IMPLS:
+        description: |
+            Semantics for when implementations (and products) are created.
+            Implementation creation requires specs -- the product is always derived from the pushed specs.
+            To keep this simple for MVP, re-linking, changing inheritance, and other mutations are done via the frontend only.
+            There is no auto-inheritance for MVP -- it must be specified.
+        requirements:
+            1: Creates a new implementation when specs are pushed, and the branch is not yet tracked by any implementation
+            1-1: Names the implementation after the `target_impl_name`, falling back to `branch_name`
+            1-note: Exception for linking when the target_impl_name resolves to an existing implementation in the same product (see LINK_IMPLS)
+            2: Rejects push with a helpful error if states are provided without specs and the branch is not tracked by any implementation
+            2-note: A push with only refs (no states, no specs) succeeds on untracked branches (see WRITE_REFS.3). Only states require an implementation.
+            3: Creates a new `product` record for each spec that contains a never-before-seen `feature.product` value
+            4: Rejects the push if specs span multiple products
+            4-note: The CLI should split multi-product pushes into separate requests, one per product
+            5: Implementation names are scoped to a product. If the auto-generated name (from branch_name) collides with an existing implementation in the same product, the push is rejected with a helpful error suggesting the user provide a `target_impl_name`
+
+    LINK_IMPLS:
+        description: |
+            In some cases we can safely link an untracked branch to an existing implementation (to insert a tracked_branches record).
+            This is a different workflow from branching off an implementation, in which case I would want a new child implementation.
+            This is useful if I've spun up a new repo (backend, microservice, etc) and am integrating it into a product for the first time.
+        requirements:
+            1: A branch is linked to an existing implementation only when all of the following are true - the branch is not already tracked by any implementation, the `target_impl_name` matches an existing implementation within the same product, that implementation does not already track a branch in this `repo_uri`, and all pushed specs belong to that implementation's product
+            2: On successful link, specs, refs, and states are written to the linked implementation as normal
+            3: If `target_impl_name` matches an existing implementation but that implementation already tracks a branch in this repo_uri, the push is rejected with a helpful error
+
+    EXISTING_IMPLS:
+        description: In most cases we are pushing refs, or states, or spec changes to an existing implementation (Prod, Staging, etc)
+        requirements:
+            1: When the branch is already tracked by an implementation, all specs, refs, and states are written to that implementation
+            2: If the branch is tracked by multiple implementations and no `target_impl_name` is provided, the push is rejected with a helpful error listing the implementation names
+            3: If the branch is tracked by multiple implementations and `target_impl_name` is provided, the push targets only that implementation
+            4: If the branch is already tracked by implementation X and `target_impl_name` resolves to a different implementation Y, the push is rejected with a helpful error
+            4-note: This prevents accidentally pushing to the wrong implementation. To re-link a branch, use the frontend.
+
+    PARENTS:
+        description: |
+            The user can create a new implementation that inherits from a parent.
+            For MVP, parent can only be set at creation time. Updating an existing implementation's parent is done via the frontend only.
+        requirements:
+            1: If a push creates a new implementation (see NEW_IMPLS), the user can provide a `parent_impl_name` to configure inheritance
+            1-note: The parent_impl_name is resolved within the same product as the pushed specs
+            2: If `parent_impl_name` is not provided, new implementations will not inherit (there is no auto-inheritance heuristic)
+            3: If `parent_impl_name` is provided but does not resolve to an existing implementation within the same product, the push is rejected with a helpful error
 
     IDEMPOTENCY:
         name: Push idempotency
@@ -89,32 +200,35 @@ components:
             Push operations are idempotent - re-running the same push produces the same result.
             Different pushes to the same implementation compose predictably.
         requirements:
-            1: Pushing the same spec content multiple times is a no-op after the first.
-            2: Pushing without inheritance, then pushing with inheritance, adds the parent and snapshots.
-            3: Pushing with inheritance, then pushing without inheritance, keeps the parent unchanged.
-            4: Pushing with inheritance, then pushing with parent null, removes the parent (uninherit).
-            5: Forgotten states can be added in subsequent pushes via the states map.
-            6: Forgotten inheritance can be added in subsequent pushes by setting parent.
+            1: Pushing the same spec content multiple times is a no-op after the first
+            2: Pushing with inheritance, then pushing without inheritance, keeps the parent unchanged (parent is immutable via push after creation)
+            3: Forgotten states can be added in subsequent pushes via the states map
+            4: Forgotten refs can be added in subsequent pushes via the references map
 
 constraints:
     AUTH:
         name: Authentication and authorization
         requirements:
-            1: Push requires a valid, non-expired, non-revoked API token.
-            2: Token scopes must include specs:write for spec pushes.
-            3: Token scopes must include refs:write for reference pushes.
-            4: Token scopes must include impls:write for creating implementations.
-            5: The token's team_id determines ownership of all created resources.
+            1: Push requires a valid, non-expired, non-revoked API token
+            2: Token scopes must include specs:write for spec pushes
+            3: Token scopes must include refs:write for reference pushes
+            4: Token scopes must include impls:write for creating or linking implementations
+            5: Token scopes must include states:write for state pushes
+            6: The token's team_id determines ownership of all created resources
+            7: All implementation, product, and branch lookups are scoped to the token's team_id
 
     TX:
         name: Transaction guarantees
         requirements:
-            1: All operations within a push are atomic; failures roll back entirely.
-            2: Concurrent pushes to the same spec use last-write-wins semantics.
+            1: All operations within a push are atomic; any failure rolls back the entire push
+            1-note: If any part of the push is rejected (e.g. states without an implementation), nothing is written — including refs and specs.
+            2: Concurrent pushes to the same implementation use last-write-wins semantics
 
     VALIDATION:
         name: Validation constraints
         requirements:
-            1: Feature names must only contain alphanumeric chars, hyphens, and underscores.
-            2: Version strings must follow SemVer format when provided.
-            3: Duplicate (feature_name, feature_version) combinations are rejected within the same product, allowing same feature names across different products.
+            1: Feature names must only contain alphanumeric chars, hyphens, and underscores
+            2: Version strings must follow SemVer format when provided
+            3: If `target_impl_name` is provided, all specs must belong to the same product as the target implementation
+            4: If `parent_impl_name` is provided, all specs must belong to the same product as the parent implementation
+            5: Implementation names are unique within a product (scoped to product_id, not team-wide)

@@ -74,7 +74,7 @@ components:
         name: branches table
         description: |
             Stores unique repository branches with stable IDs.
-            A branch is identified by its repo_uri + branch_name combination.
+            A branch is identified by its team + repo_uri + branch_name combination.
             This allows branch metadata (like name) to be updated without breaking references.
         requirements:
             1: id field is a UUIDv7 Primary Key.
@@ -90,11 +90,21 @@ components:
                 requirement: Composite Unique Constraint enforces (implementation_id, repo_uri) - an implementation may not track two branches in the same repo
                 deprecated: true
                 replaced-by:
-                    - data-model.BRANCHES.8
+                    - data-model.BRANCHES.10-1
                     - data-model.TRACKED_BRANCHES.4
-            7: Index on (repo_uri, branch_name) for looking up a branch by its stable identity.
-            8: Composite Unique Constraint enforces (repo_uri, branch_name) - each branch is unique globally.
+            7:
+                requirement: Index on (repo_uri, branch_name) for looking up a branch by its stable identity.
+                deprecated: true
+                replaced-by:
+                    - data-model.BRANCHES.10-1
+            8:
+                requirement: Composite Unique Constraint enforces (repo_uri, branch_name) - each branch is unique globally.
+                deprecated: true
+                replaced-by:
+                    - data-model.BRANCHES.10-1
             9: Index on (repo_uri) for listing branches by repository.
+            10: team_id is a Foreign Key to teams table, non-nullable.
+            10-1: Composite Unique Constraint enforces (team_id, repo_uri, branch_name) - each branch is unique within a team.
 
     TRACKED_BRANCHES:
         name: tracked_branches table
@@ -155,7 +165,10 @@ components:
                 replaced-by:
                     - data-model.SPECS.14-1
             14-1: Composite Unique Constraint enforces (branch_id, feature_name) - one spec per feature per branch.
-            15: Composite Unique Constraint enforces (product_id, feature_name, feature_version) - prevents duplicate feature versions within a product, allows same feature name across products.
+            15:
+                requirement: Composite Unique Constraint enforces (product_id, feature_name, feature_version) - prevents duplicate feature versions within a product, allows same feature name across products.
+                deprecated: true
+                note: Version is metadata, not identity. The same feature version can exist on multiple branches (e.g. pushing the same spec from main and a feature branch). Spec identity is (branch_id, feature_name).
             16: Index on (product_id) for listing specs by product.
             17:
                 requirement: Index on (repo_uri, branch_name) for joining specs to tracked_branches.
@@ -180,34 +193,91 @@ components:
             4: states is a JSONB column storing ACID statuses.
             4-1: states format is an object keyed by full ACID string.
             4-2: Each ACID entry contains status (string), comment (string, optional), metadata (object, optional), updated_at (timestamp).
-            4-3: Valid status values are null (no status), assigned, blocked, completed, rejected, accepted.
+            4-3: Valid status values are `null`, `"assigned"`, `"blocked"`, `"incomplete"`, `"completed"`, `"rejected"`, or `"accepted"`.
             5: Composite Unique Constraint enforces (implementation_id, feature_name).
             6: GIN Index on (states) for querying by ACID key within the JSONB.
             7: Index on (implementation_id) for listing all features for an implementation.
 
     FEATURE_IMPL_REFS:
         name: feature_impl_refs table
+        deprecated: true
         description: |
-            Stores code references linking ACIDs to implementation locations in the codebase.
+            DEPRECATED: Replaced by FEATURE_BRANCH_REFS. Refs belong to branches, not implementations,
+            because they represent file locations at a specific branch. The dashboard aggregates refs
+            across tracked branches when displaying an implementation view.
+        replaced-by:
+            - data-model.FEATURE_BRANCH_REFS
+        requirements:
+            1:
+                requirement: id field is a UUIDv7 Primary Key.
+                deprecated: true
+            2:
+                requirement: implementation_id is a Foreign Key to implementations table.
+                deprecated: true
+            3:
+                requirement: feature_name is a string matching the feature.name from the spec file (ACID prefix).
+                deprecated: true
+            3-1:
+                requirement: feature_name field only supports alphanumeric chars, hyphens, and underscores.
+                deprecated: true
+            4:
+                requirement: refs is a JSONB column storing ACID references.
+                deprecated: true
+            4-1:
+                requirement: refs format is an object keyed by full ACID string.
+                deprecated: true
+            4-2:
+                requirement: Each ACID entry contains an array of reference objects.
+                deprecated: true
+            4-3:
+                requirement: Each reference object contains repo (string), path (string), loc (string, line/column), is_test (boolean).
+                deprecated: true
+            5:
+                requirement: agent is a string identifying the source of the refs (e.g., github-action, @username, robot-label).
+                deprecated: true
+            6:
+                requirement: commit is a string storing the commit hash when refs were pushed.
+                deprecated: true
+            7:
+                requirement: pushed_at is a timestamp of when the refs were pushed.
+                deprecated: true
+            8:
+                requirement: Composite Unique Constraint enforces (implementation_id, feature_name).
+                deprecated: true
+            9:
+                requirement: GIN Index on (refs) for querying by ACID key within the JSONB.
+                deprecated: true
+            10:
+                requirement: Index on (implementation_id) for listing all features for an implementation.
+                deprecated: true
+
+    FEATURE_BRANCH_REFS:
+        name: feature_branch_refs table
+        description: |
+            Stores code references linking ACIDs to file locations in the codebase, scoped to a branch.
             Keyed by feature_name (not spec_id) to allow refs to exist without a local spec file.
             This enables pushing refs from a backend repo for a feature whose spec lives in the frontend repo.
+            Refs belong to branches (not implementations) because they represent file locations at a specific commit on a branch.
+            The dashboard aggregates refs across an implementation's tracked branches.
             Pushed exclusively by CLI.
-            Includes metadata about the push agent (CI, user, etc.).
         requirements:
             1: id field is a UUIDv7 Primary Key.
-            2: implementation_id is a Foreign Key to implementations table.
+            2: branch_id is a Foreign Key to branches table.
             3: feature_name is a string matching the feature.name from the spec file (ACID prefix).
             3-1: feature_name field only supports alphanumeric chars, hyphens, and underscores.
             4: refs is a JSONB column storing ACID references.
             4-1: refs format is an object keyed by full ACID string.
             4-2: Each ACID entry contains an array of reference objects.
-            4-3: Each reference object contains repo (string), path (string), loc (string, line/column), is_test (boolean).
-            5: agent is a string identifying the source of the refs (e.g., github-action, @username, robot-label).
+            4-3: Each reference object contains path (string, e.g. lib/foo.ex:102), is_test (boolean).
+            5:
+                requirement: agent is a string identifying the source of the refs (e.g., github-action, @username, cli).
+                deprecated: true
+                note: Deferred post-MVP. No clear story for how agent is populated or used.
             6: commit is a string storing the commit hash when refs were pushed.
             7: pushed_at is a timestamp of when the refs were pushed.
-            8: Composite Unique Constraint enforces (implementation_id, feature_name).
+            8: Composite Unique Constraint enforces (branch_id, feature_name).
             9: GIN Index on (refs) for querying by ACID key within the JSONB.
-            10: Index on (implementation_id) for listing all features for an implementation.
+            10: Index on (branch_id) for listing all features for a branch.
 
 constraints:
     FIELDS:
@@ -228,28 +298,46 @@ constraints:
             2: Pushing an updated feature.yaml to an existing branch updates the existing spec row if feature_name matches.
             3: Renaming a feature creates a new spec; the old spec and its states remain under the old feature_name.
             4: Version changes on an existing spec update the spec row but do not create a new spec.
-            5: Version uniqueness constraint prevents claiming a (feature_name, feature_version) already used within the same product.
+            5:
+                requirement: Version uniqueness constraint prevents claiming a (feature_name, feature_version) already used within the same product.
+                deprecated: true
+                note: Dropped. Version is metadata, not identity. Same version can exist across branches.
             6: Branch id is stable even if branch_name changes, allowing branch renames without breaking spec references.
 
     IMPL_CREATION:
-        name: Automatic implementation creation
+        name: Implementation creation
+        description: |
+            Describes how implementations are created during a push.
+            Implementation creation requires specs -- the product is derived from the pushed specs.
+            There is no auto-inheritance for MVP. Parent must be explicitly specified.
         requirements:
-            1: When CLI pushes to an untracked branch, the server may auto-create an implementation.
+            1: When CLI pushes specs to an untracked branch, the server auto-creates an implementation.
             2: Implementation name defaults to the branch name being pushed.
-            3: Parent implementation is inferred via git upstream branch lookup against branches and tracked_branches tables.
-            4: If parent branch is tracked, new implementation inherits from that implementation.
-            5: If parent branch is not tracked or no upstream exists, parent_implementation_id is null.
-            6: CLI may override auto-detection with explicit --parent-impl or --parent-branch flags.
+            3:
+                requirement: Parent implementation is inferred via git upstream branch lookup against branches and tracked_branches tables.
+                deprecated: true
+                note: No auto-inheritance for MVP. Parent must be explicitly provided via parent_impl_name.
+            4:
+                requirement: If parent branch is tracked, new implementation inherits from that implementation.
+                deprecated: true
+                replaced-by:
+                    - push.PARENTS.1
+            5:
+                requirement: If parent branch is not tracked or no upstream exists, parent_implementation_id is null.
+                deprecated: true
+                replaced-by:
+                    - push.PARENTS.2
+            6: CLI may provide explicit --parent-impl flag to set parent at creation time. --parent-branch is deferred post-MVP.
 
     INHERITANCE:
         name: Implementation inheritance semantics
         requirements:
             1: Inheritance forms a chain via parent_implementation_id for querying specs across implementations.
-            2: When querying states/refs for an implementation, the system finds specs via tracked branches.
+            2: When querying states for an implementation, states are read from feature_impl_states for that implementation, walking up the parent chain if not found.
             3: If a spec exists on both parent and child implementation's tracked branches, child's spec takes precedence.
-            4: If a spec only exists on a parent implementation's tracked branch, states/refs inherit from parent.
+            4: If a spec only exists on a parent implementation's tracked branch, states inherit from parent.
             5: Inheritance recurses up the chain with worst case depth of 3 to 4 levels (e.g., prod to dev to feature to task).
-            6: States and refs are NOT snapshotted at child creation time. Instead, they are resolved lazily by walking the parent chain.
-            7: Push operations create or update feature_impl_states and feature_impl_refs keyed by feature_name, not spec_id.
-            8: Partial pushes merge pushed refs/states with inherited parent values (union strategy).
+            6: States are snapshotted from parent on first push (per feature_name + implementation). After snapshot, parent changes do not affect the child.
+            7: Push operations create or update feature_impl_states keyed by feature_name, not spec_id.
+            8: When querying refs for an implementation, the system aggregates feature_branch_refs across all tracked branches, walking up the parent chain's tracked branches if not found.
             9: feature_name-based keys allow refs/states to exist for features whose spec lives in a different repo (monorepo support).
