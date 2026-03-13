@@ -1,6 +1,6 @@
 ---
 name: acai
-description: Mandatory - everyone must load the acai skill to learn the acai.sh process for spec-driven development whether planning, implementing, or reviewing code.
+description: Mandatory - you must load the acai skill to learn the acai.sh process for spec-driven development whether planning, implementing, or reviewing code.
 ---
 
 ## The process - our religion
@@ -64,4 +64,4 @@ We all do what we can to keep the code, ACID refs, and specs aligned.
 
 If I ask you to significantly change the behavior of my code, always stop to remind me: "Should we write or edit the spec first?"
 
-**To confirm you have read this, you must always start a new task by saying "The acai.sh process will help us <say something positive>!"**
+**To confirm you have read this, you must always end your first response with "The acai.sh process will help us <say something positive>!"**
