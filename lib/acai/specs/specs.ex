@@ -254,6 +254,7 @@ defmodule Acai.Specs do
 
   - If source_impl_id != queried implementation_id, the resource is inherited.
   - If source_impl_id is nil, the resource was not found anywhere in the chain.
+  - inherited? is true when we attempted inheritance (source_impl_id != implementation_id or not found anywhere).
   """
   def get_inheritance_summary(feature_name, implementation_id) do
     {spec, spec_source_impl_id} =
@@ -262,8 +263,27 @@ defmodule Acai.Specs do
     {state, state_source_impl_id} =
       get_feature_impl_state_with_inheritance(feature_name, implementation_id)
 
-    {ref, ref_source_impl_id} =
-      get_feature_impl_ref_with_inheritance(feature_name, implementation_id)
+    # Refs are now branch-scoped, use Implementations context
+    # Walk the parent chain to find where refs come from
+    chain = Acai.Implementations.get_parent_chain(implementation_id)
+
+    {refs_found, refs_source_impl_id} =
+      Enum.reduce_while(chain, {false, nil}, fn impl_id, _acc ->
+        impl = Acai.Repo.get(Acai.Implementations.Implementation, impl_id)
+
+        if impl do
+          branch_ids = Acai.Implementations.get_tracked_branch_ids(impl)
+          refs = Acai.Implementations.aggregate_feature_branch_refs(branch_ids, feature_name)
+
+          if refs != [] do
+            {:halt, {true, impl_id}}
+          else
+            {:cont, {false, nil}}
+          end
+        else
+          {:cont, {false, nil}}
+        end
+      end)
 
     %{
       spec: %{
@@ -277,9 +297,9 @@ defmodule Acai.Specs do
         source_impl_id: state_source_impl_id
       },
       refs: %{
-        found?: not is_nil(ref),
-        inherited?: ref_source_impl_id != implementation_id,
-        source_impl_id: ref_source_impl_id
+        found?: refs_found,
+        inherited?: refs_source_impl_id != implementation_id,
+        source_impl_id: refs_source_impl_id
       }
     }
   end
@@ -730,16 +750,6 @@ defmodule Acai.Specs do
       {{spec.id, implementation.id},
        %{completed: completed_count, total: map_size(spec.requirements)}}
     end
-  end
-
-  # Finds the first state in the chain that has data for the given feature_name
-  defp find_states_in_chain(feature_name, chain, all_states) do
-    Enum.reduce_while(chain, nil, fn impl_id, _acc ->
-      case Map.get(all_states, {feature_name, impl_id}) do
-        nil -> {:cont, nil}
-        states -> {:halt, states}
-      end
-    end)
   end
 
   @doc """

@@ -1,8 +1,6 @@
 defmodule AcaiWeb.ImplementationLive do
   use AcaiWeb, :live_view
 
-  import Ecto.Query
-
   alias Acai.Teams
   alias Acai.Specs
   alias Acai.Implementations
