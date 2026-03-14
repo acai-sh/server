@@ -556,4 +556,543 @@ defmodule Acai.SpecsTest do
       assert {:ok, _} = Specs.upsert_spec_impl_ref(spec, impl, attrs)
     end
   end
+
+  # --- Spec Inheritance Tests ---
+
+  describe "get_spec_for_feature_with_inheritance/2" do
+    setup do
+      team = team_fixture()
+      product = product_fixture(team)
+      branch = branch_fixture()
+
+      parent_impl = implementation_fixture(product, %{name: "parent-impl"})
+
+      child_impl =
+        implementation_fixture(product, %{
+          name: "child-impl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      # Create spec on parent's tracked branch
+      parent_tracked_branch = tracked_branch_fixture(parent_impl, %{branch: branch})
+
+      spec_on_parent =
+        spec_fixture(product, %{
+          branch: branch,
+          feature_name: "inherited-feature"
+        })
+
+      %{
+        team: team,
+        product: product,
+        branch: branch,
+        parent_impl: parent_impl,
+        child_impl: child_impl,
+        spec_on_parent: spec_on_parent,
+        parent_tracked_branch: parent_tracked_branch
+      }
+    end
+
+    test "returns spec found directly on impl's tracked branch", ctx do
+      # Create a child-specific spec (different version to avoid unique constraint)
+      child_branch = branch_fixture()
+      tracked_branch_fixture(ctx.child_impl, %{branch: child_branch})
+
+      child_spec =
+        spec_fixture(ctx.product, %{
+          branch: child_branch,
+          feature_name: "inherited-feature",
+          feature_version: "2.0.0"
+        })
+
+      # data-model.INHERITANCE.3: Child spec takes precedence
+      assert {spec, source_impl_id} =
+               Specs.get_spec_for_feature_with_inheritance("inherited-feature", ctx.child_impl.id)
+
+      assert spec.id == child_spec.id
+      assert source_impl_id == ctx.child_impl.id
+    end
+
+    test "returns spec from parent's tracked branch when not on child", ctx do
+      # data-model.INHERITANCE.2, data-model.INHERITANCE.4
+      assert {spec, source_impl_id} =
+               Specs.get_spec_for_feature_with_inheritance("inherited-feature", ctx.child_impl.id)
+
+      assert spec.id == ctx.spec_on_parent.id
+      assert source_impl_id == ctx.parent_impl.id
+    end
+
+    test "returns spec from grandparent when not on parent or child", ctx do
+      # Create grandchild
+      grandchild_impl =
+        implementation_fixture(ctx.product, %{
+          name: "grandchild-impl",
+          parent_implementation_id: ctx.child_impl.id
+        })
+
+      # data-model.INHERITANCE.5: Recurses up the chain
+      assert {spec, source_impl_id} =
+               Specs.get_spec_for_feature_with_inheritance(
+                 "inherited-feature",
+                 grandchild_impl.id
+               )
+
+      assert spec.id == ctx.spec_on_parent.id
+      assert source_impl_id == ctx.parent_impl.id
+    end
+
+    test "returns {nil, nil} when spec not found anywhere in chain", ctx do
+      # data-model.INHERITANCE.1: Chain via parent_implementation_id
+      assert {nil, nil} =
+               Specs.get_spec_for_feature_with_inheritance(
+                 "nonexistent-feature",
+                 ctx.child_impl.id
+               )
+    end
+
+    test "child spec takes precedence over parent spec", ctx do
+      # Create child-specific spec with same feature name (different version)
+      child_branch = branch_fixture()
+      tracked_branch_fixture(ctx.child_impl, %{branch: child_branch})
+
+      child_spec =
+        spec_fixture(ctx.product, %{
+          branch: child_branch,
+          feature_name: "inherited-feature",
+          feature_version: "2.0.0"
+        })
+
+      # data-model.INHERITANCE.3: Child's spec takes precedence
+      assert {spec, source_impl_id} =
+               Specs.get_spec_for_feature_with_inheritance("inherited-feature", ctx.child_impl.id)
+
+      assert spec.id == child_spec.id
+      assert source_impl_id == ctx.child_impl.id
+    end
+
+    test "circular parent reference doesn't infinite loop", ctx do
+      # Create a circular reference: parent -> child (instead of child -> parent)
+      # First, update parent to point to child
+      {:ok, _} =
+        Acai.Implementations.update_implementation(ctx.parent_impl, %{
+          parent_implementation_id: ctx.child_impl.id
+        })
+
+      # This should not hang - it uses visited set to prevent loops
+      assert {_spec, _source_impl_id} =
+               Specs.get_spec_for_feature_with_inheritance(
+                 "inherited-feature",
+                 ctx.parent_impl.id
+               )
+    end
+
+    test "returns {nil, nil} for implementation with no tracked branches and no parent", ctx do
+      orphan_impl = implementation_fixture(ctx.product, %{name: "orphan-impl"})
+
+      assert {nil, nil} =
+               Specs.get_spec_for_feature_with_inheritance("any-feature", orphan_impl.id)
+    end
+  end
+
+  describe "get_inheritance_summary/2" do
+    setup do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      parent_impl = implementation_fixture(product, %{name: "parent-impl"})
+
+      child_impl =
+        implementation_fixture(product, %{
+          name: "child-impl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      parent_branch = branch_fixture()
+      tracked_branch_fixture(parent_impl, %{branch: parent_branch})
+
+      parent_spec = spec_fixture(product, %{branch: parent_branch, feature_name: "test-feature"})
+
+      %{
+        team: team,
+        product: product,
+        parent_impl: parent_impl,
+        child_impl: child_impl,
+        parent_spec: parent_spec
+      }
+    end
+
+    test "returns all inherited when nothing exists on child", ctx do
+      # Create states and refs on parent
+      spec_impl_state_fixture(ctx.parent_spec, ctx.parent_impl, %{
+        states: %{"test.COMP.1" => %{"status" => "completed"}}
+      })
+
+      spec_impl_ref_fixture(ctx.parent_spec, ctx.parent_impl, %{
+        refs: %{"test.COMP.1" => [%{"path" => "lib/foo.ex"}]}
+      })
+
+      summary = Specs.get_inheritance_summary("test-feature", ctx.child_impl.id)
+
+      # feature-impl-view.INHERITANCE.1, feature-impl-view.INHERITANCE.3
+      assert summary.spec.inherited? == true
+      assert summary.spec.found? == true
+      assert summary.spec.source_impl_id == ctx.parent_impl.id
+
+      assert summary.states.inherited? == true
+      assert summary.states.found? == true
+      assert summary.states.source_impl_id == ctx.parent_impl.id
+
+      assert summary.refs.inherited? == true
+      assert summary.refs.found? == true
+      assert summary.refs.source_impl_id == ctx.parent_impl.id
+    end
+
+    test "returns nothing inherited when all exists on child", ctx do
+      child_branch = branch_fixture()
+      tracked_branch_fixture(ctx.child_impl, %{branch: child_branch})
+
+      child_spec =
+        spec_fixture(ctx.product, %{
+          branch: child_branch,
+          feature_name: "test-feature",
+          feature_version: "2.0.0"
+        })
+
+      spec_impl_state_fixture(child_spec, ctx.child_impl, %{
+        states: %{
+          "test.COMP.1" => %{"status" => "in_progress"}
+        }
+      })
+
+      spec_impl_ref_fixture(child_spec, ctx.child_impl, %{
+        refs: %{"test.COMP.1" => [%{"path" => "lib/bar.ex"}]}
+      })
+
+      summary = Specs.get_inheritance_summary("test-feature", ctx.child_impl.id)
+
+      assert summary.spec.inherited? == false
+      assert summary.spec.found? == true
+      assert summary.spec.source_impl_id == ctx.child_impl.id
+
+      assert summary.states.inherited? == false
+      assert summary.states.found? == true
+      assert summary.states.source_impl_id == ctx.child_impl.id
+
+      assert summary.refs.inherited? == false
+      assert summary.refs.found? == true
+      assert summary.refs.source_impl_id == ctx.child_impl.id
+    end
+
+    test "returns mixed inheritance when some resources inherited", ctx do
+      # Only inherit spec from parent, create local states
+      child_branch = branch_fixture()
+      tracked_branch_fixture(ctx.child_impl, %{branch: child_branch})
+
+      _child_spec =
+        spec_fixture(ctx.product, %{
+          branch: child_branch,
+          feature_name: "test-feature",
+          feature_version: "2.0.0"
+        })
+
+      # Create states on parent (will be inherited since child has no states)
+      spec_impl_state_fixture(ctx.parent_spec, ctx.parent_impl, %{
+        states: %{"test.COMP.1" => %{"status" => "completed"}}
+      })
+
+      summary = Specs.get_inheritance_summary("test-feature", ctx.child_impl.id)
+
+      # Spec is local
+      assert summary.spec.inherited? == false
+
+      # States inherited from parent
+      assert summary.states.inherited? == true
+      assert summary.states.source_impl_id == ctx.parent_impl.id
+
+      # Refs not found anywhere
+      assert summary.refs.found? == false
+      assert summary.refs.inherited? == true
+      assert summary.refs.source_impl_id == nil
+    end
+
+    test "returns nothing found when nothing exists anywhere", ctx do
+      summary = Specs.get_inheritance_summary("nonexistent-feature", ctx.child_impl.id)
+
+      refute summary.spec.found?
+      assert summary.spec.inherited? == true
+      assert summary.spec.source_impl_id == nil
+
+      refute summary.states.found?
+      assert summary.states.inherited? == true
+      assert summary.states.source_impl_id == nil
+
+      refute summary.refs.found?
+      assert summary.refs.inherited? == true
+      assert summary.refs.source_impl_id == nil
+    end
+  end
+
+  describe "batch_resolve_specs_for_implementations/2" do
+    setup do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      parent_impl = implementation_fixture(product, %{name: "parent-impl"})
+
+      child_impl =
+        implementation_fixture(product, %{
+          name: "child-impl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      parent_branch = branch_fixture()
+      tracked_branch_fixture(parent_impl, %{branch: parent_branch})
+
+      parent_spec =
+        spec_fixture(product, %{branch: parent_branch, feature_name: "shared-feature"})
+
+      %{
+        team: team,
+        product: product,
+        parent_impl: parent_impl,
+        child_impl: child_impl,
+        parent_spec: parent_spec
+      }
+    end
+
+    test "returns spec for each (feature_name, impl_id) pair", ctx do
+      results =
+        Specs.batch_resolve_specs_for_implementations(
+          ["shared-feature"],
+          [ctx.parent_impl, ctx.child_impl]
+        )
+
+      # Both should find the same spec from parent
+      assert results[{"shared-feature", ctx.parent_impl.id}].id == ctx.parent_spec.id
+      assert results[{"shared-feature", ctx.child_impl.id}].id == ctx.parent_spec.id
+    end
+
+    test "returns :not_found when spec not in ancestor tree", ctx do
+      # product-view.MATRIX.8: If feature can't be found in ancestor tree, render 'n/a'
+      results =
+        Specs.batch_resolve_specs_for_implementations(
+          ["nonexistent-feature"],
+          [ctx.child_impl]
+        )
+
+      assert results[{"nonexistent-feature", ctx.child_impl.id}] == :not_found
+    end
+
+    test "respects inheritance with child precedence", ctx do
+      # Create child-specific spec (different version to avoid unique constraint)
+      child_branch = branch_fixture()
+      tracked_branch_fixture(ctx.child_impl, %{branch: child_branch})
+
+      child_spec =
+        spec_fixture(ctx.product, %{
+          branch: child_branch,
+          feature_name: "shared-feature",
+          feature_version: "2.0.0"
+        })
+
+      results =
+        Specs.batch_resolve_specs_for_implementations(
+          ["shared-feature"],
+          [ctx.parent_impl, ctx.child_impl]
+        )
+
+      # Parent has parent's spec
+      assert results[{"shared-feature", ctx.parent_impl.id}].id == ctx.parent_spec.id
+      # Child has child's spec (takes precedence)
+      assert results[{"shared-feature", ctx.child_impl.id}].id == child_spec.id
+    end
+  end
+
+  describe "batch_get_feature_impl_completion/2 with inheritance" do
+    setup do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      parent_impl = implementation_fixture(product, %{name: "parent-impl"})
+
+      child_impl =
+        implementation_fixture(product, %{
+          name: "child-impl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      branch = branch_fixture()
+      tracked_branch_fixture(parent_impl, %{branch: branch})
+      tracked_branch_fixture(child_impl, %{branch: branch})
+
+      spec = spec_fixture(product, %{branch: branch, feature_name: "test-feature"})
+
+      %{
+        team: team,
+        product: product,
+        parent_impl: parent_impl,
+        child_impl: child_impl,
+        spec: spec
+      }
+    end
+
+    test "uses direct states when available", ctx do
+      # Create states directly on child
+      spec_impl_state_fixture(ctx.spec, ctx.child_impl, %{
+        states: %{
+          "test.COMP.1" => %{"status" => "completed"},
+          "test.COMP.2" => %{"status" => "pending"}
+        }
+      })
+
+      results =
+        Specs.batch_get_feature_impl_completion(
+          ["test-feature"],
+          [ctx.child_impl]
+        )
+
+      # feature-impl-view.INHERITANCE.3: All-or-nothing, child has its own states
+      assert results[{"test-feature", ctx.child_impl.id}] == %{completed: 1, total: 2}
+    end
+
+    test "inherits states from parent when not available on child", ctx do
+      # Create states only on parent
+      spec_impl_state_fixture(ctx.spec, ctx.parent_impl, %{
+        states: %{
+          "test.COMP.1" => %{"status" => "completed"},
+          "test.COMP.2" => %{"status" => "completed"},
+          "test.COMP.3" => %{"status" => "pending"}
+        }
+      })
+
+      results =
+        Specs.batch_get_feature_impl_completion(
+          ["test-feature"],
+          [ctx.child_impl]
+        )
+
+      # feature-impl-view.MAIN.3: Status column shows inherited state
+      # data-model.INHERITANCE.4: States inherit from parent
+      assert results[{"test-feature", ctx.child_impl.id}] == %{completed: 2, total: 3}
+    end
+
+    test "returns zero counts when no states anywhere", ctx do
+      results =
+        Specs.batch_get_feature_impl_completion(
+          ["test-feature"],
+          [ctx.child_impl]
+        )
+
+      assert results[{"test-feature", ctx.child_impl.id}] == %{completed: 0, total: 0}
+    end
+
+    test "can disable inheritance with option", ctx do
+      # Create states only on parent
+      spec_impl_state_fixture(ctx.spec, ctx.parent_impl, %{
+        states: %{"test.COMP.1" => %{"status" => "completed"}}
+      })
+
+      # With inheritance disabled
+      results =
+        Specs.batch_get_feature_impl_completion(
+          ["test-feature"],
+          [ctx.child_impl],
+          inheritance: false
+        )
+
+      # Should return empty since child has no direct states
+      assert results[{"test-feature", ctx.child_impl.id}] == %{completed: 0, total: 0}
+    end
+  end
+
+  describe "batch_get_spec_impl_completion/2 with inheritance" do
+    setup do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      parent_impl = implementation_fixture(product, %{name: "parent-impl"})
+
+      child_impl =
+        implementation_fixture(product, %{
+          name: "child-impl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      branch = branch_fixture()
+      tracked_branch_fixture(parent_impl, %{branch: branch})
+      tracked_branch_fixture(child_impl, %{branch: branch})
+
+      spec =
+        spec_fixture(product, %{
+          branch: branch,
+          feature_name: "test-feature",
+          requirements: %{
+            "test.COMP.1" => %{},
+            "test.COMP.2" => %{},
+            "test.COMP.3" => %{}
+          }
+        })
+
+      %{
+        team: team,
+        product: product,
+        parent_impl: parent_impl,
+        child_impl: child_impl,
+        spec: spec
+      }
+    end
+
+    test "uses direct states when available", ctx do
+      spec_impl_state_fixture(ctx.spec, ctx.child_impl, %{
+        states: %{
+          "test.COMP.1" => %{"status" => "completed"},
+          "test.COMP.2" => %{"status" => "completed"}
+        }
+      })
+
+      results =
+        Specs.batch_get_spec_impl_completion(
+          [ctx.spec],
+          [ctx.child_impl]
+        )
+
+      # 2 of 3 requirements completed
+      assert results[{ctx.spec.id, ctx.child_impl.id}] == %{completed: 2, total: 3}
+    end
+
+    test "inherits states from parent when not available on child", ctx do
+      spec_impl_state_fixture(ctx.spec, ctx.parent_impl, %{
+        states: %{
+          "test.COMP.1" => %{"status" => "completed"},
+          "test.COMP.2" => %{"status" => "accepted"},
+          "test.COMP.3" => %{"status" => "pending"}
+        }
+      })
+
+      results =
+        Specs.batch_get_spec_impl_completion(
+          [ctx.spec],
+          [ctx.child_impl]
+        )
+
+      # 2 of 3 completed (completed + accepted both count)
+      assert results[{ctx.spec.id, ctx.child_impl.id}] == %{completed: 2, total: 3}
+    end
+
+    test "can disable inheritance with option", ctx do
+      spec_impl_state_fixture(ctx.spec, ctx.parent_impl, %{
+        states: %{"test.COMP.1" => %{"status" => "completed"}}
+      })
+
+      results =
+        Specs.batch_get_spec_impl_completion(
+          [ctx.spec],
+          [ctx.child_impl],
+          inheritance: false
+        )
+
+      # No inheritance means 0 completion
+      assert results[{ctx.spec.id, ctx.child_impl.id}] == %{completed: 0, total: 3}
+    end
+  end
 end

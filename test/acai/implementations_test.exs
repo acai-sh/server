@@ -310,4 +310,81 @@ defmodule Acai.ImplementationsTest do
       assert impl2.id in impl_ids
     end
   end
+
+  # --- Parent Chain Tests ---
+
+  describe "get_parent_chain/1" do
+    test "returns single impl when no parent", %{product: product} do
+      impl = implementation_fixture(product, %{name: "orphan-impl"})
+
+      chain = Implementations.get_parent_chain(impl.id)
+
+      assert chain == [impl.id]
+    end
+
+    test "returns chain of 3 implementations", %{product: product} do
+      grandparent = implementation_fixture(product, %{name: "grandparent"})
+
+      parent =
+        implementation_fixture(product, %{
+          name: "parent",
+          parent_implementation_id: grandparent.id
+        })
+
+      child =
+        implementation_fixture(product, %{name: "child", parent_implementation_id: parent.id})
+
+      # data-model.INHERITANCE.1, data-model.INHERITANCE.5
+      chain = Implementations.get_parent_chain(child.id)
+
+      assert chain == [child.id, parent.id, grandparent.id]
+    end
+
+    test "handles circular reference safely", %{product: product} do
+      impl1 = implementation_fixture(product, %{name: "impl1"})
+
+      impl2 =
+        implementation_fixture(product, %{name: "impl2", parent_implementation_id: impl1.id})
+
+      # Create circular reference: impl1 -> impl2
+      {:ok, _} =
+        Implementations.update_implementation(impl1, %{parent_implementation_id: impl2.id})
+
+      # Should not infinite loop
+      chain = Implementations.get_parent_chain(impl1.id)
+
+      # Should stop when it detects the cycle
+      assert impl1.id in chain
+      assert impl2.id in chain
+      # Should stop before infinite loop
+      assert length(chain) == 2
+    end
+
+    test "caps at max depth", %{product: product} do
+      # Create a deep chain: impl1 -> impl2 -> impl3 -> ... -> impl15
+      # impl1 has no parent, impl2 has parent impl1, etc.
+      {impl_ids, _} =
+        Enum.reduce(1..15, {[], nil}, fn i, {acc, last_id} ->
+          impl =
+            implementation_fixture(product, %{
+              name: "impl-#{i}",
+              parent_implementation_id: last_id
+            })
+
+          {[impl.id | acc], impl.id}
+        end)
+
+      # impl15 is the last one created, which has parent impl14
+      deepest_impl = hd(impl_ids)
+
+      chain = Implementations.get_parent_chain(deepest_impl)
+
+      # Should cap at 10 levels
+      assert length(chain) == 10
+    end
+
+    test "returns empty list for nil implementation_id" do
+      assert Implementations.get_parent_chain(nil) == []
+    end
+  end
 end

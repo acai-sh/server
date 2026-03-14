@@ -401,6 +401,65 @@ defmodule Acai.Implementations do
     )
   end
 
+  # --- Parent Chain Helper ---
+
+  @max_inheritance_depth 10
+
+  @doc """
+  Gets the parent chain for an implementation.
+
+  Returns an ordered list of implementation IDs starting with the given
+  implementation, then walking up via `parent_implementation_id`.
+
+  ## Safety
+
+  - Uses MapSet to prevent infinite loops from circular references.
+  - Caps at #{@max_inheritance_depth} levels as a safety measure.
+
+  ## Example
+
+      get_parent_chain("impl-id-1")
+      # => ["impl-id-1", "parent-id-1", "grandparent-id-1"]
+  """
+  def get_parent_chain(implementation_id) do
+    # data-model.INHERITANCE.5: Worst case depth of 3-4 levels, but we cap at 10
+    do_get_parent_chain(implementation_id, [], MapSet.new(), 0)
+  end
+
+  defp do_get_parent_chain(nil, acc, _visited, _depth), do: Enum.reverse(acc)
+
+  defp do_get_parent_chain(_impl_id, acc, _visited, depth)
+       when depth >= @max_inheritance_depth do
+    Enum.reverse(acc)
+  end
+
+  defp do_get_parent_chain(implementation_id, acc, visited, depth) do
+    if MapSet.member?(visited, implementation_id) do
+      # Circular reference detected, stop here
+      Enum.reverse(acc)
+    else
+      visited = MapSet.put(visited, implementation_id)
+      new_acc = [implementation_id | acc]
+
+      case Repo.one(
+             from i in Implementation,
+               where: i.id == ^implementation_id,
+               select: i.parent_implementation_id
+           ) do
+        nil ->
+          Enum.reverse(new_acc)
+
+        parent_id ->
+          # Only recurse if parent_id is not nil and not already visited
+          if is_nil(parent_id) or MapSet.member?(visited, parent_id) do
+            Enum.reverse(new_acc)
+          else
+            do_get_parent_chain(parent_id, new_acc, visited, depth + 1)
+          end
+      end
+    end
+  end
+
   # --- Feature Branch Refs Aggregation ---
 
   alias Acai.Specs.FeatureBranchRef
@@ -456,51 +515,27 @@ defmodule Acai.Implementations do
   - data-model.INHERITANCE.9: feature_name-based keys for monorepo support
   - feature-impl-view.INHERITANCE.3: Refs aggregated from tracked branches
   """
-  def get_aggregated_refs_with_inheritance(
-        feature_name,
-        implementation_id,
-        visited \\ MapSet.new()
-      ) do
-    # Prevent infinite loops in case of circular references
-    if MapSet.member?(visited, implementation_id) do
-      {[], false}
-    else
-      visited = MapSet.put(visited, implementation_id)
-      implementation = Repo.get(Implementation, implementation_id)
+  def get_aggregated_refs_with_inheritance(feature_name, implementation_id) do
+    chain = get_parent_chain(implementation_id)
+
+    # Walk the chain and find the first implementation with refs
+    Enum.reduce_while(chain, {[], false}, fn impl_id, {_, _} ->
+      implementation = Repo.get(Implementation, impl_id)
 
       if is_nil(implementation) do
-        {[], false}
+        {:cont, {[], false}}
       else
-        # Get tracked branch IDs for this implementation
         branch_ids = get_tracked_branch_ids(implementation)
-
-        # Aggregate refs from tracked branches
         refs = aggregate_feature_branch_refs(branch_ids, feature_name)
 
         if refs != [] do
-          # Found refs on this implementation's branches
-          {refs, false}
+          # Found refs, return them with inherited flag
+          {:halt, {refs, impl_id != implementation_id}}
         else
-          # No refs found, check parent implementation
-          if implementation.parent_implementation_id do
-            {parent_refs, _} =
-              get_aggregated_refs_with_inheritance(
-                feature_name,
-                implementation.parent_implementation_id,
-                visited
-              )
-
-            if parent_refs != [] do
-              {parent_refs, true}
-            else
-              {[], false}
-            end
-          else
-            {[], false}
-          end
+          {:cont, {[], false}}
         end
       end
-    end
+    end)
   end
 
   @doc """

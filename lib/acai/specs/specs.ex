@@ -164,6 +164,215 @@ defmodule Acai.Specs do
     end
   end
 
+  # --- Spec Inheritance ---
+
+  @doc """
+  Gets a spec for a feature_name, walking the parent chain via tracked branches.
+  Returns {spec, source_impl_id} where source_impl_id indicates where the spec was found.
+  Returns {nil, nil} if not found anywhere in the chain.
+
+  ## Inheritance Rules
+
+  - Checks the implementation's tracked branches first for a matching spec.
+  - If not found, walks up the parent_implementation_id chain.
+  - Child specs take precedence over parent specs (data-model.INHERITANCE.3).
+  """
+  def get_spec_for_feature_with_inheritance(
+        feature_name,
+        implementation_id,
+        visited \\ MapSet.new()
+      ) do
+    # data-model.INHERITANCE.1
+    # Prevent infinite loops in case of circular references
+    if MapSet.member?(visited, implementation_id) do
+      {nil, nil}
+    else
+      visited = MapSet.put(visited, implementation_id)
+
+      # Get tracked branch IDs for this implementation
+      branch_ids =
+        Repo.all(
+          from tb in Acai.Implementations.TrackedBranch,
+            where: tb.implementation_id == ^implementation_id,
+            select: tb.branch_id
+        )
+
+      # Look for a spec on any of these branches with matching feature_name
+      case branch_ids do
+        [] ->
+          # No tracked branches, walk up the parent chain
+          check_parent_for_spec(feature_name, implementation_id, visited)
+
+        _ ->
+          case Repo.one(
+                 from s in Spec,
+                   where: s.feature_name == ^feature_name and s.branch_id in ^branch_ids,
+                   limit: 1
+               ) do
+            nil ->
+              # Not found on this implementation's branches, check parent
+              check_parent_for_spec(feature_name, implementation_id, visited)
+
+            spec ->
+              # Found on this implementation
+              # data-model.INHERITANCE.3: Child's spec takes precedence
+              {spec, implementation_id}
+          end
+      end
+    end
+  end
+
+  defp check_parent_for_spec(feature_name, implementation_id, visited) do
+    # data-model.INHERITANCE.2
+    impl = Repo.get(Acai.Implementations.Implementation, implementation_id)
+
+    if impl && impl.parent_implementation_id do
+      # Recurse up the parent chain
+      # data-model.INHERITANCE.5: Recursion depth is naturally limited by visited set
+      get_spec_for_feature_with_inheritance(
+        feature_name,
+        impl.parent_implementation_id,
+        visited
+      )
+    else
+      {nil, nil}
+    end
+  end
+
+  @doc """
+  Returns an inheritance summary for a feature_name and implementation.
+
+  Returns a map indicating whether spec, states, and refs are inherited:
+
+      %{
+        spec: %{inherited?: boolean, source_impl_id: id | nil},
+        states: %{inherited?: boolean, source_impl_id: id | nil},
+        refs: %{inherited?: boolean, source_impl_id: id | nil}
+      }
+
+  ## Inheritance Detection
+
+  - If source_impl_id != queried implementation_id, the resource is inherited.
+  - If source_impl_id is nil, the resource was not found anywhere in the chain.
+  """
+  def get_inheritance_summary(feature_name, implementation_id) do
+    {spec, spec_source_impl_id} =
+      get_spec_for_feature_with_inheritance(feature_name, implementation_id)
+
+    {state, state_source_impl_id} =
+      get_feature_impl_state_with_inheritance(feature_name, implementation_id)
+
+    {ref, ref_source_impl_id} =
+      get_feature_impl_ref_with_inheritance(feature_name, implementation_id)
+
+    %{
+      spec: %{
+        found?: not is_nil(spec),
+        inherited?: spec_source_impl_id != implementation_id,
+        source_impl_id: spec_source_impl_id
+      },
+      states: %{
+        found?: not is_nil(state),
+        inherited?: state_source_impl_id != implementation_id,
+        source_impl_id: state_source_impl_id
+      },
+      refs: %{
+        found?: not is_nil(ref),
+        inherited?: ref_source_impl_id != implementation_id,
+        source_impl_id: ref_source_impl_id
+      }
+    }
+  end
+
+  @doc """
+  Batch resolves specs for multiple feature_names and implementations with inheritance.
+
+  Returns a map of {feature_name, impl_id} => spec | :not_found.
+
+  This is used by the product-view matrix to determine which spec to display
+  for each cell, respecting inheritance semantics.
+
+  ## Algorithm
+
+  1. Pre-compute parent chains for all implementations.
+  2. Query all specs for all branch IDs across all chains.
+  3. For each (feature_name, impl_id), resolve by checking the chain in order.
+  """
+  def batch_resolve_specs_for_implementations(feature_names, implementations)
+      when is_list(feature_names) and is_list(implementations) do
+    impl_ids = Enum.map(implementations, & &1.id)
+
+    # Pre-compute parent chains for all implementations
+    parent_chains =
+      Map.new(impl_ids, fn impl_id ->
+        {impl_id, Acai.Implementations.get_parent_chain(impl_id)}
+      end)
+
+    # Collect all implementation IDs across all chains
+    all_impl_ids =
+      parent_chains
+      |> Map.values()
+      |> List.flatten()
+      |> Enum.uniq()
+
+    # Get all tracked branches for all implementations in chains
+    tracked_branches =
+      Repo.all(
+        from tb in Acai.Implementations.TrackedBranch,
+          where: tb.implementation_id in ^all_impl_ids,
+          select: {tb.implementation_id, tb.branch_id}
+      )
+
+    # Build map of impl_id => [branch_ids]
+    branches_by_impl =
+      Enum.reduce(tracked_branches, %{}, fn {impl_id, branch_id}, acc ->
+        Map.update(acc, impl_id, [branch_id], &[branch_id | &1])
+      end)
+
+    # Collect all branch IDs
+    all_branch_ids =
+      branches_by_impl
+      |> Map.values()
+      |> List.flatten()
+      |> Enum.uniq()
+
+    # Query all relevant specs
+    specs =
+      Repo.all(
+        from s in Spec,
+          where: s.feature_name in ^feature_names and s.branch_id in ^all_branch_ids,
+          select: {s.feature_name, s.branch_id, s}
+      )
+
+    # Build map of {feature_name, branch_id} => spec
+    specs_by_feature_branch =
+      Enum.reduce(specs, %{}, fn {feature_name, branch_id, spec}, acc ->
+        Map.put(acc, {feature_name, branch_id}, spec)
+      end)
+
+    # Resolve specs for each (feature_name, impl_id)
+    for feature_name <- feature_names,
+        impl <- implementations,
+        into: %{} do
+      chain = Map.get(parent_chains, impl.id, [impl.id])
+
+      result =
+        find_spec_in_chain(feature_name, chain, branches_by_impl, specs_by_feature_branch)
+
+      {{feature_name, impl.id}, result}
+    end
+  end
+
+  defp find_spec_in_chain(feature_name, chain, branches_by_impl, specs_by_feature_branch) do
+    Enum.find_value(chain, :not_found, fn impl_id ->
+      branch_ids = Map.get(branches_by_impl, impl_id, [])
+
+      Enum.find_value(branch_ids, fn branch_id ->
+        Map.get(specs_by_feature_branch, {feature_name, branch_id})
+      end)
+    end)
+  end
+
   # --- FeatureImplStates ---
 
   @doc """
@@ -281,9 +490,24 @@ defmodule Acai.Specs do
 
   This is used for building the feature × implementation matrix where each cell
   shows completion percentage.
+
+  ## Options
+
+  - `:inheritance` - When `true` (default), walks the parent chain to inherit states
+    when not found directly on the implementation.
   """
-  def batch_get_feature_impl_completion(feature_names, implementations)
+  def batch_get_feature_impl_completion(feature_names, implementations, opts \\ [])
       when is_list(feature_names) and is_list(implementations) do
+    inheritance? = Keyword.get(opts, :inheritance, true)
+
+    if inheritance? do
+      batch_get_feature_impl_completion_with_inheritance(feature_names, implementations)
+    else
+      batch_get_feature_impl_completion_without_inheritance(feature_names, implementations)
+    end
+  end
+
+  defp batch_get_feature_impl_completion_without_inheritance(feature_names, implementations) do
     impl_ids = Enum.map(implementations, & &1.id)
 
     # Fetch all feature_impl_states for the given feature_names and implementations
@@ -296,18 +520,91 @@ defmodule Acai.Specs do
 
     # Build a map of {feature_name, impl_id} => completion data
     # feature-view.MAIN.3: Both completed and accepted count toward completion
-    states
-    |> Enum.map(fn {feature_name, impl_id, state_map} ->
-      completed_count =
-        Enum.count(state_map, fn {_acid, attrs} ->
-          attrs["status"] in ["completed", "accepted"]
-        end)
+    states_map =
+      states
+      |> Enum.map(fn {feature_name, impl_id, state_map} ->
+        completed_count =
+          Enum.count(state_map, fn {_acid, attrs} ->
+            attrs["status"] in ["completed", "accepted"]
+          end)
 
-      total_count = map_size(state_map)
+        total_count = map_size(state_map)
 
-      {{feature_name, impl_id}, %{completed: completed_count, total: total_count}}
+        {{feature_name, impl_id}, %{completed: completed_count, total: total_count}}
+      end)
+      |> Map.new()
+
+    # Ensure all (feature_name, impl_id) pairs have a result (default to empty)
+    for feature_name <- feature_names,
+        impl <- implementations,
+        into: %{} do
+      result = Map.get(states_map, {feature_name, impl.id}, %{completed: 0, total: 0})
+      {{feature_name, impl.id}, result}
+    end
+  end
+
+  defp batch_get_feature_impl_completion_with_inheritance(feature_names, implementations) do
+    impl_ids = Enum.map(implementations, & &1.id)
+
+    # Pre-compute parent chains for all implementations
+    parent_chains =
+      Map.new(impl_ids, fn impl_id ->
+        {impl_id, Acai.Implementations.get_parent_chain(impl_id)}
+      end)
+
+    # Collect all implementation IDs across all chains
+    all_impl_ids =
+      parent_chains
+      |> Map.values()
+      |> List.flatten()
+      |> Enum.uniq()
+
+    # Fetch all feature_impl_states for all implementations in chains
+    all_states =
+      Repo.all(
+        from fis in FeatureImplState,
+          where: fis.feature_name in ^feature_names and fis.implementation_id in ^all_impl_ids,
+          select: {fis.feature_name, fis.implementation_id, fis.states}
+      )
+
+    # Build map of {feature_name, impl_id} => states
+    states_by_feature_impl =
+      Enum.reduce(all_states, %{}, fn {feature_name, impl_id, states}, acc ->
+        Map.put(acc, {feature_name, impl_id}, states)
+      end)
+
+    # Resolve states for each (feature_name, impl_id) with inheritance
+    for feature_name <- feature_names,
+        impl <- implementations,
+        into: %{} do
+      chain = Map.get(parent_chains, impl.id, [impl.id])
+
+      state_map = find_states_in_chain(feature_name, chain, states_by_feature_impl)
+
+      completion_data =
+        if state_map do
+          completed_count =
+            Enum.count(state_map, fn {_acid, attrs} ->
+              attrs["status"] in ["completed", "accepted"]
+            end)
+
+          total_count = map_size(state_map)
+
+          %{completed: completed_count, total: total_count}
+        else
+          %{completed: 0, total: 0}
+        end
+
+      {{feature_name, impl.id}, completion_data}
+    end
+  end
+
+  defp find_states_in_chain(feature_name, chain, states_by_feature_impl) do
+    # feature-impl-view.INHERITANCE.3: All-or-nothing semantics
+    # If an impl has its own states row, use it entirely; otherwise inherit from parent
+    Enum.find_value(chain, fn impl_id ->
+      Map.get(states_by_feature_impl, {feature_name, impl_id})
     end)
-    |> Map.new()
   end
 
   @doc """
@@ -316,12 +613,41 @@ defmodule Acai.Specs do
 
   Although states are stored by feature_name, completion for a specific spec is
   computed by filtering the feature state bucket down to that spec's ACIDs.
+
+  ## Options
+
+  - `:inheritance` - When `true` (default), walks the parent chain to inherit states
+    when not found directly on the implementation.
   """
-  def batch_get_spec_impl_completion(specs, implementations)
+  def batch_get_spec_impl_completion(specs, implementations, opts \\ [])
       when is_list(specs) and is_list(implementations) do
+    inheritance? = Keyword.get(opts, :inheritance, true)
     impl_ids = Enum.map(implementations, & &1.id)
     feature_names = specs |> Enum.map(& &1.feature_name) |> Enum.uniq()
 
+    if inheritance? do
+      batch_get_spec_impl_completion_with_inheritance(
+        specs,
+        implementations,
+        feature_names,
+        impl_ids
+      )
+    else
+      batch_get_spec_impl_completion_without_inheritance(
+        specs,
+        implementations,
+        feature_names,
+        impl_ids
+      )
+    end
+  end
+
+  defp batch_get_spec_impl_completion_without_inheritance(
+         specs,
+         implementations,
+         feature_names,
+         impl_ids
+       ) do
     states_by_feature_impl =
       Repo.all(
         from fis in FeatureImplState,
@@ -354,6 +680,67 @@ defmodule Acai.Specs do
   # --- FeatureBranchRefs (Branch-scoped refs) ---
 
   alias Acai.Implementations.{Branch, Implementation}
+
+  defp batch_get_spec_impl_completion_with_inheritance(
+         specs,
+         implementations,
+         feature_names,
+         impl_ids
+       ) do
+    # Pre-compute parent chains for all implementations
+    parent_chains =
+      Map.new(impl_ids, fn impl_id ->
+        {impl_id, Acai.Implementations.get_parent_chain(impl_id)}
+      end)
+
+    # Collect all implementation IDs across all chains
+    all_impl_ids =
+      parent_chains
+      |> Map.values()
+      |> List.flatten()
+      |> Enum.uniq()
+
+    # Fetch all feature_impl_states for all implementations in chains
+    all_states =
+      Repo.all(
+        from fis in FeatureImplState,
+          where: fis.feature_name in ^feature_names and fis.implementation_id in ^all_impl_ids,
+          select: {{fis.feature_name, fis.implementation_id}, fis.states}
+      )
+      |> Map.new()
+
+    for spec <- specs,
+        implementation <- implementations,
+        into: %{} do
+      chain = Map.get(parent_chains, implementation.id, [implementation.id])
+
+      # feature-impl-view.INHERITANCE.3: All-or-nothing semantics
+      relevant_states = find_states_in_chain(spec.feature_name, chain, all_states) || %{}
+
+      spec_acids = Map.keys(spec.requirements)
+
+      completed_count =
+        Enum.count(spec_acids, fn acid ->
+          case relevant_states[acid] do
+            %{"status" => status} when status in ["completed", "accepted"] -> true
+            _ -> false
+          end
+        end)
+
+      {{spec.id, implementation.id},
+       %{completed: completed_count, total: map_size(spec.requirements)}}
+    end
+  end
+
+  # Finds the first state in the chain that has data for the given feature_name
+  defp find_states_in_chain(feature_name, chain, all_states) do
+    Enum.reduce_while(chain, nil, fn impl_id, _acc ->
+      case Map.get(all_states, {feature_name, impl_id}) do
+        nil -> {:cont, nil}
+        states -> {:halt, states}
+      end
+    end)
+  end
 
   @doc """
   Gets a feature_branch_ref for a feature_name and branch.
