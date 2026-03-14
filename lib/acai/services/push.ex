@@ -29,8 +29,6 @@ defmodule Acai.Services.Push do
   ## Parameters
     - token: The authenticated AccessToken
     - params: The validated push request parameters
-
-  See push.feature.yaml for all ACIDs
   """
   def execute(%AccessToken{} = token, params) do
     # Check required scopes based on what parts of the request are present

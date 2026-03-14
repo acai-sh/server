@@ -1,11 +1,8 @@
 defmodule AcaiWeb.Api.Schemas.PushSchemas do
   @moduledoc """
   OpenApiSpex schemas for the push endpoint.
-
-  See push.feature.yaml for ACIDs
   """
 
-  # push.FEAT.1, push.FEAT.2, push.FEAT.3, push.FEAT.4, push.FEAT.5
   defmodule Feature do
     @moduledoc """
     Schema for feature metadata in a push request.
@@ -20,26 +17,25 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
       properties: %{
         name: %OpenApiSpex.Schema{
           type: :string,
-          description:
-            "Feature name (alphanumeric, hyphens, underscores only). See push.FEAT.1, push.VALIDATION.1"
+          description: "Feature name (alphanumeric, hyphens, underscores only)"
         },
         product: %OpenApiSpex.Schema{
           type: :string,
-          description: "Product name. See push.FEAT.2"
+          description: "Product name"
         },
         description: %OpenApiSpex.Schema{
           type: :string,
-          description: "Optional feature description. See push.FEAT.3"
+          description: "Optional feature description"
         },
         version: %OpenApiSpex.Schema{
           type: :string,
           default: "1.0.0",
-          description: "Optional version string (SemVer). See push.FEAT.4, push.VALIDATION.2"
+          description: "Optional version string (SemVer)"
         },
         prerequisites: %OpenApiSpex.Schema{
           type: :array,
           items: %OpenApiSpex.Schema{type: :string},
-          description: "Optional list of prerequisite feature names. See push.FEAT.5"
+          description: "Optional list of prerequisite feature names"
         }
       },
       example: %{
@@ -52,7 +48,6 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
     })
   end
 
-  # push.FEAT_META.1, push.FEAT_META.2, push.FEAT_META.3
   defmodule FeatureMeta do
     @moduledoc """
     Schema for feature metadata about the source file.
@@ -67,16 +62,15 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
       properties: %{
         path: %OpenApiSpex.Schema{
           type: :string,
-          description:
-            "Path from repo root (e.g., features/auth.feature.yaml). See push.FEAT_META.1"
+          description: "Path from repo root (e.g., features/auth.feature.yaml)"
         },
         raw_content: %OpenApiSpex.Schema{
           type: :string,
-          description: "Optional raw content of the feature file. See push.FEAT_META.2"
+          description: "Optional raw content of the feature file"
         },
         last_seen_commit: %OpenApiSpex.Schema{
           type: :string,
-          description: "Commit hash when this feature was last seen. See push.FEAT_META.3"
+          description: "Commit hash when this feature was last seen"
         }
       },
       example: %{
@@ -86,7 +80,6 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
     })
   end
 
-  # push.SPEC_REQS.1, push.SPEC_REQS.1-1, push.SPEC_REQS.1-2, push.SPEC_REQS.1-3, push.SPEC_REQS.1-4
   defmodule RequirementDefinition do
     @moduledoc """
     Schema for a single requirement definition.
@@ -95,27 +88,27 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
 
     OpenApiSpex.schema(%{
       title: "RequirementDefinition",
-      description: "Definition of a single requirement (AC)",
+      description: "Definition of a single requirement (acceptance criteria)",
       type: :object,
       required: [:requirement],
       properties: %{
         requirement: %OpenApiSpex.Schema{
           type: :string,
-          description: "The requirement text. See push.SPEC_REQS.1-1"
+          description: "The requirement text describing the acceptance criteria"
         },
         deprecated: %OpenApiSpex.Schema{
           type: :boolean,
           default: false,
-          description: "Whether this requirement is deprecated. See push.SPEC_REQS.1-2"
+          description: "Whether this requirement is deprecated"
         },
         note: %OpenApiSpex.Schema{
           type: :string,
-          description: "Optional note about this requirement. See push.SPEC_REQS.1-3"
+          description: "Optional note about this requirement"
         },
         replaced_by: %OpenApiSpex.Schema{
           type: :array,
           items: %OpenApiSpex.Schema{type: :string},
-          description: "Optional list of ACIDs that replace this one. See push.SPEC_REQS.1-4"
+          description: "Optional list of requirement IDs that replace this one"
         }
       },
       example: %{
@@ -125,7 +118,6 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
     })
   end
 
-  # push.REQUEST.4, push.REQUEST.4-1, push.REQUEST.4-2, push.REQUEST.4-3
   defmodule SpecObject do
     @moduledoc """
     Schema for a single spec object in the push request.
@@ -147,7 +139,7 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
           additionalProperties: %OpenApiSpex.Schema{
             allOf: [RequirementDefinition.schema()]
           },
-          description: "Map of ACIDs to requirement definitions. See push.SPEC_REQS.1"
+          description: "Map of requirement IDs to requirement definitions"
         },
         meta: %OpenApiSpex.Schema{
           allOf: [FeatureMeta.schema()],
@@ -171,7 +163,6 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
     })
   end
 
-  # push.REFS.2-1, push.REFS.2-2
   defmodule RefObject do
     @moduledoc """
     Schema for a single code reference.
@@ -186,12 +177,12 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
       properties: %{
         path: %OpenApiSpex.Schema{
           type: :string,
-          description: "Path to the code reference (e.g., lib/foo.ex:42). See push.REFS.2-2"
+          description: "Path to the code reference (e.g., lib/foo.ex:42)"
         },
         is_test: %OpenApiSpex.Schema{
           type: :boolean,
           default: false,
-          description: "Whether this reference is a test. See push.REFS.2-2"
+          description: "Whether this reference is a test"
         }
       },
       example: %{
@@ -201,7 +192,6 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
     })
   end
 
-  # push.REFS.1, push.REFS.2, push.REFS.2-1
   defmodule References do
     @moduledoc """
     Schema for references section in push request.
@@ -210,18 +200,18 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
 
     OpenApiSpex.schema(%{
       title: "References",
-      description: "Code references grouped by ACID",
+      description: "Code references grouped by requirement ID",
       type: :object,
       required: [:data],
       properties: %{
         override: %OpenApiSpex.Schema{
           type: :boolean,
           default: false,
-          description: "If true, replaces all existing refs instead of merging. See push.REFS.1"
+          description: "If true, replaces all existing refs instead of merging"
         },
         data: %OpenApiSpex.Schema{
           type: :object,
-          description: "Map of ACIDs to arrays of ref objects. See push.REFS.2, push.REFS.2-1",
+          description: "Map of requirement IDs to arrays of ref objects",
           additionalProperties: %OpenApiSpex.Schema{
             type: :array,
             items: %OpenApiSpex.Schema{allOf: [RefObject.schema()]}
@@ -239,7 +229,6 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
     })
   end
 
-  # push.STATES.2-2, push.STATES.2-3
   defmodule StateObject do
     @moduledoc """
     Schema for a single state entry.
@@ -248,17 +237,19 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
 
     OpenApiSpex.schema(%{
       title: "StateObject",
-      description: "State for a single AC",
+      description: "State for a single requirement",
       type: :object,
       properties: %{
         status: %OpenApiSpex.Schema{
           type: :string,
           nullable: true,
-          description: "Status value (nullable). See push.STATES.2-2"
+          enum: ["not_started", "in_progress", "completed", "blocked", "skipped"],
+          description:
+            "Status value (nullable). Valid values: not_started, in_progress, completed, blocked, skipped"
         },
         comment: %OpenApiSpex.Schema{
           type: :string,
-          description: "Optional comment about this state. See push.STATES.2-3"
+          description: "Optional comment about this state"
         }
       },
       example: %{
@@ -268,7 +259,6 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
     })
   end
 
-  # push.STATES.1, push.STATES.2, push.STATES.2-1
   defmodule States do
     @moduledoc """
     Schema for states section in push request.
@@ -277,19 +267,18 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
 
     OpenApiSpex.schema(%{
       title: "States",
-      description: "Implementation states grouped by ACID",
+      description: "Implementation states grouped by requirement ID",
       type: :object,
       required: [:data],
       properties: %{
         override: %OpenApiSpex.Schema{
           type: :boolean,
           default: false,
-          description:
-            "If true, replaces all existing states instead of merging. See push.STATES.1"
+          description: "If true, replaces all existing states instead of merging"
         },
         data: %OpenApiSpex.Schema{
           type: :object,
-          description: "Map of ACIDs to state objects. See push.STATES.2, push.STATES.2-1",
+          description: "Map of requirement IDs to state objects",
           additionalProperties: %OpenApiSpex.Schema{allOf: [StateObject.schema()]}
         }
       },
@@ -305,7 +294,6 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
     })
   end
 
-  # push.REQUEST.1, push.REQUEST.2, push.REQUEST.3, push.REQUEST.4, push.REQUEST.5, push.REQUEST.6, push.REQUEST.7, push.REQUEST.8
   defmodule PushRequest do
     @moduledoc """
     Schema for the push request body.
@@ -320,36 +308,40 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
       properties: %{
         repo_uri: %OpenApiSpex.Schema{
           type: :string,
-          description: "Repository URI. See push.REQUEST.1"
+          description:
+            "`repo_uri` should be in the format `host/owner/repo` (e.g. `github.com/my-org/my-repo`). Supported hosts for deep linking are `github.com`, `gitlab.com`, and `bitbucket.org`. Self-hosted instances may work for tracking but deep links are not guaranteed yet."
         },
         branch_name: %OpenApiSpex.Schema{
           type: :string,
-          description: "Branch name. See push.REQUEST.2"
+          description: "Git branch name being pushed (e.g., 'main', 'feature/auth-123')"
         },
         commit_hash: %OpenApiSpex.Schema{
           type: :string,
-          description: "Commit hash. See push.REQUEST.3"
+          description:
+            "Full 40-character Git commit SHA that this push represents (e.g., 'abc123def456...')"
         },
         specs: %OpenApiSpex.Schema{
           type: :array,
           items: %OpenApiSpex.Schema{allOf: [SpecObject.schema()]},
-          description: "Optional list of specs to push. See push.REQUEST.4"
+          description: "Optional list of specs to push"
         },
         references: %OpenApiSpex.Schema{
           allOf: [References.schema()],
-          description: "Optional code references. See push.REQUEST.5"
+          description: "Optional code references"
         },
         states: %OpenApiSpex.Schema{
           allOf: [States.schema()],
-          description: "Optional implementation states. See push.REQUEST.6"
+          description: "Optional implementation states"
         },
         target_impl_name: %OpenApiSpex.Schema{
           type: :string,
-          description: "Optional target implementation name. See push.REQUEST.7"
+          description:
+            "Name of the implementation (deployment environment) to associate this branch with. An implementation represents a deployable instance of your product (e.g., 'production', 'staging', 'mobile-app-v2'). When provided, the branch will be linked to this implementation for tracking. If the implementation doesn't exist, it will be auto-created within the product"
         },
         parent_impl_name: %OpenApiSpex.Schema{
           type: :string,
-          description: "Optional parent implementation name for inheritance. See push.REQUEST.8"
+          description:
+            "Name of a parent implementation for inheritance. When creating a new implementation, it will inherit feature states and refs from the parent (e.g., create 'feature-branch-impl' with parent 'main' to start with main's baseline). Useful for short-lived branches that extend an existing implementation"
         }
       },
       example: %{
@@ -375,7 +367,6 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
     })
   end
 
-  # push.RESPONSE.2, push.RESPONSE.3, push.RESPONSE.4
   defmodule PushResponseData do
     @moduledoc """
     Schema for the push response data.
@@ -390,34 +381,36 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
         implementation_name: %OpenApiSpex.Schema{
           type: :string,
           nullable: true,
-          description: "Name of the implementation (null if untracked). See push.RESPONSE.2"
+          description:
+            "Name of the implementation (deployment environment) this branch is linked to, such as 'production' or 'staging'. Null if the branch is not tracked by any implementation"
         },
         implementation_id: %OpenApiSpex.Schema{
           type: :string,
           nullable: true,
-          description: "ID of the implementation (null if untracked). See push.RESPONSE.2"
+          description:
+            "Unique ID of the implementation. Null if the branch is not tracked by any implementation"
         },
         product_name: %OpenApiSpex.Schema{
           type: :string,
           nullable: true,
-          description: "Name of the product (null if untracked). See push.RESPONSE.2"
+          description: "Name of the product (null if untracked)"
         },
         branch_id: %OpenApiSpex.Schema{
           type: :string,
-          description: "ID of the branch. See push.RESPONSE.2"
+          description: "ID of the branch"
         },
         specs_created: %OpenApiSpex.Schema{
           type: :integer,
-          description: "Number of specs created. See push.RESPONSE.3"
+          description: "Number of specs created"
         },
         specs_updated: %OpenApiSpex.Schema{
           type: :integer,
-          description: "Number of specs updated. See push.RESPONSE.3"
+          description: "Number of specs updated"
         },
         warnings: %OpenApiSpex.Schema{
           type: :array,
           items: %OpenApiSpex.Schema{type: :string},
-          description: "List of non-fatal warnings. See push.RESPONSE.4"
+          description: "List of non-fatal warnings"
         }
       },
       example: %{
@@ -432,7 +425,6 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
     })
   end
 
-  # push.RESPONSE.1
   defmodule PushResponse do
     @moduledoc """
     Schema for a successful push response.
@@ -464,7 +456,6 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
     })
   end
 
-  # push.RESPONSE.5, push.RESPONSE.6, push.RESPONSE.7
   defmodule ErrorResponse do
     @moduledoc """
     Schema for error responses.
@@ -483,8 +474,7 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
           properties: %{
             detail: %OpenApiSpex.Schema{
               type: :string,
-              description:
-                "Error detail message. See push.RESPONSE.5, push.RESPONSE.6, push.RESPONSE.7"
+              description: "Error detail message"
             },
             status: %OpenApiSpex.Schema{
               type: :string,

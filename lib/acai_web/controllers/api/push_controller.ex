@@ -3,8 +3,6 @@ defmodule AcaiWeb.Api.PushController do
   Controller for the push endpoint.
 
   Handles POST /api/v1/push for pushing specs, refs, and states.
-
-  See push.feature.yaml for all ACIDs
   """
 
   use AcaiWeb.Api.Controller
@@ -18,11 +16,11 @@ defmodule AcaiWeb.Api.PushController do
   See push.ENDPOINT.1, push.ENDPOINT.2, push.ENDPOINT.3
   """
   def open_api_operation(:create) do
-    alias OpenApiSpex.Operation
+    alias OpenApiSpex.{Operation, MediaType}
 
     %Operation{
-      tags: ["Push"],
-      summary: "Push specs, refs, and states",
+      tags: ["Actions"],
+      summary: "Push from branch",
       description: """
       Push specs, code references, and implementation states to the server.
 
@@ -32,14 +30,12 @@ defmodule AcaiWeb.Api.PushController do
       - Setting implementation states
       - Auto-creating implementations for new branches
       - Linking branches to existing implementations
-
-      See push.feature.yaml for all ACIDs.
       """,
       operationId: "PushController.create",
       requestBody: %OpenApiSpex.RequestBody{
         description: "Push request body",
         content: %{
-          "application/json" => %{
+          "application/json" => %MediaType{
             schema: PushSchemas.PushRequest
           }
         },
@@ -49,7 +45,7 @@ defmodule AcaiWeb.Api.PushController do
         200 => %OpenApiSpex.Response{
           description: "Push successful",
           content: %{
-            "application/json" => %{
+            "application/json" => %MediaType{
               schema: PushSchemas.PushResponse
             }
           }
@@ -57,7 +53,7 @@ defmodule AcaiWeb.Api.PushController do
         401 => %OpenApiSpex.Response{
           description: "Unauthorized - invalid or missing token",
           content: %{
-            "application/json" => %{
+            "application/json" => %MediaType{
               schema: PushSchemas.ErrorResponse
             }
           }
@@ -65,7 +61,7 @@ defmodule AcaiWeb.Api.PushController do
         403 => %OpenApiSpex.Response{
           description: "Forbidden - token missing required scopes",
           content: %{
-            "application/json" => %{
+            "application/json" => %MediaType{
               schema: PushSchemas.ErrorResponse
             }
           }
@@ -73,7 +69,7 @@ defmodule AcaiWeb.Api.PushController do
         422 => %OpenApiSpex.Response{
           description: "Validation error - invalid request body",
           content: %{
-            "application/json" => %{
+            "application/json" => %MediaType{
               schema: PushSchemas.ErrorResponse
             }
           }

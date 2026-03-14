@@ -8,11 +8,15 @@ defmodule AcaiWeb.Api.ApiSpec do
   See core.API.1, core.API.1-1
   """
 
-  alias OpenApiSpex.{OpenApi, Info, Server, Components, SecurityScheme}
-  alias AcaiWeb.Api.Schemas.PushSchemas
+  alias OpenApiSpex.{OpenApi, Info, Server, Components, SecurityScheme, PathItem, Tag}
 
   @spec spec() :: OpenApi.t()
   def spec do
+    endpoint_config = Application.get_env(:acai, AcaiWeb.Endpoint)
+    url_config = endpoint_config[:url] || []
+
+    server_url = build_server_url(url_config)
+
     %OpenApi{
       info: %Info{
         title: "Acai API",
@@ -21,31 +25,24 @@ defmodule AcaiWeb.Api.ApiSpec do
       },
       servers: [
         %Server{
-          url: "/api/v1",
+          url: server_url,
           description: "API v1"
         }
       ],
       paths: %{
-        "/push" => %{
-          "post" => AcaiWeb.Api.PushController.open_api_operation(:create)
+        "/push" => %PathItem{
+          post: AcaiWeb.Api.PushController.open_api_operation(:create)
         }
       },
+      tags: [
+        %Tag{
+          name: "Actions",
+          description:
+            "Push specs, refs, and states from your repo to update feature definitions and implementation tracking"
+        }
+      ],
       components: %Components{
-        schemas: %{
-          "Feature" => PushSchemas.Feature,
-          "FeatureMeta" => PushSchemas.FeatureMeta,
-          "RequirementDefinition" => PushSchemas.RequirementDefinition,
-          "Requirements" => PushSchemas.Requirements,
-          "SpecObject" => PushSchemas.SpecObject,
-          "RefObject" => PushSchemas.RefObject,
-          "References" => PushSchemas.References,
-          "StateObject" => PushSchemas.StateObject,
-          "States" => PushSchemas.States,
-          "PushRequest" => PushSchemas.PushRequest,
-          "PushResponseData" => PushSchemas.PushResponseData,
-          "PushResponse" => PushSchemas.PushResponse,
-          "ErrorResponse" => PushSchemas.ErrorResponse
-        },
+        schemas: %{},
         securitySchemes: %{
           "bearerAuth" => %SecurityScheme{
             type: "http",
@@ -56,5 +53,30 @@ defmodule AcaiWeb.Api.ApiSpec do
       },
       security: [%{"bearerAuth" => []}]
     }
+    |> OpenApiSpex.resolve_schema_modules()
+  end
+
+  # Builds the server URL from Phoenix endpoint configuration.
+  # Falls back to relative URL if config is not available.
+  defp build_server_url(url_config) do
+    host = Keyword.get(url_config, :host, "localhost")
+    scheme = Keyword.get(url_config, :scheme, "http")
+    port = Keyword.get(url_config, :port, 4000)
+    path = Keyword.get(url_config, :path, "/")
+
+    base_url =
+      case {scheme, port} do
+        {"https", 443} -> "https://#{host}"
+        {"http", 80} -> "http://#{host}"
+        _ -> "#{scheme}://#{host}:#{port}"
+      end
+
+    # Ensure path starts with / and remove trailing slash
+    normalized_path =
+      path
+      |> String.replace_prefix("", "/")
+      |> String.trim_trailing("/")
+
+    "#{base_url}#{normalized_path}/api/v1"
   end
 end
