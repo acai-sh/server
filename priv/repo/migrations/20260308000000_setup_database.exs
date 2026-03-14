@@ -162,6 +162,8 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # data-model.FIELDS.3
     create table(:branches, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
+      # data-model.BRANCHES.10: team_id is a Foreign Key to teams table, non-nullable
+      add :team_id, references(:teams, type: :uuid, on_delete: :delete_all), null: false
       # data-model.BRANCHES.3
       add :repo_uri, :text, null: false
       # data-model.BRANCHES.4
@@ -172,11 +174,11 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
       timestamps(type: :utc_datetime)
     end
 
-    # data-model.BRANCHES.8: Composite unique on (repo_uri, branch_name)
-    # data-model.BRANCHES.7: Index on (repo_uri, branch_name)
-    create unique_index(:branches, [:repo_uri, :branch_name])
-    # data-model.BRANCHES.9
+    # data-model.BRANCHES.9: Index on (repo_uri) for listing branches by repository
     create index(:branches, [:repo_uri])
+
+    # data-model.BRANCHES.10-1: Composite Unique Constraint enforces (team_id, repo_uri, branch_name)
+    create unique_index(:branches, [:team_id, :repo_uri, :branch_name])
 
     # ============================================================================
     # TRACKED BRANCHES TABLE (junction table: implementations <-> branches)
@@ -242,15 +244,12 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # data-model.SPECS.9-1
     execute "ALTER TABLE specs ADD CONSTRAINT feature_name_url_safe CHECK (feature_name ~ '^[a-zA-Z0-9_-]+$')"
 
-    # data-model.SPECS.14-1
+    # data-model.SPECS.14-1: Composite Unique Constraint enforces (branch_id, feature_name)
     create unique_index(:specs, [:branch_id, :feature_name])
-    # data-model.SPECS.15
-    create unique_index(:specs, [:product_id, :feature_name, :feature_version])
-
+    # data-model.SPECS.17-1: Index on (branch_id) for joining specs to branches
+    create index(:specs, [:branch_id])
     # data-model.SPECS.16
     create index(:specs, [:product_id])
-    # data-model.SPECS.17-1
-    create index(:specs, [:branch_id])
 
     # ============================================================================
     # FEATURE IMPL STATES TABLE (NEW - replaces requirement_statuses)
@@ -283,39 +282,42 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     create index(:feature_impl_states, [:implementation_id])
 
     # ============================================================================
-    # FEATURE IMPL REFS TABLE (NEW - replaces code_references)
+    # FEATURE BRANCH REFS TABLE (NEW - branch-scoped refs)
     # ============================================================================
 
-    # data-model.FEATURE_IMPL_REFS.1
+    # data-model.FEATURE_BRANCH_REFS.1: id field is a UUIDv7 Primary Key
     # data-model.FIELDS.3
-    create table(:feature_impl_refs, primary_key: false) do
+    create table(:feature_branch_refs, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
-      # data-model.FEATURE_IMPL_REFS.2
-      add :implementation_id, references(:implementations, type: :uuid, on_delete: :delete_all),
-        null: false
+      # data-model.FEATURE_BRANCH_REFS.2: branch_id is a Foreign Key to branches table
+      add :branch_id, references(:branches, type: :uuid, on_delete: :delete_all), null: false
 
-      # data-model.FEATURE_IMPL_REFS.3
+      # data-model.FEATURE_BRANCH_REFS.3: feature_name matches the feature.name from spec file
       add :feature_name, :string, null: false
-      # data-model.FEATURE_IMPL_REFS.4
+      # data-model.FEATURE_BRANCH_REFS.4: refs is a JSONB column storing ACID references
+      # data-model.FEATURE_BRANCH_REFS.4-1: refs format is an object keyed by full ACID string
+      # data-model.FEATURE_BRANCH_REFS.4-2: Each ACID entry contains an array of reference objects
+      # data-model.FEATURE_BRANCH_REFS.4-3: Each reference object contains path (string), is_test (boolean)
       add :refs, :map, null: false, default: %{}
-      # data-model.FEATURE_IMPL_REFS.5
-      add :agent, :string, null: false
-      # data-model.FEATURE_IMPL_REFS.6
+
+      # data-model.FEATURE_BRANCH_REFS.6: commit is a string storing the commit hash when refs were pushed
       add :commit, :string, null: false
-      # data-model.FEATURE_IMPL_REFS.7
+      # data-model.FEATURE_BRANCH_REFS.7: pushed_at is a timestamp of when the refs were pushed
       add :pushed_at, :utc_datetime, null: false
 
       timestamps(type: :utc_datetime)
     end
 
-    # data-model.FEATURE_IMPL_REFS.3-1
-    execute "ALTER TABLE feature_impl_refs ADD CONSTRAINT feature_name_url_safe CHECK (feature_name ~ '^[a-zA-Z0-9_-]+$')"
+    # data-model.FEATURE_BRANCH_REFS.3-1: feature_name field only supports alphanumeric chars, hyphens, and underscores
+    execute "ALTER TABLE feature_branch_refs ADD CONSTRAINT feature_name_url_safe CHECK (feature_name ~ '^[a-zA-Z0-9_-]+$')"
 
-    # data-model.FEATURE_IMPL_REFS.8
-    create unique_index(:feature_impl_refs, [:implementation_id, :feature_name])
-    # data-model.FEATURE_IMPL_REFS.9
-    create index(:feature_impl_refs, [:refs], using: "gin")
-    # data-model.FEATURE_IMPL_REFS.10
-    create index(:feature_impl_refs, [:implementation_id])
+    # data-model.FEATURE_BRANCH_REFS.8: Composite Unique Constraint enforces (branch_id, feature_name)
+    create unique_index(:feature_branch_refs, [:branch_id, :feature_name])
+
+    # data-model.FEATURE_BRANCH_REFS.9: GIN Index on (refs) for querying by ACID key within the JSONB
+    create index(:feature_branch_refs, [:refs], using: "gin")
+
+    # data-model.FEATURE_BRANCH_REFS.10: Index on (branch_id) for listing all features for a branch
+    create index(:feature_branch_refs, [:branch_id])
   end
 end

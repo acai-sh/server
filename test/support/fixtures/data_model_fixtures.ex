@@ -3,10 +3,12 @@ defmodule Acai.DataModelFixtures do
   Test helpers for creating entities across the DATA feature contexts.
   """
 
+  import Ecto.Query
+
   alias Acai.Repo
   alias Acai.Teams.{Team, UserTeamRole, AccessToken}
   alias Acai.Products.Product
-  alias Acai.Specs.{Spec, FeatureImplState, FeatureImplRef}
+  alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
   alias Acai.Implementations.{Implementation, Branch, TrackedBranch}
 
   def unique_team_name, do: "team-#{System.unique_integer([:positive])}"
@@ -82,13 +84,47 @@ defmodule Acai.DataModelFixtures do
 
   def unique_branch_name, do: "branch-#{System.unique_integer([:positive])}"
 
-  def branch_fixture(attrs \\ %{}) do
+  # 0-arity version for backward compatibility
+  def branch_fixture() do
+    # Create a team if not provided for backwards compatibility
+    team = team_fixture()
+    branch_fixture(team, %{})
+  end
+
+  # 1-arity versions
+  def branch_fixture(%Team{} = team) do
+    branch_fixture(team, %{})
+  end
+
+  def branch_fixture(attrs) when is_map(attrs) and not is_struct(attrs, Team) do
+    # Create a team if not provided for backwards compatibility
+    team = team_fixture()
+
     attrs =
       attrs
       |> Enum.into(%{
         repo_uri: "github.com/acai-sh/server",
         branch_name: unique_branch_name(),
         last_seen_commit: "abc123"
+      })
+      |> Map.put(:team_id, team.id)
+
+    {:ok, branch} =
+      Branch.changeset(%Branch{}, attrs)
+      |> Repo.insert()
+
+    branch
+  end
+
+  # 2-arity version with team
+  def branch_fixture(%Team{} = team, attrs) when is_map(attrs) do
+    attrs =
+      attrs
+      |> Enum.into(%{
+        repo_uri: "github.com/acai-sh/server",
+        branch_name: unique_branch_name(),
+        last_seen_commit: "abc123",
+        team_id: team.id
       })
 
     {:ok, branch} =
@@ -99,8 +135,14 @@ defmodule Acai.DataModelFixtures do
   end
 
   def spec_fixture(product, attrs \\ %{}) do
-    # Create a branch if not provided
-    branch = attrs[:branch] || attrs["branch"] || branch_fixture()
+    # Create a branch if not provided (using product's team)
+    branch = attrs[:branch] || attrs["branch"]
+
+    branch =
+      branch ||
+        branch_fixture(Repo.get!(Team, product.team_id), %{
+          repo_uri: attrs[:repo_uri] || attrs["repo_uri"] || "github.com/acai-sh/server"
+        })
 
     attrs =
       attrs
@@ -116,6 +158,7 @@ defmodule Acai.DataModelFixtures do
       })
       |> Map.put(:product_id, product.id)
       |> Map.put(:branch_id, branch.id)
+      |> Map.drop([:branch, "branch", :repo_uri, "repo_uri"])
 
     {:ok, spec} =
       Spec.changeset(%Spec{}, attrs)
@@ -149,9 +192,13 @@ defmodule Acai.DataModelFixtures do
     # Create a branch if not provided
     branch = attrs[:branch] || attrs["branch"]
 
+    # Get the team for this implementation's product
+    product = Repo.get!(Product, implementation.product_id)
+    team = Repo.get!(Team, product.team_id)
+
     branch =
       branch ||
-        branch_fixture(%{
+        branch_fixture(team, %{
           repo_uri: attrs[:repo_uri] || attrs["repo_uri"] || "github.com/acai-sh/server",
           branch_name: attrs[:branch_name] || attrs["branch_name"] || "main",
           last_seen_commit:
@@ -203,31 +250,84 @@ defmodule Acai.DataModelFixtures do
     state
   end
 
-  def spec_impl_ref_fixture(spec, implementation, attrs \\ %{}) do
+  @doc """
+  Creates a feature_branch_ref for a branch.
+  ACIDs:
+  - data-model.FEATURE_BRANCH_REFS.2: branch_id FK
+  - data-model.FEATURE_BRANCH_REFS.3: feature_name
+  - data-model.FEATURE_BRANCH_REFS.4: refs JSONB
+  """
+  def feature_branch_ref_fixture(%Branch{} = branch, feature_name, attrs \\ %{}) do
     attrs =
       attrs
       |> Enum.into(%{
         refs: %{
           "test-feature.COMP.1" => [
             %{
-              "repo" => "github.com/acai-sh/server",
-              "path" => "lib/my_app/my_module.ex",
-              "loc" => "42:10",
+              "path" => "lib/my_app/my_module.ex:42",
               "is_test" => false
             }
           ]
         },
-        agent: "github-action",
         commit: "abc123def456",
         pushed_at: DateTime.utc_now()
       })
-      |> Map.put(:feature_name, spec.feature_name)
-      |> Map.put(:implementation_id, implementation.id)
+      |> Map.put(:feature_name, feature_name)
+      |> Map.put(:branch_id, branch.id)
 
     {:ok, ref} =
-      FeatureImplRef.changeset(%FeatureImplRef{}, attrs)
+      FeatureBranchRef.changeset(%FeatureBranchRef{}, attrs)
       |> Repo.insert()
 
     ref
+  end
+
+  @doc """
+  Legacy: Creates refs for a spec and implementation by creating refs on tracked branches.
+  This delegates to feature_branch_ref_fixture for each tracked branch.
+  """
+  def spec_impl_ref_fixture(spec, implementation, attrs \\ %{}) do
+    attrs = Map.new(attrs)
+
+    # Get tracked branches for this implementation
+    tracked_branches =
+      Repo.all(
+        from tb in TrackedBranch,
+          where: tb.implementation_id == ^implementation.id,
+          preload: [:branch]
+      )
+
+    # Create feature_branch_ref for each tracked branch
+    refs =
+      Enum.map(tracked_branches, fn tracked_branch ->
+        branch = tracked_branch.branch
+
+        ref_attrs =
+          attrs
+          |> Enum.into(%{
+            refs: %{
+              "test-feature.COMP.1" => [
+                %{
+                  "path" => "lib/my_app/my_module.ex:42",
+                  "is_test" => false
+                }
+              ]
+            },
+            commit: "abc123def456",
+            pushed_at: DateTime.utc_now()
+          })
+          |> Map.put(:feature_name, spec.feature_name)
+          |> Map.put(:branch_id, branch.id)
+          |> Map.drop([:agent, "agent"])
+
+        {:ok, ref} =
+          FeatureBranchRef.changeset(%FeatureBranchRef{}, ref_attrs)
+          |> Repo.insert()
+
+        ref
+      end)
+
+    # Return the first ref, or an empty map if none created
+    List.first(refs) || %{}
   end
 end

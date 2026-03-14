@@ -4,6 +4,10 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
 
   requirement-details.DRAWER: A side drawer that opens when a requirement is selected,
   showing the requirement definition, status, and code references.
+
+  ACIDs:
+  - feature-impl-view.DRAWER.4: Lists all refs from feature_branch_refs for this ACID
+  - feature-impl-view.DRAWER.4-note: Each ref is sourced from a specific branch
   """
   use AcaiWeb, :live_component
 
@@ -15,6 +19,9 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
     acid = Map.get(assigns, :acid) || Map.get(assigns, "acid")
     spec = Map.get(assigns, :spec) || Map.get(assigns, "spec")
     implementation = Map.get(assigns, :implementation) || Map.get(assigns, "implementation")
+
+    aggregated_refs =
+      Map.get(assigns, :aggregated_refs) || Map.get(assigns, "aggregated_refs") || []
 
     if acid && spec && implementation do
       # data-model.SPECS.13: Get requirement data from JSONB
@@ -28,12 +35,9 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
       spec_impl_state = Specs.get_spec_impl_state(spec, implementation)
       state_data = get_in(spec_impl_state && spec_impl_state.states, [acid])
 
-      # data-model.FEATURE_IMPL_REFS: Get refs from feature_impl_refs JSONB
-      spec_impl_ref = Specs.get_spec_impl_ref(spec, implementation)
-      refs_data = Map.get((spec_impl_ref && spec_impl_ref.refs) || %{}, acid, [])
-
-      # Group refs by branch (using repo as proxy since refs JSONB stores repo)
-      refs_by_branch = group_refs_by_branch(refs_data)
+      # feature-impl-view.DRAWER.4: Get refs for this ACID from aggregated branch refs
+      # These are already aggregated across tracked branches
+      refs_by_branch = get_refs_by_branch(aggregated_refs, acid)
 
       # Build requirement struct-like map from JSONB data
       requirement = build_requirement_from_jsonb(acid, requirement_data)
@@ -60,23 +64,25 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
        |> assign(:acid, nil)
        |> assign(:requirement, nil)
        |> assign(:implementation, implementation)
+       |> assign(:refs_by_branch, %{})
        |> assign(:visible, Map.get(assigns, :visible) || Map.get(assigns, "visible") || false)}
     end
   end
 
-  # Group refs by repo (acting as branch identifier in the JSONB model)
-  defp group_refs_by_branch(refs) when is_list(refs) do
-    refs
-    |> Enum.group_by(& &1["repo"])
-    |> Enum.map(fn {repo, repo_refs} ->
-      # Create a mock branch struct for compatibility
-      branch = %{repo_uri: repo, branch_name: "main"}
-      {branch, repo_refs}
+  # feature-impl-view.DRAWER.4: Get refs for a specific ACID from aggregated branch refs
+  # Returns a map of branch => ref_list
+  defp get_refs_by_branch(aggregated_refs, acid) when is_list(aggregated_refs) do
+    aggregated_refs
+    |> Enum.reduce(%{}, fn {branch, refs_map}, acc ->
+      case Map.get(refs_map, acid) do
+        nil -> acc
+        ref_list when is_list(ref_list) -> Map.put(acc, branch, ref_list)
+        _ -> acc
+      end
     end)
-    |> Map.new()
   end
 
-  defp group_refs_by_branch(_), do: %{}
+  defp get_refs_by_branch(_, _), do: %{}
 
   # Build requirement map from JSONB data
   defp build_requirement_from_jsonb(acid, nil) do
@@ -247,10 +253,10 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
                   No code references found for this requirement in the tracked branches.
                 </p>
               <% else %>
+                <%!-- feature-impl-view.DRAWER.4-note: Each ref is sourced from a specific branch --%>
                 <%!-- requirement-details.DRAWER.5-2: References are grouped by their tracked branch --%>
-                <%!-- data-model.SPEC_IMPL_REFS: refs are stored as JSONB keyed by ACID --%>
                 <div :for={{branch, refs} <- @refs_by_branch} class="space-y-2">
-                  <%!-- Group header shows repo_uri and branch_name --%>
+                  <%!-- Group header shows repo_uri and branch_name from actual branch data --%>
                   <div class="flex items-center gap-2 text-sm font-medium text-base-content/80 min-w-0">
                     <span class="truncate">{branch.repo_uri}</span>
                     <span class="text-base-content/40 flex-shrink-0">/</span>
@@ -273,7 +279,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
                       <%!-- requirement-details.DRAWER.5-3: Each reference shows file path and line number --%>
                       <%!-- requirement-details.DRAWER.5-4: Clickable link format --%>
                       <.link
-                        href={build_reference_url(ref)}
+                        href={build_reference_url(branch, ref)}
                         target="_blank"
                         rel="noopener noreferrer"
                         class={[
@@ -322,26 +328,28 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
 
   # requirement-details.DRAWER.5-4: Build the clickable link
   # Format: https://<repo_uri>/blob/<branch_name>/<path>
-  # data-model.SPEC_IMPL_REFS: refs are stored as JSONB with repo, path, loc fields
-  defp build_reference_url(ref) do
+  # Uses actual branch data from the database
+  defp build_reference_url(branch, ref) do
     # Extract just the file path (without line number) for the URL
     {file_path, _line} = parse_path_and_line(ref["path"])
 
-    "https://#{ref["repo"]}/blob/main/#{file_path}"
+    # Use the branch_name from the actual branch record
+    "https://#{branch.repo_uri}/blob/#{branch.branch_name}/#{file_path}"
   end
 
   # Parse path like "lib/my_app/foo.ex:42" into {"lib/my_app/foo.ex", "42"}
-  defp parse_path_and_line(path) do
+  defp parse_path_and_line(path) when is_binary(path) do
     case String.split(path, ":", parts: 2) do
       [file_path, line] -> {file_path, line}
       [file_path] -> {file_path, nil}
     end
   end
 
+  defp parse_path_and_line(_), do: {"", nil}
+
   # Format path for display (show file:line format)
-  defp format_path(path) do
-    path
-  end
+  defp format_path(path) when is_binary(path), do: path
+  defp format_path(_), do: ""
 
   # Badge colors for different statuses
   # data-model.SPEC_IMPL_STATES.4-3: Valid status values are null, assigned, blocked, completed, accepted, rejected

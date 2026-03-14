@@ -155,27 +155,36 @@ defmodule Acai.Implementations do
   def get_branch!(id), do: Repo.get!(Branch, id)
 
   @doc """
-  Gets a branch by its stable identity (repo_uri, branch_name).
+  Gets a branch by its stable identity (team_id, repo_uri, branch_name).
   Returns nil if not found.
+
+  ACID: data-model.BRANCHES.10-1
   """
-  def get_branch_by_identity(repo_uri, branch_name) do
+  def get_branch_by_identity(team_id, repo_uri, branch_name) do
     Repo.one(
       from b in Branch,
-        where: b.repo_uri == ^repo_uri and b.branch_name == ^branch_name
+        where: b.team_id == ^team_id and b.repo_uri == ^repo_uri and b.branch_name == ^branch_name
     )
   end
 
   @doc """
-  Gets or creates a branch by its stable identity (repo_uri, branch_name).
+  Gets or creates a branch by its stable identity (team_id, repo_uri, branch_name).
   If the branch exists, updates last_seen_commit. Otherwise creates new.
+
+  Requires :team_id in attrs.
+
+  ACIDs:
+  - data-model.BRANCHES.10
+  - data-model.BRANCHES.10-1
   """
   def get_or_create_branch(attrs) do
     attrs = Map.new(attrs)
+    team_id = attrs[:team_id] || attrs["team_id"]
     repo_uri = attrs[:repo_uri] || attrs["repo_uri"]
     branch_name = attrs[:branch_name] || attrs["branch_name"]
     last_seen_commit = attrs[:last_seen_commit] || attrs["last_seen_commit"]
 
-    case get_branch_by_identity(repo_uri, branch_name) do
+    case get_branch_by_identity(team_id, repo_uri, branch_name) do
       nil ->
         %Branch{}
         |> Branch.changeset(attrs)
@@ -390,5 +399,148 @@ defmodule Acai.Implementations do
       from i in Implementation,
         where: i.product_id in ^product_ids and i.is_active == true
     )
+  end
+
+  # --- Feature Branch Refs Aggregation ---
+
+  alias Acai.Specs.FeatureBranchRef
+
+  @doc """
+  Gets tracked branch IDs for an implementation.
+
+  ACID: data-model.INHERITANCE.8
+  """
+  def get_tracked_branch_ids(%Implementation{} = implementation) do
+    Repo.all(
+      from tb in TrackedBranch,
+        where: tb.implementation_id == ^implementation.id,
+        select: tb.branch_id
+    )
+  end
+
+  @doc """
+  Aggregates feature_branch_refs for a feature_name across given branch IDs.
+  Returns a list of {branch, refs_map} tuples where refs_map is %{acid => [ref_objects]}.
+
+  ACIDs:
+  - data-model.FEATURE_BRANCH_REFS.4: refs stored as JSONB
+  - data-model.FEATURE_BRANCH_REFS.4-1: refs keyed by ACID
+  """
+  def aggregate_feature_branch_refs(branch_ids, feature_name) when is_list(branch_ids) do
+    if branch_ids == [] do
+      []
+    else
+      Repo.all(
+        from fbr in FeatureBranchRef,
+          join: b in Branch,
+          on: fbr.branch_id == b.id,
+          where: fbr.branch_id in ^branch_ids and fbr.feature_name == ^feature_name,
+          preload: [:branch]
+      )
+      |> Enum.map(fn fbr ->
+        {fbr.branch, fbr.refs}
+      end)
+    end
+  end
+
+  @doc """
+  Gets aggregated refs for a feature_name and implementation, walking the parent chain
+  if no refs are found on the implementation's tracked branches.
+
+  Returns {aggregated_refs, is_inherited} where:
+  - aggregated_refs: list of {branch, refs_map} tuples
+  - is_inherited: boolean indicating if refs came from parent implementation
+
+  ACIDs:
+  - data-model.INHERITANCE.8: Aggregate refs across tracked branches, walk parent chain
+  - data-model.INHERITANCE.9: feature_name-based keys for monorepo support
+  - feature-impl-view.INHERITANCE.3: Refs aggregated from tracked branches
+  """
+  def get_aggregated_refs_with_inheritance(
+        feature_name,
+        implementation_id,
+        visited \\ MapSet.new()
+      ) do
+    # Prevent infinite loops in case of circular references
+    if MapSet.member?(visited, implementation_id) do
+      {[], false}
+    else
+      visited = MapSet.put(visited, implementation_id)
+      implementation = Repo.get(Implementation, implementation_id)
+
+      if is_nil(implementation) do
+        {[], false}
+      else
+        # Get tracked branch IDs for this implementation
+        branch_ids = get_tracked_branch_ids(implementation)
+
+        # Aggregate refs from tracked branches
+        refs = aggregate_feature_branch_refs(branch_ids, feature_name)
+
+        if refs != [] do
+          # Found refs on this implementation's branches
+          {refs, false}
+        else
+          # No refs found, check parent implementation
+          if implementation.parent_implementation_id do
+            {parent_refs, _} =
+              get_aggregated_refs_with_inheritance(
+                feature_name,
+                implementation.parent_implementation_id,
+                visited
+              )
+
+            if parent_refs != [] do
+              {parent_refs, true}
+            else
+              {[], false}
+            end
+          else
+            {[], false}
+          end
+        end
+      end
+    end
+  end
+
+  @doc """
+  Counts total refs and tests for a feature_name and implementation.
+  Returns %{total_refs: count, total_tests: count, is_inherited: boolean}.
+
+  ACIDs:
+  - feature-impl-view.MAIN.4: Refs column shows total refs across tracked branches
+  - feature-impl-view.MAIN.6-1: Indicates if refs are inherited
+  """
+  def count_refs_for_implementation(feature_name, implementation_id) do
+    {aggregated_refs, is_inherited} =
+      get_aggregated_refs_with_inheritance(feature_name, implementation_id)
+
+    {total_refs, total_tests} =
+      Enum.reduce(aggregated_refs, {0, 0}, fn {_branch, refs_map}, {refs_acc, tests_acc} ->
+        Enum.reduce(refs_map, {refs_acc, tests_acc}, fn {_acid, ref_list}, {r_acc, t_acc} ->
+          ref_count = Enum.count(ref_list, fn ref -> not Map.get(ref, "is_test", false) end)
+          test_count = Enum.count(ref_list, fn ref -> Map.get(ref, "is_test", false) end)
+          {r_acc + ref_count, t_acc + test_count}
+        end)
+      end)
+
+    %{total_refs: total_refs, total_tests: total_tests, is_inherited: is_inherited}
+  end
+
+  @doc """
+  Gets all refs for a specific ACID across aggregated branch refs.
+  Returns list of {branch, ref_objects} tuples.
+
+  ACID: feature-impl-view.DRAWER.4: Lists all refs for this ACID
+  """
+  def get_refs_for_acid(aggregated_refs, acid) when is_list(aggregated_refs) do
+    aggregated_refs
+    |> Enum.flat_map(fn {branch, refs_map} ->
+      case Map.get(refs_map, acid) do
+        nil -> []
+        ref_list when is_list(ref_list) -> [{branch, ref_list}]
+        _ -> []
+      end
+    end)
   end
 end

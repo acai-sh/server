@@ -15,6 +15,13 @@ defmodule AcaiWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+    # core.ENG.6 - API pipeline is strictly stateless (no session/flash)
+    plug OpenApiSpex.Plug.PutApiSpec, module: AcaiWeb.Api.ApiSpec
+  end
+
+  pipeline :api_authenticated do
+    # core.ENG.8 - All routes require Authorization header with Bearer token
+    plug AcaiWeb.Api.Plugs.BearerAuth
   end
 
   scope "/", AcaiWeb do
@@ -23,10 +30,22 @@ defmodule AcaiWeb.Router do
     get "/", PageController, :home
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", AcaiWeb do
-  #   pipe_through :api
-  # end
+  # API v1 scope - core.ENG.7
+  scope "/api/v1", AcaiWeb.Api do
+    pipe_through :api
+
+    # core.API.1 - Expose public /api/v1/openapi.json route
+    # This route is public (no auth required)
+    get "/openapi.json", OpenApiController, :spec
+
+    # All other API routes go through authentication pipeline
+    pipe_through :api_authenticated
+
+    # push.ENDPOINT.1 - POST /api/v1/push
+    # push.ENDPOINT.2 - Content-Type application/json (handled by pipeline)
+    # push.ENDPOINT.3 - Requires Authorization Bearer token header (handled by BearerAuth plug)
+    post "/push", PushController, :create
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:acai, :dev_routes) do

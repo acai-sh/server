@@ -17,8 +17,8 @@ defmodule Acai.SeedsTest do
   alias Acai.Accounts
   alias Acai.Teams
   alias Acai.Products.Product
-  alias Acai.Specs.{Spec, FeatureImplState, FeatureImplRef}
-  alias Acai.Implementations.{Implementation, TrackedBranch}
+  alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
+  alias Acai.Implementations.{Implementation, TrackedBranch, Branch}
 
   setup do
     # Clean slate for each test
@@ -356,69 +356,86 @@ defmodule Acai.SeedsTest do
     end
   end
 
-  # data-model.FEATURE_IMPL_REFS
-  describe "feature_impl_ref seeding" do
-    test "creates feature_impl_ref for map-editor spec and production impl" do
-      product = get_product!("mapperoni", "site")
-      spec = get_spec!(product, "map-editor")
-      impl = Repo.get_by(Implementation, product_id: product.id, name: "production")
+  # data-model.FEATURE_BRANCH_REFS
+  describe "feature_branch_ref seeding" do
+    test "creates feature_branch_ref for map-editor spec on site_main branch" do
+      team = Repo.get_by!(Acai.Teams.Team, name: "mapperoni")
+
+      branch =
+        Repo.get_by!(Branch,
+          team_id: team.id,
+          branch_name: "main",
+          repo_uri: "github.com/mapperoni/mapperoni-site"
+        )
 
       ref =
-        Repo.get_by(FeatureImplRef, feature_name: spec.feature_name, implementation_id: impl.id)
+        Repo.get_by(FeatureBranchRef, feature_name: "map-editor", branch_id: branch.id)
 
       assert ref != nil
     end
 
-    test "feature_impl_ref has JSONB refs keyed by ACID" do
-      product = get_product!("mapperoni", "site")
-      spec = get_spec!(product, "map-editor")
-      impl = Repo.get_by(Implementation, product_id: product.id, name: "production")
+    test "feature_branch_ref has JSONB refs keyed by ACID" do
+      team = Repo.get_by!(Acai.Teams.Team, name: "mapperoni")
+
+      branch =
+        Repo.get_by!(Branch,
+          team_id: team.id,
+          branch_name: "main",
+          repo_uri: "github.com/mapperoni/mapperoni-site"
+        )
 
       ref =
-        Repo.get_by(FeatureImplRef, feature_name: spec.feature_name, implementation_id: impl.id)
+        Repo.get_by(FeatureBranchRef, feature_name: "map-editor", branch_id: branch.id)
 
-      # data-model.FEATURE_IMPL_REFS.4: Refs keyed by ACID
+      # data-model.FEATURE_BRANCH_REFS.4: Refs keyed by ACID
       assert is_map(ref.refs)
       assert Map.has_key?(ref.refs, "map-editor.CANVAS.1")
     end
 
-    test "feature_impl_ref entry has correct reference structure" do
-      product = get_product!("mapperoni", "site")
-      spec = get_spec!(product, "map-editor")
-      impl = Repo.get_by(Implementation, product_id: product.id, name: "production")
+    test "feature_branch_ref entry has correct reference structure" do
+      team = Repo.get_by!(Acai.Teams.Team, name: "mapperoni")
+
+      branch =
+        Repo.get_by!(Branch,
+          team_id: team.id,
+          branch_name: "main",
+          repo_uri: "github.com/mapperoni/mapperoni-site"
+        )
 
       ref =
-        Repo.get_by(FeatureImplRef, feature_name: spec.feature_name, implementation_id: impl.id)
+        Repo.get_by(FeatureBranchRef, feature_name: "map-editor", branch_id: branch.id)
 
       canvas_refs = ref.refs["map-editor.CANVAS.1"]
 
-      # data-model.FEATURE_IMPL_REFS.4-3: Each reference has repo, path, loc, is_test
+      # data-model.FEATURE_BRANCH_REFS.4-3: Each reference has path, is_test (no repo/loc)
       assert is_list(canvas_refs)
       first_ref = List.first(canvas_refs)
-      assert first_ref["repo"] != nil
       assert first_ref["path"] != nil
-      assert first_ref["loc"] != nil
       assert is_boolean(first_ref["is_test"])
     end
 
-    test "feature_impl_ref has agent, commit, and pushed_at" do
-      product = get_product!("mapperoni", "site")
-      spec = get_spec!(product, "map-editor")
-      impl = Repo.get_by(Implementation, product_id: product.id, name: "production")
+    test "feature_branch_ref has commit and pushed_at" do
+      team = Repo.get_by!(Acai.Teams.Team, name: "mapperoni")
+
+      branch =
+        Repo.get_by!(Branch,
+          team_id: team.id,
+          branch_name: "main",
+          repo_uri: "github.com/mapperoni/mapperoni-site"
+        )
 
       ref =
-        Repo.get_by(FeatureImplRef, feature_name: spec.feature_name, implementation_id: impl.id)
+        Repo.get_by(FeatureBranchRef, feature_name: "map-editor", branch_id: branch.id)
 
-      # data-model.FEATURE_IMPL_REFS.5,6,7
-      assert ref.agent != nil
+      # data-model.FEATURE_BRANCH_REFS.6,7
       assert ref.commit != nil
       assert ref.pushed_at != nil
     end
 
-    test "idempotent: running seeds twice doesn't duplicate feature_impl_refs" do
-      ref_count_before = Repo.aggregate(FeatureImplRef, :count)
+    test "idempotent: running seeds twice doesn't duplicate feature_branch_refs" do
+      ref_count_before = Repo.aggregate(FeatureBranchRef, :count)
       Acai.Seeds.run(silent: true)
-      ref_count_after = Repo.aggregate(FeatureImplRef, :count)
+      ref_count_after = Repo.aggregate(FeatureBranchRef, :count)
       assert ref_count_before == ref_count_after
     end
   end

@@ -207,7 +207,7 @@ defmodule Acai.Specs.SpecTest do
     test "enforces composite unique constraint on branch_id and feature_name" do
       team = team_fixture()
       product = product_fixture(team)
-      branch = branch_fixture()
+      branch = branch_fixture(team)
 
       attrs =
         @valid_attrs
@@ -224,13 +224,11 @@ defmodule Acai.Specs.SpecTest do
 
       assert %{branch_id: [_ | _]} = errors_on(cs)
     end
-  end
 
-  describe "database constraint: SPECS.15 (product_id, feature_name, feature_version)" do
-    test "rejects duplicate specs with same feature_name and same version" do
+    test "allows same feature_name on different branches (monorepo support)" do
       team = team_fixture()
       product = product_fixture(team)
-      branch = branch_fixture()
+      branch = branch_fixture(team)
 
       {:ok, _} =
         Spec.changeset(
@@ -240,10 +238,10 @@ defmodule Acai.Specs.SpecTest do
         )
         |> Acai.Repo.insert()
 
-      # Same product and feature_version but different branch should fail
-      branch2 = branch_fixture(%{branch_name: "develop"})
+      # Same feature_name but different branch should succeed (monorepo support)
+      branch2 = branch_fixture(team, %{branch_name: "develop"})
 
-      {:error, cs} =
+      {:ok, _} =
         Spec.changeset(
           %Spec{},
           @valid_attrs
@@ -255,8 +253,6 @@ defmodule Acai.Specs.SpecTest do
           })
         )
         |> Acai.Repo.insert()
-
-      assert %{product_id: [_ | _]} = errors_on(cs)
     end
 
     test "rejects same feature_name on same branch even with different versions" do

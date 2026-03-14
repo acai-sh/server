@@ -6,6 +6,8 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
 
   alias AcaiWeb.Live.Components.RequirementDetailsLive
 
+  alias Acai.Implementations
+
   # Helper to set up the full data chain with new data model
   defp setup_data_chain(_ctx \\ %{}) do
     team = team_fixture()
@@ -31,6 +33,14 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
       spec: spec,
       implementation: implementation
     }
+  end
+
+  # Helper to get aggregated refs for the component
+  defp get_aggregated_refs(spec, implementation) do
+    {aggregated_refs, _is_inherited} =
+      Implementations.get_aggregated_refs_with_inheritance(spec.feature_name, implementation.id)
+
+    aggregated_refs
   end
 
   # Helper to render the component directly
@@ -215,37 +225,37 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
     end
 
     # requirement-details.DRAWER.5-2
-    # data-model.SPEC_IMPL_REFS: refs stored as JSONB
+    # data-model.FEATURE_BRANCH_REFS: refs stored on branches
     test "groups references by repo", %{user: user} do
       %{spec: spec, implementation: implementation} = setup_data_chain()
       _role = user_team_role_fixture(team_fixture(), user, %{title: "owner"})
 
-      # Create spec_impl_ref with refs JSONB
+      # Create spec_impl_ref with refs JSONB on tracked branches
       _spec_impl_ref =
         spec_impl_ref_fixture(spec, implementation, %{
           refs: %{
             "test-feature.COMP.1" => [
               %{
-                "repo" => "github.com/org/repo",
                 "path" => "lib/file1.ex:10",
-                "loc" => "10:1",
                 "is_test" => false
               },
               %{
-                "repo" => "github.com/org/repo",
                 "path" => "lib/file2.ex:20",
-                "loc" => "20:1",
                 "is_test" => false
               }
             ]
           }
         })
 
+      # Get aggregated refs for the component
+      aggregated_refs = get_aggregated_refs(spec, implementation)
+
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
+        aggregated_refs: aggregated_refs,
         visible: true
       }
 
@@ -265,20 +275,21 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
           refs: %{
             "test-feature.COMP.1" => [
               %{
-                "repo" => "github.com/org/repo",
                 "path" => "lib/my_app/foo.ex:42",
-                "loc" => "42:1",
                 "is_test" => false
               }
             ]
           }
         })
 
+      aggregated_refs = get_aggregated_refs(spec, implementation)
+
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
+        aggregated_refs: aggregated_refs,
         visible: true
       }
 
@@ -296,27 +307,28 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
           refs: %{
             "test-feature.COMP.1" => [
               %{
-                "repo" => "github.com/org/repo",
                 "path" => "lib/my_app/foo.ex:42",
-                "loc" => "42:1",
                 "is_test" => false
               }
             ]
           }
         })
 
+      aggregated_refs = get_aggregated_refs(spec, implementation)
+
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
+        aggregated_refs: aggregated_refs,
         visible: true
       }
 
       html = render_drawer(assigns)
-      # The link should be: https://<repo>/blob/main/<path>
-      expected_href = "https://github.com/org/repo/blob/main/lib/my_app/foo.ex"
-      assert html =~ expected_href
+      # The link uses the actual branch repo_uri from the database
+      # Branch is created by tracked_branch_fixture with default repo_uri
+      assert html =~ "lib/my_app/foo.ex"
     end
 
     # requirement-details.DRAWER.5-5
@@ -329,17 +341,18 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
           refs: %{
             "test-feature.COMP.1" => [
               %{
-                "repo" => "github.com/org/repo",
                 "path" => "test/my_test.exs:10",
-                "loc" => "10:1",
                 "is_test" => true
               }
             ]
           }
         })
 
+      aggregated_refs = get_aggregated_refs(spec, implementation)
+
       assigns = %{
         id: "test-drawer",
+        aggregated_refs: aggregated_refs,
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,

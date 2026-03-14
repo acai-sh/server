@@ -81,24 +81,38 @@ defmodule AcaiWeb.ImplementationLive do
     spec_impl_state = Specs.get_spec_impl_state(spec, implementation)
     states = if spec_impl_state, do: spec_impl_state.states, else: %{}
 
-    # data-model.FEATURE_IMPL_REFS: Load refs from feature_impl_refs JSONB
-    spec_impl_ref = Specs.get_spec_impl_ref(spec, implementation)
-    refs = if spec_impl_ref, do: spec_impl_ref.refs, else: %{}
+    # data-model.INHERITANCE.8: Aggregate refs from feature_branch_refs across tracked branches
+    # feature-impl-view.MAIN.4: Refs column shows total refs across tracked branches
+    # feature-impl-view.INHERITANCE.3: Refs aggregated from tracked branches
+    _ref_counts = Implementations.count_refs_for_implementation(feature_name, implementation.id)
 
     # Load tracked branches with preloaded branch association
     tracked_branches = Implementations.list_tracked_branches(implementation)
 
-    # Build requirement rows with status and counts from JSONB
+    # Get aggregated refs for the drawer (we'll pass this to the drawer component)
+    {aggregated_refs, is_inherited} =
+      Implementations.get_aggregated_refs_with_inheritance(feature_name, implementation.id)
+
+    # Build requirement rows with status and counts
     requirement_rows =
       requirements
       |> Enum.map(fn req ->
         acid = req.acid
         state_data = Map.get(states, acid, %{"status" => nil})
-        acid_refs = Map.get(refs, acid, [])
 
-        # Count refs and tests from the refs JSONB
-        refs_count = Enum.count(acid_refs, &(!&1["is_test"]))
-        tests_count = Enum.count(acid_refs, & &1["is_test"])
+        # feature-impl-view.DRAWER.4: Get refs for this ACID from aggregated branch refs
+        acid_refs = Implementations.get_refs_for_acid(aggregated_refs, acid)
+
+        # Count refs and tests across all branches
+        refs_count =
+          Enum.reduce(acid_refs, 0, fn {_branch, ref_list}, acc ->
+            acc + Enum.count(ref_list, fn ref -> not Map.get(ref, "is_test", false) end)
+          end)
+
+        tests_count =
+          Enum.reduce(acid_refs, 0, fn {_branch, ref_list}, acc ->
+            acc + Enum.count(ref_list, fn ref -> Map.get(ref, "is_test", false) end)
+          end)
 
         %{
           id: acid,
@@ -126,6 +140,8 @@ defmodule AcaiWeb.ImplementationLive do
       |> assign(:drawer_visible, false)
       |> assign(:sort_by, :acid)
       |> assign(:sort_dir, :asc)
+      |> assign(:refs_inherited, is_inherited)
+      |> assign(:aggregated_refs, aggregated_refs)
       |> assign(
         :current_path,
         "/t/#{team.name}/i/#{Implementations.implementation_slug(implementation)}/f/#{feature_name}"
@@ -318,12 +334,14 @@ defmodule AcaiWeb.ImplementationLive do
 
         <%!-- Requirement details drawer --%>
         <%!-- data-model.SPECS.13: Pass acid instead of requirement_id --%>
+        <%!-- feature-impl-view.DRAWER.4: Pass aggregated_refs from tracked branches --%>
         <.live_component
           module={AcaiWeb.Live.Components.RequirementDetailsLive}
           id="requirement-details-drawer"
           acid={@selected_acid}
           spec={@spec}
           implementation={@implementation}
+          aggregated_refs={@aggregated_refs}
           visible={@drawer_visible}
         />
       </div>

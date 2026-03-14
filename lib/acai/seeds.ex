@@ -17,7 +17,7 @@ defmodule Acai.Seeds do
   alias Acai.Accounts
   alias Acai.Teams.{Team, UserTeamRole}
   alias Acai.Products.Product
-  alias Acai.Specs.{Spec, FeatureImplState, FeatureImplRef}
+  alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
   alias Acai.Implementations.{Implementation, Branch, TrackedBranch}
 
   @doc """
@@ -38,13 +38,14 @@ defmodule Acai.Seeds do
     products = seed_products(team, silent)
 
     # Seed branches first (before specs and tracked_branches)
-    branches = seed_branches(silent)
+    # data-model.BRANCHES.10: Branches are team-scoped
+    branches = seed_branches(team, silent)
 
     specs = seed_specs(team, products, branches, silent)
     impls = seed_implementations(team, products, silent)
     seed_tracked_branches(impls, branches, silent)
     seed_spec_impl_states(specs, impls, silent)
-    seed_spec_impl_refs(specs, impls, silent)
+    seed_spec_impl_refs(specs, impls, branches, silent)
 
     unless silent do
       IO.puts("\n=== Seeding Complete ===")
@@ -234,7 +235,7 @@ defmodule Acai.Seeds do
   # Branch Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_branches(silent) do
+  defp seed_branches(team, silent) do
     unless silent do
       IO.puts("\n=== Seeding Branches ===")
     end
@@ -242,6 +243,7 @@ defmodule Acai.Seeds do
     # Site branches
     site_main =
       seed_branch(
+        team,
         %{
           repo_uri: "github.com/mapperoni/mapperoni-site",
           branch_name: "main",
@@ -252,6 +254,7 @@ defmodule Acai.Seeds do
 
     site_develop =
       seed_branch(
+        team,
         %{
           repo_uri: "github.com/mapperoni/mapperoni-site",
           branch_name: "develop",
@@ -263,6 +266,7 @@ defmodule Acai.Seeds do
     # API branches
     api_main =
       seed_branch(
+        team,
         %{
           repo_uri: "github.com/mapperoni/mapperoni-api",
           branch_name: "main",
@@ -273,6 +277,7 @@ defmodule Acai.Seeds do
 
     api_develop =
       seed_branch(
+        team,
         %{
           repo_uri: "github.com/mapperoni/mapperoni-api",
           branch_name: "develop",
@@ -289,11 +294,13 @@ defmodule Acai.Seeds do
     }
   end
 
-  defp seed_branch(attrs, silent) do
+  defp seed_branch(team, attrs, silent) do
     existing =
       Repo.one(
         from b in Branch,
-          where: b.repo_uri == ^attrs.repo_uri and b.branch_name == ^attrs.branch_name
+          where:
+            b.team_id == ^team.id and b.repo_uri == ^attrs.repo_uri and
+              b.branch_name == ^attrs.branch_name
       )
 
     if existing do
@@ -303,6 +310,8 @@ defmodule Acai.Seeds do
 
       existing
     else
+      attrs = Map.put(attrs, :team_id, team.id)
+
       {:ok, branch} = Repo.insert(Branch.changeset(%Branch{}, attrs))
 
       unless silent do
@@ -1235,16 +1244,18 @@ defmodule Acai.Seeds do
   end
 
   # ---------------------------------------------------------------------------
-  # FeatureImplRef Seeding
+  # FeatureBranchRef Seeding (Branch-scoped refs)
   # ---------------------------------------------------------------------------
 
+  # data-model.FEATURE_BRANCH_REFS: Store refs on branches instead of implementations
   defp seed_spec_impl_refs(
          specs,
-         [site_prod, _site_staging, api_prod, _api_staging],
+         _impls,
+         branches,
          silent
        ) do
     unless silent do
-      IO.puts("\n=== Seeding FeatureImplRefs ===")
+      IO.puts("\n=== Seeding FeatureBranchRefs ===")
     end
 
     now = DateTime.utc_now()
@@ -1252,526 +1263,234 @@ defmodule Acai.Seeds do
     # Helper to find spec by feature_name
     find_spec = fn name -> Enum.find(specs, &(&1.feature_name == name)) end
 
-    # Site: map-editor refs - all 8 requirements
+    # Site: map-editor refs on site_main branch
     map_editor_spec = find_spec.("map-editor")
 
-    seed_spec_impl_ref(
+    seed_feature_branch_ref(
       map_editor_spec,
-      site_prod,
+      branches.site_main,
       %{
         refs: %{
           "map-editor.CANVAS.1" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni_web/live/map_editor_live.ex:45",
-              "loc" => "45:8",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni_web/live/map_editor_live_test.exs:23",
-              "loc" => "23:1",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni_web/live/map_editor_live.ex:45", "is_test" => false},
+            %{"path" => "test/mapperoni_web/live/map_editor_live_test.exs:23", "is_test" => true}
           ],
           "map-editor.CANVAS.2" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "assets/js/map_canvas.js:78",
-              "loc" => "78:15",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/assets/js/map_canvas_test.js:34",
-              "loc" => "34:5",
-              "is_test" => true
-            }
+            %{"path" => "assets/js/map_canvas.js:78", "is_test" => false},
+            %{"path" => "test/assets/js/map_canvas_test.js:34", "is_test" => true}
           ],
           "map-editor.CANVAS.3" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni_web/live/map_editor_live.ex:92",
-              "loc" => "92:4",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni_web/live/map_editor_live_test.exs:67",
-              "loc" => "67:3",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni_web/live/map_editor_live.ex:92", "is_test" => false},
+            %{"path" => "test/mapperoni_web/live/map_editor_live_test.exs:67", "is_test" => true}
           ],
           "map-editor.LAYERS.1" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni/layers/layer_manager.ex:23",
-              "loc" => "23:10",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni/layers/layer_manager_test.exs:15",
-              "loc" => "15:1",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni/layers/layer_manager.ex:23", "is_test" => false},
+            %{"path" => "test/mapperoni/layers/layer_manager_test.exs:15", "is_test" => true}
           ],
           "map-editor.LAYERS.2" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "assets/js/layer_panel.js:45",
-              "loc" => "45:12",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/assets/js/layer_panel_test.js:28",
-              "loc" => "28:5",
-              "is_test" => true
-            }
+            %{"path" => "assets/js/layer_panel.js:45", "is_test" => false},
+            %{"path" => "test/assets/js/layer_panel_test.js:28", "is_test" => true}
           ],
           "map-editor.MARKERS.1" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni/maps/marker.ex:34",
-              "loc" => "34:5",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni/maps/marker_test.exs:12",
-              "loc" => "12:3",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni/maps/marker.ex:34", "is_test" => false},
+            %{"path" => "test/mapperoni/maps/marker_test.exs:12", "is_test" => true}
           ],
           "map-editor.MARKERS.2" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni/maps/marker_styles.ex:56",
-              "loc" => "56:8",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni/maps/marker_styles_test.exs:22",
-              "loc" => "22:1",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni/maps/marker_styles.ex:56", "is_test" => false},
+            %{"path" => "test/mapperoni/maps/marker_styles_test.exs:22", "is_test" => true}
           ],
           "map-editor.EXPORT.1" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni/export/export_service.ex:67",
-              "loc" => "67:15",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni/export/export_service_test.exs:44",
-              "loc" => "44:3",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni/export/export_service.ex:67", "is_test" => false},
+            %{"path" => "test/mapperoni/export/export_service_test.exs:44", "is_test" => true}
           ]
         },
-        agent: "github-action",
         commit: "abc123def456",
         pushed_at: now
       },
       silent
     )
 
-    # Site: map-viewer refs - all 6 requirements
+    # Site: map-viewer refs on site_main branch
     map_viewer_spec = find_spec.("map-viewer")
 
-    seed_spec_impl_ref(
+    seed_feature_branch_ref(
       map_viewer_spec,
-      site_prod,
+      branches.site_main,
       %{
         refs: %{
           "map-viewer.RENDER.1" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni_web/live/map_viewer_live.ex:34",
-              "loc" => "34:6",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni_web/live/map_viewer_live_test.exs:18",
-              "loc" => "18:2",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni_web/live/map_viewer_live.ex:34", "is_test" => false},
+            %{"path" => "test/mapperoni_web/live/map_viewer_live_test.exs:18", "is_test" => true}
           ],
           "map-viewer.RENDER.2" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "assets/js/tile_loader.js:89",
-              "loc" => "89:4",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/assets/js/tile_loader_test.js:55",
-              "loc" => "55:1",
-              "is_test" => true
-            }
+            %{"path" => "assets/js/tile_loader.js:89", "is_test" => false},
+            %{"path" => "test/assets/js/tile_loader_test.js:55", "is_test" => true}
           ],
           "map-viewer.INTERACT.1" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni_web/live/map_viewer_live.ex:112",
-              "loc" => "112:8",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni_web/live/map_viewer_live_test.exs:78",
-              "loc" => "78:3",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni_web/live/map_viewer_live.ex:112", "is_test" => false},
+            %{"path" => "test/mapperoni_web/live/map_viewer_live_test.exs:78", "is_test" => true}
           ],
           "map-viewer.INTERACT.2" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni/info_panel/info_panel.ex:45",
-              "loc" => "45:12",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni/info_panel/info_panel_test.exs:33",
-              "loc" => "33:1",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni/info_panel/info_panel.ex:45", "is_test" => false},
+            %{"path" => "test/mapperoni/info_panel/info_panel_test.exs:33", "is_test" => true}
           ],
           "map-viewer.EMBED.1" => [
             %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
               "path" => "lib/mapperoni_web/controllers/embed_controller.ex:23",
-              "loc" => "23:5",
               "is_test" => false
             },
             %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
               "path" => "test/mapperoni_web/controllers/embed_controller_test.exs:12",
-              "loc" => "12:2",
               "is_test" => true
             }
           ],
           "map-viewer.SHARE.1" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni/sharing/share_service.ex:67",
-              "loc" => "67:10",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni/sharing/share_service_test.exs:29",
-              "loc" => "29:1",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni/sharing/share_service.ex:67", "is_test" => false},
+            %{"path" => "test/mapperoni/sharing/share_service_test.exs:29", "is_test" => true}
           ]
         },
-        agent: "seeds",
         commit: "xyz789abc123",
         pushed_at: now
       },
       silent
     )
 
-    # Site: form-editor refs - all 7 requirements
+    # Site: form-editor refs on site_main branch
     form_editor_spec = find_spec.("form-editor")
 
-    seed_spec_impl_ref(
+    seed_feature_branch_ref(
       form_editor_spec,
-      site_prod,
+      branches.site_main,
       %{
         refs: %{
           "form-editor.FIELDS.1" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni/forms/field_types.ex:34",
-              "loc" => "34:8",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni/forms/field_types_test.exs:21",
-              "loc" => "21:1",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni/forms/field_types.ex:34", "is_test" => false},
+            %{"path" => "test/mapperoni/forms/field_types_test.exs:21", "is_test" => true}
           ],
           "form-editor.FIELDS.2" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni/forms/validation.ex:56",
-              "loc" => "56:4",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni/forms/validation_test.exs:44",
-              "loc" => "44:3",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni/forms/validation.ex:56", "is_test" => false},
+            %{"path" => "test/mapperoni/forms/validation_test.exs:44", "is_test" => true}
           ],
           "form-editor.FIELDS.3" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "assets/js/field_reorder.js:78",
-              "loc" => "78:12",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/assets/js/field_reorder_test.js:55",
-              "loc" => "55:1",
-              "is_test" => true
-            }
+            %{"path" => "assets/js/field_reorder.js:78", "is_test" => false},
+            %{"path" => "test/assets/js/field_reorder_test.js:55", "is_test" => true}
           ],
           "form-editor.LOCATION.1" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni/forms/gps_capture.ex:23",
-              "loc" => "23:6",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni/forms/gps_capture_test.exs:18",
-              "loc" => "18:2",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni/forms/gps_capture.ex:23", "is_test" => false},
+            %{"path" => "test/mapperoni/forms/gps_capture_test.exs:18", "is_test" => true}
           ],
           "form-editor.LOCATION.2" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni/forms/geofence.ex:89",
-              "loc" => "89:15",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni/forms/geofence_test.exs:67",
-              "loc" => "67:1",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni/forms/geofence.ex:89", "is_test" => false},
+            %{"path" => "test/mapperoni/forms/geofence_test.exs:67", "is_test" => true}
           ],
           "form-editor.PREVIEW.1" => [
+            %{"path" => "lib/mapperoni_web/live/form_preview_live.ex:45", "is_test" => false},
             %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni_web/live/form_preview_live.ex:45",
-              "loc" => "45:10",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
               "path" => "test/mapperoni_web/live/form_preview_live_test.exs:33",
-              "loc" => "33:3",
               "is_test" => true
             }
           ],
           "form-editor.CONDITIONAL.1" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "lib/mapperoni/forms/conditional_logic.ex:112",
-              "loc" => "112:8",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-site",
-              "path" => "test/mapperoni/forms/conditional_logic_test.exs:78",
-              "loc" => "78:1",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni/forms/conditional_logic.ex:112", "is_test" => false},
+            %{"path" => "test/mapperoni/forms/conditional_logic_test.exs:78", "is_test" => true}
           ]
         },
-        agent: "seeds",
         commit: "form456xyz789",
         pushed_at: now
       },
       silent
     )
 
-    # API: push-api refs - all 12 requirements
+    # API: push-api refs on api_main branch
     push_api_spec = find_spec.("push-api")
 
-    seed_spec_impl_ref(
+    seed_feature_branch_ref(
       push_api_spec,
-      api_prod,
+      branches.api_main,
       %{
         refs: %{
           "push-api.SPEC.1" => [
             %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
               "path" => "lib/mapperoni_api/controllers/push_controller.ex:56",
-              "loc" => "56:10",
               "is_test" => false
             },
             %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
               "path" => "test/mapperoni_api/controllers/push_controller_test.exs:34",
-              "loc" => "34:1",
               "is_test" => true
             }
           ],
           "push-api.SPEC.2" => [
             %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
               "path" => "lib/mapperoni_api/controllers/push_controller.ex:89",
-              "loc" => "89:12",
               "is_test" => false
             },
             %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
               "path" => "test/mapperoni_api/controllers/push_controller_test.exs:67",
-              "loc" => "67:3",
               "is_test" => true
             }
           ],
           "push-api.SPEC.3" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
-              "path" => "lib/mapperoni_api/services/spec_service.ex:23",
-              "loc" => "23:8",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
-              "path" => "test/mapperoni_api/services/spec_service_test.exs:45",
-              "loc" => "45:2",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni_api/services/spec_service.ex:23", "is_test" => false},
+            %{"path" => "test/mapperoni_api/services/spec_service_test.exs:45", "is_test" => true}
           ],
           "push-api.REF.1" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
-              "path" => "lib/mapperoni_api/services/ref_service.ex:78",
-              "loc" => "78:15",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
-              "path" => "test/mapperoni_api/services/ref_service_test.exs:56",
-              "loc" => "56:1",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni_api/services/ref_service.ex:78", "is_test" => false},
+            %{"path" => "test/mapperoni_api/services/ref_service_test.exs:56", "is_test" => true}
           ],
           "push-api.REF.2" => [
+            %{"path" => "lib/mapperoni_api/validators/acid_validator.ex:45", "is_test" => false},
             %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
-              "path" => "lib/mapperoni_api/validators/acid_validator.ex:45",
-              "loc" => "45:6",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
               "path" => "test/mapperoni_api/validators/acid_validator_test.exs:33",
-              "loc" => "33:3",
               "is_test" => true
             }
           ],
           "push-api.STATE.1" => [
+            %{"path" => "lib/mapperoni_api/services/state_service.ex:112", "is_test" => false},
             %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
-              "path" => "lib/mapperoni_api/services/state_service.ex:112",
-              "loc" => "112:4",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
               "path" => "test/mapperoni_api/services/state_service_test.exs:89",
-              "loc" => "89:1",
               "is_test" => true
             }
           ],
           "push-api.STATE.2" => [
+            %{"path" => "lib/mapperoni_api/services/state_service.ex:145", "is_test" => false},
             %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
-              "path" => "lib/mapperoni_api/services/state_service.ex:145",
-              "loc" => "145:8",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
               "path" => "test/mapperoni_api/services/state_service_test.exs:112",
-              "loc" => "112:2",
               "is_test" => true
             }
           ],
           "push-api.IMPL.1" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
-              "path" => "lib/mapperoni_api/services/impl_service.ex:67",
-              "loc" => "67:12",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
-              "path" => "test/mapperoni_api/services/impl_service_test.exs:44",
-              "loc" => "44:1",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni_api/services/impl_service.ex:67", "is_test" => false},
+            %{"path" => "test/mapperoni_api/services/impl_service_test.exs:44", "is_test" => true}
           ],
           "push-api.IMPL.2" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
-              "path" => "lib/mapperoni_api/services/impl_service.ex:98",
-              "loc" => "98:6",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
-              "path" => "test/mapperoni_api/services/impl_service_test.exs:67",
-              "loc" => "67:3",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni_api/services/impl_service.ex:98", "is_test" => false},
+            %{"path" => "test/mapperoni_api/services/impl_service_test.exs:67", "is_test" => true}
           ],
           "push-api.INHERIT.1" => [
             %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
               "path" => "lib/mapperoni_api/services/inheritance_service.ex:34",
-              "loc" => "34:10",
               "is_test" => false
             },
             %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
               "path" => "test/mapperoni_api/services/inheritance_service_test.exs:23",
-              "loc" => "23:1",
               "is_test" => true
             }
           ],
           "push-api.INHERIT.2" => [
             %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
               "path" => "lib/mapperoni_api/services/inheritance_service.ex:78",
-              "loc" => "78:15",
               "is_test" => false
             },
             %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
               "path" => "test/mapperoni_api/services/inheritance_service_test.exs:56",
-              "loc" => "56:2",
               "is_test" => true
             }
           ],
           "push-api.TX.1" => [
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
-              "path" => "lib/mapperoni_api/transaction.ex:123",
-              "loc" => "123:8",
-              "is_test" => false
-            },
-            %{
-              "repo" => "github.com/mapperoni/mapperoni-api",
-              "path" => "test/mapperoni_api/transaction_test.exs:78",
-              "loc" => "78:1",
-              "is_test" => true
-            }
+            %{"path" => "lib/mapperoni_api/transaction.ex:123", "is_test" => false},
+            %{"path" => "test/mapperoni_api/transaction_test.exs:78", "is_test" => true}
           ]
         },
-        agent: "seeds",
         commit: "def789abc012",
         pushed_at: now
       },
@@ -1781,39 +1500,41 @@ defmodule Acai.Seeds do
     :ok
   end
 
-  defp seed_spec_impl_ref(spec, implementation, attrs, silent) do
+  # data-model.FEATURE_BRANCH_REFS.4: Store refs on branch with feature_name
+  defp seed_feature_branch_ref(spec, branch, attrs, silent) do
     defaults = %{
       refs: %{},
-      agent: "seeds",
       commit: "abc123",
       pushed_at: DateTime.utc_now(),
       feature_name: spec.feature_name,
-      implementation_id: implementation.id
+      branch_id: branch.id
     }
 
     attrs = Map.merge(defaults, attrs)
 
     existing =
       Repo.one(
-        from fir in FeatureImplRef,
+        from fbr in FeatureBranchRef,
           where:
-            fir.feature_name == ^spec.feature_name and
-              fir.implementation_id == ^implementation.id
+            fbr.feature_name == ^spec.feature_name and
+              fbr.branch_id == ^branch.id
       )
 
     if existing do
       unless silent do
         IO.puts(
-          "FeatureImplRef already exists for spec #{spec.feature_name} and implementation #{implementation.name}"
+          "FeatureBranchRef already exists for spec #{spec.feature_name} and branch #{branch.branch_name}"
         )
       end
 
       existing
     else
-      {:ok, ref} = Repo.insert(FeatureImplRef.changeset(%FeatureImplRef{}, attrs))
+      {:ok, ref} = Repo.insert(FeatureBranchRef.changeset(%FeatureBranchRef{}, attrs))
 
       unless silent do
-        IO.puts("Created feature_impl_ref for spec #{spec.feature_name}")
+        IO.puts(
+          "Created feature_branch_ref for spec #{spec.feature_name} on branch #{branch.branch_name}"
+        )
       end
 
       ref

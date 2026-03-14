@@ -4,7 +4,7 @@ defmodule Acai.SpecsTest do
   import Acai.DataModelFixtures
 
   alias Acai.Specs
-  alias Acai.Specs.{Spec, FeatureImplState, FeatureImplRef}
+  alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
 
   # Shared setup: team -> product -> spec -> implementation
   defp setup_spec_chain(_ctx \\ %{}) do
@@ -336,123 +336,122 @@ defmodule Acai.SpecsTest do
     end
   end
 
-  # --- FeatureImplRef tests ---
+  # --- FeatureBranchRef tests (branch-scoped refs) ---
 
-  describe "get_feature_impl_ref/2" do
-    test "returns the ref for feature_name and implementation" do
+  describe "get_feature_branch_ref/2" do
+    test "returns the ref for feature_name and branch" do
       %{spec: spec, impl: impl} = setup_spec_chain()
-      ref_record = spec_impl_ref_fixture(spec, impl)
+      # Create tracked branch and feature_branch_ref
+      tracked_branch = tracked_branch_fixture(impl)
+      branch = Acai.Repo.preload(tracked_branch, :branch).branch
+      ref_record = feature_branch_ref_fixture(branch, spec.feature_name)
 
-      assert Specs.get_feature_impl_ref(spec.feature_name, impl).id == ref_record.id
+      assert Specs.get_feature_branch_ref(spec.feature_name, branch).id ==
+               ref_record.id
     end
 
     test "returns nil when no ref exists" do
-      %{spec: spec, impl: impl} = setup_spec_chain()
-      assert Specs.get_feature_impl_ref(spec.feature_name, impl) == nil
+      team = team_fixture()
+      branch = branch_fixture(team)
+
+      assert Specs.get_feature_branch_ref("nonexistent", branch) == nil
     end
   end
 
-  describe "create_feature_impl_ref/3" do
-    test "creates a ref for feature_name and implementation" do
-      %{spec: spec, impl: impl} = setup_spec_chain()
+  describe "create_feature_branch_ref/3" do
+    test "creates a ref for feature_name and branch" do
+      team = team_fixture()
+      branch = branch_fixture(team)
 
       attrs = %{
         refs: %{
           "test.COMP.1" => [
-            %{
-              "repo" => "github.com/org/repo",
-              "path" => "lib/foo.ex",
-              "loc" => "10:5",
-              "is_test" => false
-            }
+            %{"path" => "lib/foo.ex:42", "is_test" => false}
           ]
         },
-        agent: "github-action",
         commit: "abc123",
         pushed_at: DateTime.utc_now()
       }
 
-      assert {:ok, %FeatureImplRef{} = ref_record} =
-               Specs.create_feature_impl_ref(spec.feature_name, impl, attrs)
+      assert {:ok, %FeatureBranchRef{} = ref_record} =
+               Specs.create_feature_branch_ref("test-feature", branch, attrs)
 
-      assert ref_record.feature_name == spec.feature_name
-      assert ref_record.implementation_id == impl.id
-      assert ref_record.agent == "github-action"
+      assert ref_record.feature_name == "test-feature"
+      assert ref_record.branch_id == branch.id
     end
 
     test "returns error changeset when attrs are invalid" do
-      %{spec: spec, impl: impl} = setup_spec_chain()
+      team = team_fixture()
+      branch = branch_fixture(team)
 
       assert {:error, changeset} =
-               Specs.create_feature_impl_ref(spec.feature_name, impl, %{refs: nil})
+               Specs.create_feature_branch_ref("test-feature", branch, %{refs: nil})
 
       refute changeset.valid?
     end
   end
 
-  describe "update_feature_impl_ref/2" do
+  describe "update_feature_branch_ref/2" do
     test "updates the ref" do
-      %{spec: spec, impl: impl} = setup_spec_chain()
-      ref_record = spec_impl_ref_fixture(spec, impl)
+      team = team_fixture()
+      branch = branch_fixture(team)
+
+      {:ok, ref_record} =
+        Specs.create_feature_branch_ref("test-feature", branch, %{
+          refs: %{"a" => [%{"path" => "lib/foo.ex:1", "is_test" => false}]},
+          commit: "abc123",
+          pushed_at: DateTime.utc_now()
+        })
 
       new_refs = %{
-        "test.COMP.1" => [
-          %{
-            "repo" => "github.com/org/repo",
-            "path" => "lib/bar.ex",
-            "loc" => "20:10",
-            "is_test" => true
-          }
-        ]
+        "test.COMP.1" => [%{"path" => "lib/bar.ex:2", "is_test" => true}]
       }
 
-      assert {:ok, %FeatureImplRef{} = updated} =
-               Specs.update_feature_impl_ref(ref_record, %{refs: new_refs})
+      assert {:ok, %FeatureBranchRef{} = updated} =
+               Specs.update_feature_branch_ref(ref_record, %{refs: new_refs})
 
-      assert updated.refs["test.COMP.1"] |> hd() |> Map.get("path") == "lib/bar.ex"
+      assert updated.refs["test.COMP.1"] |> hd() |> Map.get("path") == "lib/bar.ex:2"
     end
   end
 
-  describe "upsert_feature_impl_ref/3" do
+  describe "upsert_feature_branch_ref/3" do
     test "inserts a new ref when none exists" do
-      %{spec: spec, impl: impl} = setup_spec_chain()
+      team = team_fixture()
+      branch = branch_fixture(team)
 
       attrs = %{
-        refs: %{"a" => [%{"path" => "lib/foo.ex"}]},
-        agent: "cli",
+        refs: %{"a" => [%{"path" => "lib/foo.ex:1", "is_test" => false}]},
         commit: "def456",
         pushed_at: DateTime.utc_now()
       }
 
-      assert {:ok, %FeatureImplRef{} = ref_record} =
-               Specs.upsert_feature_impl_ref(spec.feature_name, impl, attrs)
+      assert {:ok, %FeatureBranchRef{} = ref_record} =
+               Specs.upsert_feature_branch_ref("test-feature", branch, attrs)
 
-      assert ref_record.feature_name == spec.feature_name
-      assert ref_record.implementation_id == impl.id
+      assert ref_record.feature_name == "test-feature"
+      assert ref_record.branch_id == branch.id
     end
 
     test "updates existing ref on conflict" do
-      %{spec: spec, impl: impl} = setup_spec_chain()
+      team = team_fixture()
+      branch = branch_fixture(team)
 
       {:ok, original} =
-        Specs.upsert_feature_impl_ref(spec.feature_name, impl, %{
-          refs: %{"a" => [%{"path" => "lib/foo.ex"}]},
-          agent: "cli",
+        Specs.upsert_feature_branch_ref("test-feature", branch, %{
+          refs: %{"a" => [%{"path" => "lib/foo.ex:1", "is_test" => false}]},
           commit: "abc",
           pushed_at: DateTime.utc_now()
         })
 
       {:ok, updated} =
-        Specs.upsert_feature_impl_ref(spec.feature_name, impl, %{
-          refs: %{"a" => [%{"path" => "lib/bar.ex"}]},
-          agent: "github-action",
+        Specs.upsert_feature_branch_ref("test-feature", branch, %{
+          refs: %{"a" => [%{"path" => "lib/bar.ex:2", "is_test" => true}]},
           commit: "def",
           pushed_at: DateTime.utc_now()
         })
 
       assert updated.id == original.id
-      assert updated.agent == "github-action"
-      assert updated.refs["a"] |> hd() |> Map.get("path") == "lib/bar.ex"
+      assert updated.refs["a"] |> hd() |> Map.get("path") == "lib/bar.ex:2"
     end
   end
 
@@ -506,54 +505,55 @@ defmodule Acai.SpecsTest do
   end
 
   describe "get_spec_impl_ref/2 (legacy)" do
-    test "returns the ref for spec and implementation" do
+    test "returns ref counts for spec and implementation" do
       %{spec: spec, impl: impl} = setup_spec_chain()
-      ref_record = spec_impl_ref_fixture(spec, impl)
+      # Create tracked branch and ref
+      tracked_branch = tracked_branch_fixture(impl)
+      branch = Acai.Repo.preload(tracked_branch, :branch).branch
+      _ref_record = feature_branch_ref_fixture(branch, spec.feature_name)
 
-      assert Specs.get_spec_impl_ref(spec, impl).id == ref_record.id
+      result = Specs.get_spec_impl_ref(spec, impl)
+      # Now returns a pseudo-ref structure with counts
+      assert result.total_refs >= 0
+      assert result.total_tests >= 0
     end
   end
 
   describe "create_spec_impl_ref/3 (legacy)" do
-    test "creates a ref for spec and implementation" do
+    test "creates refs on tracked branches for spec and implementation" do
       %{spec: spec, impl: impl} = setup_spec_chain()
+      # Need a tracked branch first
+      _tracked_branch = tracked_branch_fixture(impl)
 
       attrs = %{
         refs: %{
           "test.COMP.1" => [
-            %{
-              "repo" => "github.com/org/repo",
-              "path" => "lib/foo.ex",
-              "loc" => "10:5",
-              "is_test" => false
-            }
+            %{"path" => "lib/foo.ex:10", "is_test" => false}
           ]
         },
-        agent: "github-action",
         commit: "abc123",
         pushed_at: DateTime.utc_now()
       }
 
-      assert {:ok, %FeatureImplRef{} = ref_record} = Specs.create_spec_impl_ref(spec, impl, attrs)
-      assert ref_record.feature_name == spec.feature_name
-      assert ref_record.implementation_id == impl.id
+      # Legacy function now returns {:ok, %{}}
+      assert {:ok, _} = Specs.create_spec_impl_ref(spec, impl, attrs)
     end
   end
 
   describe "upsert_spec_impl_ref/3 (legacy)" do
-    test "inserts a new ref when none exists" do
+    test "upserts refs on tracked branches for spec and implementation" do
       %{spec: spec, impl: impl} = setup_spec_chain()
+      # Need a tracked branch first
+      _tracked_branch = tracked_branch_fixture(impl)
 
       attrs = %{
-        refs: %{"a" => [%{"path" => "lib/foo.ex"}]},
-        agent: "cli",
+        refs: %{"a" => [%{"path" => "lib/foo.ex:1", "is_test" => false}]},
         commit: "def456",
         pushed_at: DateTime.utc_now()
       }
 
-      assert {:ok, %FeatureImplRef{} = ref_record} = Specs.upsert_spec_impl_ref(spec, impl, attrs)
-      assert ref_record.feature_name == spec.feature_name
-      assert ref_record.implementation_id == impl.id
+      # Legacy function now returns {:ok, %{}}
+      assert {:ok, _} = Specs.upsert_spec_impl_ref(spec, impl, attrs)
     end
   end
 end

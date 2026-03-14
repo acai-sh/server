@@ -72,21 +72,33 @@ defmodule AcaiWeb.ImplementationLiveTest do
     spec_impl_state_fixture(spec, implementation, %{states: states})
   end
 
-  # data-model.SPEC_IMPL_REFS: Create spec_impl_ref with JSONB refs
+  # data-model.FEATURE_BRANCH_REFS: Create feature_branch_ref with JSONB refs
+  # Uses new format: refs keyed by ACID with path and is_test only
   defp create_spec_impl_ref(spec, implementation, opts) do
     acid_prefix = spec.feature_name <> ".COMP"
 
+    # Convert old format refs to new format (path only, no repo/loc)
     refs =
       Keyword.get(opts, :refs, %{
         "#{acid_prefix}.1" => [
           %{
-            "repo" => "github.com/org/repo",
             "path" => Keyword.get(opts, :path, "lib/my_app/my_module.ex:42"),
-            "loc" => "42:10",
             "is_test" => Keyword.get(opts, :is_test, false)
           }
         ]
       })
+      |> Enum.map(fn {acid, ref_list} ->
+        new_refs =
+          Enum.map(ref_list, fn ref ->
+            %{
+              "path" => ref["path"] || "lib/default.ex:1",
+              "is_test" => ref["is_test"] || false
+            }
+          end)
+
+        {acid, new_refs}
+      end)
+      |> Map.new()
 
     spec_impl_ref_fixture(spec, implementation, %{refs: refs})
   end
@@ -342,6 +354,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       product = create_product(team, "TestProduct")
       spec = create_spec_for_feature(team, product, "my-feature")
       impl = create_implementation_for_product(product)
+      # Need tracked branch to store refs
+      _tracked_branch = tracked_branch_fixture(impl)
 
       # Add test reference via spec_impl_refs
       create_spec_impl_ref(spec, impl,
@@ -398,6 +412,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       product = create_product(team, "TestProduct")
       spec = create_spec_for_feature(team, product, "my-feature")
       impl = create_implementation_for_product(product)
+      # Need tracked branch to store refs
+      _tracked_branch = tracked_branch_fixture(impl)
 
       # Add multiple test references
       create_spec_impl_ref(spec, impl,
@@ -562,6 +578,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       product = create_product(team, "TestProduct")
       spec = create_spec_for_feature(team, product, "my-feature")
       impl = create_implementation_for_product(product)
+      # Need tracked branch to store refs
+      _tracked_branch = tracked_branch_fixture(impl)
 
       # Add non-test references via spec_impl_refs
       create_spec_impl_ref(spec, impl,
@@ -597,6 +615,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       product = create_product(team, "TestProduct")
       spec = create_spec_for_feature(team, product, "my-feature")
       impl = create_implementation_for_product(product)
+      # Need tracked branch to store refs
+      _tracked_branch = tracked_branch_fixture(impl)
 
       # Add test references via spec_impl_refs
       create_spec_impl_ref(spec, impl,

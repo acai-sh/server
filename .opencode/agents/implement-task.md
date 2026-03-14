@@ -20,7 +20,6 @@ B) Resolving feedback or incomplete items (QA, code review etc.), appended to th
 * [ ] Read the relevant task .md file before proceeding
 
 ## Process
-* [ ] Conventional commits are encouraged
 * [ ] Completion is only reached when all tests are passing, all assigned acceptance criteria are implemented, and your work is committed.
 * [ ] Upon completion, respond back to the supervisor "<task file> has been implemented and is ready for (re-)review."
 

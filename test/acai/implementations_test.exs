@@ -167,7 +167,8 @@ defmodule Acai.ImplementationsTest do
   describe "create_tracked_branch/2" do
     test "creates a tracked branch for the implementation", %{product: product} do
       impl = implementation_fixture(product)
-      branch = branch_fixture()
+      team = Repo.get!(Acai.Teams.Team, product.team_id)
+      branch = branch_fixture(team)
 
       attrs = %{
         branch_id: branch.id,

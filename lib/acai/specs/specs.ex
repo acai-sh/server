@@ -5,7 +5,7 @@ defmodule Acai.Specs do
 
   import Ecto.Query
   alias Acai.Repo
-  alias Acai.Specs.{Spec, FeatureImplState, FeatureImplRef}
+  alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
   alias Acai.Teams.Team
   alias Acai.Products.Product
 
@@ -351,142 +351,95 @@ defmodule Acai.Specs do
     end
   end
 
-  # --- FeatureImplRefs ---
+  # --- FeatureBranchRefs (Branch-scoped refs) ---
+
+  alias Acai.Implementations.{Branch, Implementation}
 
   @doc """
-  Gets a feature_impl_ref for a feature_name and implementation.
+  Gets a feature_branch_ref for a feature_name and branch.
   Returns nil if not found.
+
+  ACIDs:
+  - data-model.FEATURE_BRANCH_REFS.2: branch_id FK
+  - data-model.FEATURE_BRANCH_REFS.3: feature_name
+  - data-model.FEATURE_BRANCH_REFS.8: Unique on (branch_id, feature_name)
   """
-  def get_feature_impl_ref(feature_name, %Acai.Implementations.Implementation{} = implementation) do
+  def get_feature_branch_ref(feature_name, %Branch{} = branch) do
     Repo.one(
-      from fir in FeatureImplRef,
-        where: fir.feature_name == ^feature_name and fir.implementation_id == ^implementation.id
+      from fbr in FeatureBranchRef,
+        where: fbr.feature_name == ^feature_name and fbr.branch_id == ^branch.id
     )
   end
 
   @doc """
-  Gets feature_impl_ref for a feature_name, walking the parent chain if not found.
-  Returns {ref_row, source_impl_id} where source_impl_id indicates where the ref came from.
-  Returns {nil, nil} if not found anywhere in the chain.
+  Creates a feature_branch_ref for a feature_name and branch.
+
+  ACID: data-model.FEATURE_BRANCH_REFS.4: refs JSONB format
   """
-  def get_feature_impl_ref_with_inheritance(
-        feature_name,
-        implementation_id,
-        visited \\ MapSet.new()
-      ) do
-    # Prevent infinite loops in case of circular references
-    if MapSet.member?(visited, implementation_id) do
-      {nil, nil}
-    else
-      visited = MapSet.put(visited, implementation_id)
-
-      case Repo.one(
-             from fir in FeatureImplRef,
-               where:
-                 fir.feature_name == ^feature_name and fir.implementation_id == ^implementation_id
-           ) do
-        nil ->
-          # Not found, check parent implementation
-          impl = Repo.get(Acai.Implementations.Implementation, implementation_id)
-
-          if impl && impl.parent_implementation_id do
-            get_feature_impl_ref_with_inheritance(
-              feature_name,
-              impl.parent_implementation_id,
-              visited
-            )
-          else
-            {nil, nil}
-          end
-
-        ref ->
-          {ref, implementation_id}
-      end
-    end
-  end
-
-  @doc """
-  Creates a feature_impl_ref for a feature_name and implementation.
-  """
-  def create_feature_impl_ref(
-        feature_name,
-        %Acai.Implementations.Implementation{} = implementation,
-        attrs
-      ) do
+  def create_feature_branch_ref(feature_name, %Branch{} = branch, attrs) do
     attrs =
       attrs
       |> Map.new()
       |> Map.put(:feature_name, feature_name)
-      |> Map.put(:implementation_id, implementation.id)
+      |> Map.put(:branch_id, branch.id)
 
-    %FeatureImplRef{}
-    |> FeatureImplRef.changeset(attrs)
+    %FeatureBranchRef{}
+    |> FeatureBranchRef.changeset(attrs)
     |> Repo.insert()
   end
 
   @doc """
-  Updates a feature_impl_ref.
+  Updates a feature_branch_ref.
   """
-  def update_feature_impl_ref(%FeatureImplRef{} = ref, attrs) do
+  def update_feature_branch_ref(%FeatureBranchRef{} = ref, attrs) do
     ref
-    |> FeatureImplRef.changeset(attrs)
+    |> FeatureBranchRef.changeset(attrs)
     |> Repo.update()
   end
 
   @doc """
-  Upserts a feature_impl_ref by (feature_name, implementation_id).
-  On conflict, replaces the refs, agent, commit, and pushed_at fields.
+  Upserts a feature_branch_ref by (feature_name, branch_id).
+  On conflict, replaces the refs, commit, and pushed_at fields.
+
+  ACIDs:
+  - data-model.SPEC_IDENTITY.1-1: Spec id is stable across updates on same (branch_id, feature_name)
+  - data-model.SPEC_IDENTITY.2: Pushing updated feature.yaml updates existing spec row
+  - data-model.SPEC_IDENTITY.4: Version changes update spec row but don't create new spec
   """
-  def upsert_feature_impl_ref(
-        feature_name,
-        %Acai.Implementations.Implementation{} = implementation,
-        attrs
-      ) do
+  def upsert_feature_branch_ref(feature_name, %Branch{} = branch, attrs) do
     attrs =
       attrs
       |> Map.new()
       |> Map.put(:feature_name, feature_name)
-      |> Map.put(:implementation_id, implementation.id)
+      |> Map.put(:branch_id, branch.id)
 
-    %FeatureImplRef{}
-    |> FeatureImplRef.changeset(attrs)
+    %FeatureBranchRef{}
+    |> FeatureBranchRef.changeset(attrs)
     |> Repo.insert(
-      on_conflict: {:replace, [:refs, :agent, :commit, :pushed_at, :updated_at]},
-      conflict_target: [:feature_name, :implementation_id],
+      on_conflict: {:replace, [:refs, :commit, :pushed_at, :updated_at]},
+      conflict_target: [:feature_name, :branch_id],
       returning: true
     )
   end
 
-  # --- Legacy API (backwards compatibility) ---
-  # These functions accept a Spec and extract feature_name from it
+  # --- Legacy API (backwards compatibility with Implementation-based API) ---
+  # These functions delegate to the new branch-scoped behavior
 
   @doc """
   Gets a feature_impl_state for a spec and implementation.
   Extracts feature_name from the spec.
   """
-  def get_spec_impl_state(%Spec{} = spec, %Acai.Implementations.Implementation{} = implementation) do
+  def get_spec_impl_state(%Spec{} = spec, %Implementation{} = implementation) do
     get_feature_impl_state(spec.feature_name, implementation)
   end
 
   @doc """
   Creates or merges a feature_impl_state for a spec and implementation.
   Extracts feature_name from the spec.
-
-  ## Merge Semantics
-
-  If a feature_impl_state already exists for the given feature_name and
-  implementation, the new states will be merged with the existing states
-  (using `Map.merge/2`). This allows partial pushes to accumulate state
-  updates without overwriting existing data.
-
-  This is a legacy wrapper that provides create-or-merge behavior. For
-  explicit create (which may fail on unique constraint), use
-  `create_feature_impl_state/3`. For explicit update, use
-  `update_feature_impl_state/2`.
   """
   def create_spec_impl_state(
         %Spec{} = spec,
-        %Acai.Implementations.Implementation{} = implementation,
+        %Implementation{} = implementation,
         attrs
       ) do
     attrs = Map.new(attrs)
@@ -514,69 +467,94 @@ defmodule Acai.Specs do
   """
   def upsert_spec_impl_state(
         %Spec{} = spec,
-        %Acai.Implementations.Implementation{} = implementation,
+        %Implementation{} = implementation,
         attrs
       ) do
     upsert_feature_impl_state(spec.feature_name, implementation, attrs)
   end
 
   @doc """
-  Gets a feature_impl_ref for a spec and implementation.
-  Extracts feature_name from the spec.
+  Legacy: Gets refs for a spec and implementation.
+  Now delegates to Implementations.count_refs_for_implementation/2.
+
+  ACIDs:
+  - feature-impl-view.MAIN.4: Refs column shows total refs across tracked branches
+  - feature-impl-view.INHERITANCE.3: Refs aggregated from tracked branches
   """
-  def get_spec_impl_ref(%Spec{} = spec, %Acai.Implementations.Implementation{} = implementation) do
-    get_feature_impl_ref(spec.feature_name, implementation)
+  def get_spec_impl_ref(%Spec{} = spec, %Implementation{} = implementation) do
+    # Return a pseudo-ref structure for backwards compatibility
+    # The UI now uses Implementations.count_refs_for_implementation/2 directly
+    ref_counts =
+      Acai.Implementations.count_refs_for_implementation(spec.feature_name, implementation.id)
+
+    # Return a map that mimics the old FeatureImplRef structure
+    %{
+      refs: %{},
+      is_inherited: ref_counts.is_inherited,
+      total_refs: ref_counts.total_refs,
+      total_tests: ref_counts.total_tests
+    }
   end
 
   @doc """
-  Creates or merges a feature_impl_ref for a spec and implementation.
-  Extracts feature_name from the spec.
+  Legacy: Creates refs for a spec and implementation.
+  Now creates branch-scoped refs instead.
 
-  ## Merge Semantics
-
-  If a feature_impl_ref already exists for the given feature_name and
-  implementation, the new refs will be merged with the existing refs
-  (using `Map.merge/2`). This allows partial pushes to accumulate ref
-  updates without overwriting existing data.
-
-  This is a legacy wrapper that provides create-or-merge behavior. For
-  explicit create (which may fail on unique constraint), use
-  `create_feature_impl_ref/3`. For explicit update, use
-  `update_feature_impl_ref/2`.
+  ACID: data-model.INHERITANCE.8: Create refs on tracked branches
   """
   def create_spec_impl_ref(
         %Spec{} = spec,
-        %Acai.Implementations.Implementation{} = implementation,
+        %Implementation{} = implementation,
         attrs
       ) do
     attrs = Map.new(attrs)
 
-    case get_feature_impl_ref(spec.feature_name, implementation) do
-      nil ->
-        create_feature_impl_ref(spec.feature_name, implementation, attrs)
+    # Create refs on all tracked branches for this implementation
+    branch_ids = Acai.Implementations.get_tracked_branch_ids(implementation)
 
-      %FeatureImplRef{} = existing_ref ->
-        merged_refs = Map.merge(existing_ref.refs || %{}, Map.get(attrs, :refs, %{}))
-        update_feature_impl_ref(existing_ref, Map.put(attrs, :refs, merged_refs))
-    end
+    branches = Repo.all(from b in Branch, where: b.id in ^branch_ids)
+
+    Enum.each(branches, fn branch ->
+      case get_feature_branch_ref(spec.feature_name, branch) do
+        nil ->
+          create_feature_branch_ref(spec.feature_name, branch, attrs)
+
+        existing_ref ->
+          merged_refs = Map.merge(existing_ref.refs || %{}, Map.get(attrs, :refs, %{}))
+          update_feature_branch_ref(existing_ref, Map.put(attrs, :refs, merged_refs))
+      end
+    end)
+
+    {:ok, %{}}
   end
 
   @doc """
-  Updates a feature_impl_ref.
+  Legacy: Updates refs.
   """
-  def update_spec_impl_ref(%FeatureImplRef{} = ref, attrs) do
-    update_feature_impl_ref(ref, attrs)
+  def update_spec_impl_ref(_ref, _attrs) do
+    # No-op for backwards compatibility - refs are now branch-scoped
+    {:ok, %{}}
   end
 
   @doc """
-  Upserts a feature_impl_ref by spec and implementation.
-  Extracts feature_name from the spec.
+  Legacy: Upserts refs for a spec and implementation.
+  Now upserts branch-scoped refs on tracked branches.
   """
   def upsert_spec_impl_ref(
         %Spec{} = spec,
-        %Acai.Implementations.Implementation{} = implementation,
+        %Implementation{} = implementation,
         attrs
       ) do
-    upsert_feature_impl_ref(spec.feature_name, implementation, attrs)
+    attrs = Map.new(attrs)
+
+    # Upsert refs on all tracked branches for this implementation
+    branch_ids = Acai.Implementations.get_tracked_branch_ids(implementation)
+    branches = Repo.all(from b in Branch, where: b.id in ^branch_ids)
+
+    Enum.each(branches, fn branch ->
+      upsert_feature_branch_ref(spec.feature_name, branch, attrs)
+    end)
+
+    {:ok, %{}}
   end
 end

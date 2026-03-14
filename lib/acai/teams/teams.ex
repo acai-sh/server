@@ -330,6 +330,63 @@ defmodule Acai.Teams do
     AccessToken.changeset(token, attrs, timezone_offset)
   end
 
+  @doc """
+  Authenticates an API token from its raw string value.
+
+  Hashes the presented token, looks up the record, validates it is not
+  revoked or expired, updates last_used_at, and returns the token with
+  its associated team.
+
+  Returns {:ok, %{token: token, team: team}} on success,
+  or {:error, reason_string} on failure.
+
+  See push.AUTH.1
+  """
+  def authenticate_api_token(raw_token) do
+    token_hash = hash_token(raw_token)
+
+    case Repo.get_by(AccessToken, token_hash: token_hash) do
+      nil ->
+        {:error, "Invalid token"}
+
+      token ->
+        token = Repo.preload(token, :team)
+
+        cond do
+          not is_nil(token.revoked_at) ->
+            {:error, "Token has been revoked"}
+
+          not is_nil(token.expires_at) and
+              DateTime.compare(DateTime.utc_now(), token.expires_at) == :gt ->
+            {:error, "Token has expired"}
+
+          true ->
+            # Update last_used_at
+            now = DateTime.utc_now(:second)
+
+            updated_token =
+              token
+              |> Ecto.Changeset.change(last_used_at: now)
+              |> Repo.update!()
+
+            {:ok, %{token: updated_token, team: token.team}}
+        end
+    end
+  end
+
+  @doc """
+  Checks if the given token has the required scope.
+
+  See push.AUTH.2-5
+  """
+  def token_has_scope?(%AccessToken{} = token, required_scope) do
+    required_scope in (token.scopes || [])
+  end
+
+  defp hash_token(raw_token) do
+    :crypto.hash(:sha256, raw_token) |> Base.encode16(case: :lower)
+  end
+
   # --- Private helpers ---
 
   defp team_ids_for_user(user_id) do
