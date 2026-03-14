@@ -177,6 +177,14 @@ defmodule Acai.DataModelFixtures do
       })
       |> Map.put(:product_id, product.id)
       |> Map.put(:team_id, product.team_id)
+      # Support parent_implementation_id if provided
+      |> then(fn final_attrs ->
+        if attrs[:parent_implementation_id] do
+          Map.put(final_attrs, :parent_implementation_id, attrs[:parent_implementation_id])
+        else
+          final_attrs
+        end
+      end)
 
     {:ok, impl} =
       Implementation.changeset(%Implementation{}, attrs)

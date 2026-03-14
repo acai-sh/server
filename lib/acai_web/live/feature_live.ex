@@ -36,10 +36,15 @@ defmodule AcaiWeb.FeatureLive do
         # feature-view.PERF.1: Preload product association for each implementation
         implementations = Acai.Repo.preload(implementations, :product)
 
-        # data-model.FEATURE_IMPL_STATES: Get status counts from feature_impl_states JSONB
-        # For each implementation, aggregate status counts for only the relevant specs
+        # feature-view.ENG.2: Get status counts from feature_impl_states with inheritance
+        # For each implementation, aggregate status counts respecting inheritance semantics
         status_counts_by_impl =
-          Implementations.batch_get_spec_impl_state_counts(implementations, specs)
+          implementations
+          |> Enum.map(fn impl ->
+            counts = get_inherited_state_counts_for_feature(impl, actual_feature_name, specs)
+            {impl.id, counts}
+          end)
+          |> Map.new()
 
         # Total requirements across all specs for this feature
         total_requirements =
@@ -108,6 +113,39 @@ defmodule AcaiWeb.FeatureLive do
 
         {:ok, socket}
     end
+  end
+
+  # feature-view.ENG.2: Get state counts for a feature, respecting inheritance
+  # Returns a map of status counts: %{nil => count, "assigned" => count, ...}
+  defp get_inherited_state_counts_for_feature(implementation, feature_name, specs) do
+    # Get inherited states for this feature/implementation pair
+    {state_row, _source_impl_id} =
+      Acai.Specs.get_feature_impl_state_with_inheritance(feature_name, implementation.id)
+
+    # Aggregate counts from the states JSONB
+    states = if state_row, do: state_row.states, else: %{}
+
+    # Count ACIDs from all specs for this feature
+    spec_acids =
+      specs
+      |> Enum.flat_map(fn spec -> Map.keys(spec.requirements) end)
+      |> Enum.uniq()
+
+    # Initialize counts
+    counts = %{
+      nil => 0,
+      "assigned" => 0,
+      "blocked" => 0,
+      "completed" => 0,
+      "accepted" => 0,
+      "rejected" => 0
+    }
+
+    # Count statuses for each ACID in the specs
+    Enum.reduce(spec_acids, counts, fn acid, acc ->
+      status = get_in(states, [acid, "status"])
+      Map.update(acc, status, 1, &(&1 + 1))
+    end)
   end
 
   @impl true

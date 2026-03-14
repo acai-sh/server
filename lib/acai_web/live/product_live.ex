@@ -76,47 +76,110 @@ defmodule AcaiWeb.ProductLive do
       end)
       |> Enum.sort_by(& &1.name)
 
-    # Fetch per-spec-impl completion data in a single batch query
-    # product-view.ROUTING.2
-    spec_impl_completion =
-      if specs != [] and active_implementations != [] do
-        Specs.batch_get_spec_impl_completion(specs, active_implementations)
+    # product-view.ROUTING.2, product-view.ROUTING.3: Fetch per-spec-impl completion data
+    # with inheritance support
+    feature_names = Enum.map(features_by_name, & &1.name)
+
+    # Batch resolve specs for all feature/implementation pairs with inheritance
+    spec_resolution =
+      if feature_names != [] and active_implementations != [] do
+        Specs.batch_resolve_specs_for_implementations(feature_names, active_implementations)
+      else
+        %{}
+      end
+
+    # Batch get completion data with inheritance
+    feature_impl_completion =
+      if feature_names != [] and active_implementations != [] do
+        Specs.batch_get_feature_impl_completion(feature_names, active_implementations)
       else
         %{}
       end
 
     # Build matrix rows: each feature has a cell for each implementation
-    # product-view.MATRIX.3
+    # product-view.MATRIX.3, product-view.MATRIX.8
     matrix_rows =
       features_by_name
       |> Enum.map(fn feature ->
         cells =
           active_implementations
           |> Enum.map(fn impl ->
-            # Sum completion across all specs for this feature/implementation pair
-            {completed, total} =
-              feature.specs
-              |> Enum.reduce({0, 0}, fn spec, {acc_completed, acc_total} ->
-                spec_total = map_size(spec.requirements)
+            # product-view.MATRIX.8: Check if feature is in implementation's ancestor tree
+            spec_result = Map.get(spec_resolution, {feature.name, impl.id})
 
-                spec_completed =
-                  case Map.get(spec_impl_completion, {spec.id, impl.id}) do
-                    nil -> 0
-                    data -> data.completed
-                  end
+            if spec_result == :not_found do
+              # Feature not available in this implementation's ancestor tree
+              %{
+                implementation_id: impl.id,
+                implementation_slug: Implementations.implementation_slug(impl),
+                has_spec: false,
+                completed: 0,
+                total: 0,
+                percentage: nil
+              }
+            else
+              # Sum completion across all specs for this feature/implementation pair
+              {completed, total} =
+                feature.specs
+                |> Enum.reduce({0, 0}, fn spec, {acc_completed, acc_total} ->
+                  spec_total = map_size(spec.requirements)
 
-                {acc_completed + spec_completed, acc_total + spec_total}
-              end)
+                  # Get completion from inherited feature_impl_state
+                  completion_data =
+                    Map.get(feature_impl_completion, {feature.name, impl.id}, %{
+                      completed: 0,
+                      total: 0
+                    })
 
-            percentage = if total > 0, do: round(completed / total * 100), else: 0
+                  # Filter to only count this spec's ACIDs
+                  spec_completed =
+                    if completion_data.total > 0 do
+                      spec_acids = Map.keys(spec.requirements)
 
-            %{
-              implementation_id: impl.id,
-              implementation_slug: Implementations.implementation_slug(impl),
-              completed: completed,
-              total: total,
-              percentage: percentage
-            }
+                      Enum.count(spec_acids, fn _acid ->
+                        # This is an approximation - we count based on the ratio
+                        # In practice, the completion_data is already filtered to the spec
+                        true
+                      end)
+                      # Use the ratio of completed to total from the batch result
+                      |> then(fn _ ->
+                        # Calculate spec-specific completion from the states
+                        {state_row, _} =
+                          Acai.Specs.get_feature_impl_state_with_inheritance(
+                            feature.name,
+                            impl.id
+                          )
+
+                        states = if state_row, do: state_row.states, else: %{}
+
+                        Enum.count(Map.keys(spec.requirements), fn spec_acid ->
+                          case states[spec_acid] do
+                            %{"status" => status} when status in ["completed", "accepted"] ->
+                              true
+
+                            _ ->
+                              false
+                          end
+                        end)
+                      end)
+                    else
+                      0
+                    end
+
+                  {acc_completed + spec_completed, acc_total + spec_total}
+                end)
+
+              percentage = if total > 0, do: round(completed / total * 100), else: 0
+
+              %{
+                implementation_id: impl.id,
+                implementation_slug: Implementations.implementation_slug(impl),
+                has_spec: true,
+                completed: completed,
+                total: total,
+                percentage: percentage
+              }
+            end
           end)
 
         %{
@@ -276,26 +339,34 @@ defmodule AcaiWeb.ProductLive do
                     <%!-- Completion cells --%>
                     <%= for cell <- row.cells do %>
                       <td class="text-center border-l border-base-300 first:border-l-0 p-0">
-                        <%!-- product-view.MATRIX.7 --%>
-                        <.link
-                          navigate={"/t/#{@team.name}/i/#{cell.implementation_slug}/f/#{row.feature_name}"}
-                          class={[
-                            "block py-4 px-2 hover:bg-base-200 transition-colors",
-                            cell.percentage == 100 && "bg-success/10"
-                          ]}
-                        >
-                          <span
-                            class="font-semibold text-sm"
-                            style={completion_color_class(cell.percentage)}
+                        <%!-- product-view.MATRIX.8: Handle n/a for features not in ancestor tree --%>
+                        <%= if cell.has_spec do %>
+                          <%!-- product-view.MATRIX.7 --%>
+                          <.link
+                            navigate={"/t/#{@team.name}/i/#{cell.implementation_slug}/f/#{row.feature_name}"}
+                            class={[
+                              "block py-4 px-2 hover:bg-base-200 transition-colors",
+                              cell.percentage == 100 && "bg-success/10"
+                            ]}
                           >
-                            {cell.percentage}%
-                          </span>
-                          <%= if cell.total > 0 do %>
-                            <div class="text-xs text-base-content/40 mt-1">
-                              {cell.completed}/{cell.total}
-                            </div>
-                          <% end %>
-                        </.link>
+                            <span
+                              class="font-semibold text-sm"
+                              style={completion_color_class(cell.percentage)}
+                            >
+                              {cell.percentage}%
+                            </span>
+                            <%= if cell.total > 0 do %>
+                              <div class="text-xs text-base-content/40 mt-1">
+                                {cell.completed}/{cell.total}
+                              </div>
+                            <% end %>
+                          </.link>
+                        <% else %>
+                          <%!-- product-view.MATRIX.8: n/a for unreachable features --%>
+                          <div class="block py-4 px-2 text-base-content/30">
+                            <span class="text-sm">n/a</span>
+                          </div>
+                        <% end %>
                       </td>
                     <% end %>
                   </tr>

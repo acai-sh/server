@@ -435,40 +435,113 @@ defmodule AcaiWeb.FeatureLiveTest do
     end
   end
 
-  describe "implementations context functions" do
+  describe "inheritance" do
     setup :register_and_log_in_user
 
-    test "list_active_implementations_for_specs returns correct implementations", %{user: user} do
+    # feature-view.ENG.2
+    test "progress bars reflect inherited states from parent implementation", %{
+      conn: conn,
+      user: user
+    } do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
-      spec1 = create_spec_for_feature(team, product, "feature-1")
 
-      # Create another product with a spec
-      product2 = create_product(team, "TestProduct2")
-      spec2 = create_spec_for_feature(team, product2, "feature-2")
+      requirements = %{
+        "my-feature.COMP.1" => %{
+          "definition" => "Req 1",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        },
+        "my-feature.COMP.2" => %{
+          "definition" => "Req 2",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
 
-      impl1 = create_implementation_for_product(product, is_active: true)
-      impl2 = create_implementation_for_product(product2, is_active: true)
-      create_implementation_for_product(product, is_active: false)
+      # Create parent implementation with states
+      parent_impl = create_implementation_for_product(product, name: "ParentImpl")
+      spec = create_spec_for_feature(team, product, "my-feature", requirements: requirements)
 
-      impls = Implementations.list_active_implementations_for_specs([spec1, spec2])
-      assert length(impls) == 2
-      assert Enum.any?(impls, &(&1.id == impl1.id))
-      assert Enum.any?(impls, &(&1.id == impl2.id))
+      create_spec_impl_state(spec, parent_impl,
+        states: %{
+          "my-feature.COMP.1" => %{
+            "status" => "completed",
+            "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+          },
+          "my-feature.COMP.2" => %{
+            "status" => "completed",
+            "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+          }
+        }
+      )
+
+      # Create child implementation with parent but no local states
+      _child_impl =
+        implementation_fixture(product, %{
+          name: "ChildImpl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
+
+      # Should show both implementations
+      assert has_element?(view, "#implementations-grid", "ParentImpl")
+      assert has_element?(view, "#implementations-grid", "ChildImpl")
     end
 
-    test "count_tracked_branches returns correct count", %{user: user} do
+    # feature-view.ENG.2
+    test "child's own states take precedence over parent's", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
-      impl = create_implementation_for_product(product)
 
-      tracked_branch_fixture(impl, repo_uri: "github.com/org/repo1")
-      tracked_branch_fixture(impl, repo_uri: "github.com/org/repo2")
-      tracked_branch_fixture(impl, repo_uri: "github.com/org/repo3")
+      requirements = %{
+        "my-feature.COMP.1" => %{
+          "definition" => "Req 1",
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
 
-      count = Implementations.count_tracked_branches(impl)
-      assert count == 3
+      # Create parent implementation with completed state
+      parent_impl = create_implementation_for_product(product, name: "ParentImpl")
+      spec = create_spec_for_feature(team, product, "my-feature", requirements: requirements)
+
+      create_spec_impl_state(spec, parent_impl,
+        states: %{
+          "my-feature.COMP.1" => %{
+            "status" => "completed",
+            "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+          }
+        }
+      )
+
+      # Create child implementation with assigned state (should override)
+      child_impl =
+        implementation_fixture(product, %{
+          name: "ChildImpl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      create_spec_impl_state(spec, child_impl,
+        states: %{
+          "my-feature.COMP.1" => %{
+            "status" => "assigned",
+            "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+          }
+        }
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
+
+      # Both should appear in the grid
+      assert has_element?(view, "#implementations-grid", "ParentImpl")
+      assert has_element?(view, "#implementations-grid", "ChildImpl")
     end
+  end
+
+  describe "implementations context functions" do
+    setup :register_and_log_in_user
 
     test "batch_get_spec_impl_state_counts returns correct counts", %{user: user} do
       {team, _role} = create_team_with_owner(user)

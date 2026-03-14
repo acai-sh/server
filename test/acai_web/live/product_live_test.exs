@@ -25,8 +25,10 @@ defmodule AcaiWeb.ProductLiveTest do
   end
 
   # data-model.SPECS: Create spec for a product
+  # If :for option is provided with an implementation, creates a tracked branch
   defp create_spec_for_product(_team, product, feature_name, opts \\ []) do
     unique_suffix = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
+    implementation = Keyword.get(opts, :for)
 
     # Create requirements map for completion tracking
     requirements =
@@ -37,14 +39,27 @@ defmodule AcaiWeb.ProductLiveTest do
         "test.4" => %{"description" => "Requirement 4"}
       })
 
-    spec_fixture(product, %{
-      feature_name: feature_name,
-      feature_description: Keyword.get(opts, :description, "Description for #{feature_name}"),
-      feature_version: Keyword.get(opts, :feature_version, "1.0.0"),
-      path: "features/#{feature_name}-#{unique_suffix}/feature.yaml",
-      repo_uri: "github.com/test/repo-#{unique_suffix}",
-      requirements: requirements
-    })
+    spec =
+      spec_fixture(product, %{
+        feature_name: feature_name,
+        feature_description: Keyword.get(opts, :description, "Description for #{feature_name}"),
+        feature_version: Keyword.get(opts, :feature_version, "1.0.0"),
+        path: "features/#{feature_name}-#{unique_suffix}/feature.yaml",
+        repo_uri: "github.com/test/repo-#{unique_suffix}",
+        requirements: requirements
+      })
+
+    # If implementation provided, create tracked branch linking them
+    if implementation do
+      branch =
+        Acai.Repo.get!(Acai.Specs.Spec, spec.id)
+        |> Map.get(:branch_id)
+        |> then(&Acai.Repo.get!(Acai.Implementations.Branch, &1))
+
+      tracked_branch_fixture(implementation, branch: branch)
+    end
+
+    spec
   end
 
   # data-model.IMPLS: Create implementation for a product (not a spec)
@@ -506,6 +521,120 @@ defmodule AcaiWeb.ProductLiveTest do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
       assert has_element?(view, "td", "feature-1")
       refute has_element?(view, "td", "feature-2")
+    end
+  end
+
+  describe "inheritance" do
+    setup :register_and_log_in_user
+
+    # product-view.MATRIX.8
+    test "shows n/a for features not in implementation's ancestor tree", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "MyProduct")
+
+      # Create an implementation with no parent and no tracked branches
+      impl = create_implementation_for_product(product, name: "StandaloneImpl")
+
+      # Create a spec on a different branch not tracked by this implementation
+      _spec = create_spec_for_product(team, product, "unreachable-feature")
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
+
+      # Should show n/a for this feature since it's not in the ancestor tree
+      assert has_element?(view, "td", "n/a")
+    end
+
+    # product-view.ROUTING.3
+    test "shows inherited completion correctly", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "MyProduct")
+
+      spec =
+        create_spec_for_product(team, product, "test-feature",
+          requirements: %{
+            "req.1" => %{"description" => "Req 1"},
+            "req.2" => %{"description" => "Req 2"}
+          }
+        )
+
+      # Create parent with completed states
+      parent_impl = create_implementation_for_product(product, name: "ParentImpl")
+
+      create_spec_impl_state(spec, parent_impl, %{
+        "req.1" => %{"status" => "completed"},
+        "req.2" => %{"status" => "completed"}
+      })
+
+      # Create child that inherits from parent
+      child_impl =
+        implementation_fixture(product, %{
+          name: "ChildImpl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
+
+      # Should show 100% completion for child (inherited from parent)
+      assert has_element?(view, "table td", "100%")
+    end
+
+    test "child's direct data takes precedence in completion", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "MyProduct")
+
+      spec =
+        create_spec_for_product(team, product, "test-feature",
+          requirements: %{
+            "req.1" => %{"description" => "Req 1"},
+            "req.2" => %{"description" => "Req 2"}
+          }
+        )
+
+      # Create parent with 50% completion
+      parent_impl = create_implementation_for_product(product, name: "ParentImpl")
+
+      create_spec_impl_state(spec, parent_impl, %{
+        "req.1" => %{"status" => "completed"},
+        "req.2" => %{"status" => "pending"}
+      })
+
+      # Create child with 100% completion (should override parent's 50%)
+      child_impl =
+        implementation_fixture(product, %{
+          name: "ChildImpl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      create_spec_impl_state(spec, child_impl, %{
+        "req.1" => %{"status" => "completed"},
+        "req.2" => %{"status" => "completed"}
+      })
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
+
+      # Both should show their respective percentages
+      # Parent: 50%, Child: 100%
+      assert has_element?(view, "table td", "50%")
+      assert has_element?(view, "table td", "100%")
+    end
+
+    # product-view.MATRIX.8
+    test "n/a cells are not clickable links", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "MyProduct")
+
+      # Create implementation with no tracked branches
+      impl = create_implementation_for_product(product, name: "StandaloneImpl")
+
+      # Create spec that implementation cannot access
+      _spec = create_spec_for_product(team, product, "unreachable-feature")
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
+
+      # The n/a cell should not be a link
+      html = render(view)
+      # It should contain n/a text but no link wrapper
+      assert html =~ "n/a"
     end
   end
 

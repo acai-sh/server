@@ -15,10 +15,8 @@ defmodule AcaiWeb.ImplementationLive do
       ) do
     team = Teams.get_team_by_name!(team_name)
 
-    # implementation-view.ROUTING.2: Parse slug and look up implementation
     case Implementations.get_implementation_by_slug(impl_slug) do
       nil ->
-        # implementation-view.ROUTING.3: Redirect if implementation not found
         socket =
           socket
           |> put_flash(:error, "Implementation not found")
@@ -27,15 +25,12 @@ defmodule AcaiWeb.ImplementationLive do
         {:ok, socket}
 
       implementation ->
-        # Verify the implementation belongs to this team
         if implementation.team_id == team.id do
-          # data-model.IMPLS: Implementation belongs to product, not spec
-          # Find the spec for this feature_name within the same product
           implementation = Acai.Repo.preload(implementation, :product)
 
-          case find_spec_for_feature(team, implementation.product_id, feature_name) do
-            nil ->
-              # No spec found for this feature in this product
+          # feature-impl-view.INHERITANCE.1: Use inheritance-aware spec lookup
+          case find_spec_for_feature(feature_name, implementation.id) do
+            {nil, nil} ->
               socket =
                 socket
                 |> put_flash(:error, "Feature not found in this product")
@@ -43,11 +38,17 @@ defmodule AcaiWeb.ImplementationLive do
 
               {:ok, socket}
 
-            spec ->
-              mount_implementation_view(socket, team, spec, implementation, feature_name)
+            {spec, spec_source_impl_id} ->
+              mount_implementation_view(
+                socket,
+                team,
+                spec,
+                spec_source_impl_id,
+                implementation,
+                feature_name
+              )
           end
         else
-          # Team mismatch - redirect
           socket =
             socket
             |> put_flash(:error, "Implementation not found")
@@ -58,40 +59,88 @@ defmodule AcaiWeb.ImplementationLive do
     end
   end
 
-  # Find a spec by feature_name for a given product
-  defp find_spec_for_feature(_team, product_id, feature_name) do
-    Acai.Repo.one(
-      from s in Acai.Specs.Spec,
-        where: s.product_id == ^product_id,
-        where: s.feature_name == ^feature_name,
-        limit: 1
-    )
+  defp find_spec_for_feature(feature_name, implementation_id) do
+    Specs.get_spec_for_feature_with_inheritance(feature_name, implementation_id)
   end
 
-  defp mount_implementation_view(socket, team, spec, implementation, feature_name) do
-    # data-model.SPECS.13: Requirements are JSONB on the spec
-    # data-model.SPECS.14: Preload product association for breadcrumb
-    # data-model.SPECS.3-1: Preload branch association for repo info
+  defp mount_implementation_view(
+         socket,
+         team,
+         spec,
+         spec_source_impl_id,
+         implementation,
+         feature_name
+       ) do
     spec = Acai.Repo.preload(spec, [:product, :branch])
 
-    # Build requirement rows from the JSONB requirements map
     requirements = build_requirement_rows_from_spec(spec)
 
-    # data-model.FEATURE_IMPL_STATES: Load states from feature_impl_states JSONB
-    spec_impl_state = Specs.get_spec_impl_state(spec, implementation)
-    states = if spec_impl_state, do: spec_impl_state.states, else: %{}
+    # feature-impl-view.INHERITANCE.2: Load states with inheritance
+    {state_row, state_source_impl_id} =
+      Specs.get_feature_impl_state_with_inheritance(feature_name, implementation.id)
 
-    # data-model.INHERITANCE.8: Aggregate refs from feature_branch_refs across tracked branches
-    # feature-impl-view.MAIN.4: Refs column shows total refs across tracked branches
-    # feature-impl-view.INHERITANCE.3: Refs aggregated from tracked branches
-    _ref_counts = Implementations.count_refs_for_implementation(feature_name, implementation.id)
+    states = if state_row, do: state_row.states, else: %{}
 
     # Load tracked branches with preloaded branch association
     tracked_branches = Implementations.list_tracked_branches(implementation)
 
-    # Get aggregated refs for the drawer (we'll pass this to the drawer component)
-    {aggregated_refs, is_inherited} =
+    # Get aggregated refs for the drawer (branch-scoped refs with inheritance)
+    {aggregated_refs, refs_inherited} =
       Implementations.get_aggregated_refs_with_inheritance(feature_name, implementation.id)
+
+    # feature-impl-view.MAIN.6: Get inheritance summary
+    # Determine if refs came from parent (refs_inherited is true if from parent)
+    # We need to find the source impl_id for refs if inherited
+    refs_source_impl_id =
+      if refs_inherited do
+        # Walk parent chain to find first implementation with refs
+        chain = Implementations.get_parent_chain(implementation.id)
+
+        Enum.reduce_while(chain, nil, fn impl_id, _acc ->
+          impl = Acai.Repo.get(Acai.Implementations.Implementation, impl_id)
+
+          if impl do
+            branch_ids = Implementations.get_tracked_branch_ids(impl)
+            refs = Implementations.aggregate_feature_branch_refs(branch_ids, feature_name)
+
+            if refs != [] do
+              {:halt, impl_id}
+            else
+              {:cont, nil}
+            end
+          else
+            {:cont, nil}
+          end
+        end)
+      else
+        implementation.id
+      end
+
+    inheritance_summary = %{
+      spec: %{
+        inherited?: spec_source_impl_id != nil and spec_source_impl_id != implementation.id,
+        source_impl_id: spec_source_impl_id
+      },
+      states: %{
+        inherited?: state_source_impl_id != nil and state_source_impl_id != implementation.id,
+        source_impl_id: state_source_impl_id
+      },
+      refs: %{
+        inherited?: refs_inherited,
+        source_impl_id: refs_source_impl_id
+      }
+    }
+
+    # Load source implementation names for inherited resources
+    source_impl_ids =
+      [spec_source_impl_id, state_source_impl_id, refs_source_impl_id]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    source_impls =
+      source_impl_ids
+      |> Enum.map(&{&1, Acai.Repo.get(Acai.Implementations.Implementation, &1)})
+      |> Map.new()
 
     # Build requirement rows with status and counts
     requirement_rows =
@@ -140,8 +189,9 @@ defmodule AcaiWeb.ImplementationLive do
       |> assign(:drawer_visible, false)
       |> assign(:sort_by, :acid)
       |> assign(:sort_dir, :asc)
-      |> assign(:refs_inherited, is_inherited)
       |> assign(:aggregated_refs, aggregated_refs)
+      |> assign(:inheritance_summary, inheritance_summary)
+      |> assign(:source_impls, source_impls)
       |> assign(
         :current_path,
         "/t/#{team.name}/i/#{Implementations.implementation_slug(implementation)}/f/#{feature_name}"
@@ -150,7 +200,6 @@ defmodule AcaiWeb.ImplementationLive do
     {:ok, socket}
   end
 
-  # data-model.SPECS.13: Build requirement rows from JSONB requirements map
   defp build_requirement_rows_from_spec(spec) do
     spec.requirements
     |> Enum.map(fn {acid, data} ->
@@ -169,7 +218,6 @@ defmodule AcaiWeb.ImplementationLive do
     by_atom = String.to_existing_atom(by)
     current_dir = socket.assigns.sort_dir
 
-    # Toggle direction if clicking same column, otherwise default to asc
     new_dir =
       if socket.assigns.sort_by == by_atom do
         if current_dir == :asc, do: :desc, else: :asc
@@ -232,7 +280,6 @@ defmodule AcaiWeb.ImplementationLive do
     >
       <div class="space-y-6">
         <%!-- implementation-view.MAIN.1: Page header --%>
-        <%!-- data-model.PRODUCTS: Product is now a separate entity --%>
         <.content_header
           page_title="Implementation"
           resource_name={@implementation.name}
@@ -271,6 +318,12 @@ defmodule AcaiWeb.ImplementationLive do
                   </div>
                 </div>
               </div>
+              <%!-- feature-impl-view.MAIN.6: Inheritance badges --%>
+              <.inheritance_badges
+                inheritance_summary={@inheritance_summary}
+                source_impls={@source_impls}
+                current_impl_id={@implementation.id}
+              />
             </div>
           </.info_card>
 
@@ -349,7 +402,6 @@ defmodule AcaiWeb.ImplementationLive do
     """
   end
 
-  # Coverage section wrapper
   defp coverage_section(assigns) do
     ~H"""
     <div class="card bg-base-100 border border-base-300 shadow-sm">
@@ -363,7 +415,6 @@ defmodule AcaiWeb.ImplementationLive do
     """
   end
 
-  # implementation-view.REQ_COVERAGE: Requirements coverage grid
   defp req_coverage_grid(assigns) do
     ~H"""
     <div class="flex flex-wrap gap-2">
@@ -379,28 +430,22 @@ defmodule AcaiWeb.ImplementationLive do
     """
   end
 
-  # implementation-view.REQ_COVERAGE.2: Chip color based on status
   defp req_chip(assigns) do
     ~H"""
     <div
       title={@requirement.acid}
-      class={
-        [
-          "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110",
-          # data-model.SPEC_IMPL_STATES.4-3: Color coding
-          # accepted (green), completed (blue), assigned (gold), blocked/rejected (red), null (gray)
-          @requirement.status == "accepted" && "bg-success",
-          @requirement.status == "completed" && "bg-info",
-          @requirement.status == "assigned" && "bg-warning",
-          (@requirement.status == "blocked" || @requirement.status == "rejected") && "bg-error",
-          (@requirement.status == nil || @requirement.status == "") && "bg-base-300"
-        ]
-      }
+      class={[
+        "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110",
+        @requirement.status == "accepted" && "bg-success",
+        @requirement.status == "completed" && "bg-info",
+        @requirement.status == "assigned" && "bg-warning",
+        (@requirement.status == "blocked" || @requirement.status == "rejected") && "bg-error",
+        (@requirement.status == nil || @requirement.status == "") && "bg-base-300"
+      ]}
     />
     """
   end
 
-  # implementation-view.TEST_COVERAGE: Test coverage grid
   defp test_coverage_grid(assigns) do
     ~H"""
     <div class="flex flex-wrap gap-1.5">
@@ -416,20 +461,15 @@ defmodule AcaiWeb.ImplementationLive do
     """
   end
 
-  # implementation-view.TEST_COVERAGE.2: Chip color based on test references
   defp test_chip(assigns) do
     ~H"""
     <div
       title={"#{@requirement.acid} (#{@requirement.tests_count} tests)"}
-      class={
-        [
-          "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110 flex items-center justify-center text-[10px] font-bold text-white",
-          # implementation-view.TEST_COVERAGE.2-1: Green if tests exist
-          @requirement.tests_count > 0 && "bg-success",
-          # implementation-view.TEST_COVERAGE.2-2: Gray if no tests
-          @requirement.tests_count == 0 && "bg-base-300"
-        ]
-      }
+      class={[
+        "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110 flex items-center justify-center text-[10px] font-bold text-white",
+        @requirement.tests_count > 0 && "bg-success",
+        @requirement.tests_count == 0 && "bg-base-300"
+      ]}
     >
       <%= if @requirement.tests_count > 0 do %>
         {@requirement.tests_count}
@@ -438,7 +478,6 @@ defmodule AcaiWeb.ImplementationLive do
     """
   end
 
-  # Info card wrapper
   defp info_card(assigns) do
     ~H"""
     <div class="card bg-base-100 border border-base-300 shadow-sm">
@@ -452,7 +491,6 @@ defmodule AcaiWeb.ImplementationLive do
     """
   end
 
-  # implementation-view.LINKED_BRANCHES: Tracked branches list
   defp tracked_branches_list(assigns) do
     ~H"""
     <div class="space-y-2">
@@ -470,7 +508,6 @@ defmodule AcaiWeb.ImplementationLive do
     """
   end
 
-  # implementation-view.REQ_LIST: Requirements table
   defp requirements_table(assigns) do
     ~H"""
     <div class="card bg-base-100 border border-base-300 shadow-sm">
@@ -539,7 +576,6 @@ defmodule AcaiWeb.ImplementationLive do
     """
   end
 
-  # Sortable table header
   defp sortable_header(assigns) do
     ~H"""
     <th class="cursor-pointer select-none" phx-click={@on_sort} phx-value-by={@by}>
@@ -551,7 +587,6 @@ defmodule AcaiWeb.ImplementationLive do
     """
   end
 
-  # Sort indicator arrow
   defp sort_indicator(assigns) do
     ~H"""
     <%= if @by == @current_by do %>
@@ -563,9 +598,6 @@ defmodule AcaiWeb.ImplementationLive do
     """
   end
 
-  # Status badge for table
-  # data-model.SPEC_IMPL_STATES.4-3: Color coding
-  # null (gray), assigned (gold), blocked (red), completed (blue), accepted (green), rejected (red)
   defp status_badge(assigns) do
     ~H"""
     <%= if @status do %>
@@ -581,6 +613,71 @@ defmodule AcaiWeb.ImplementationLive do
     <% else %>
       <span class="badge badge-ghost badge-sm text-base-content/50">No status</span>
     <% end %>
+    """
+  end
+
+  defp inheritance_badges(assigns) do
+    ~H"""
+    <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-base-200">
+      <.inheritance_badge
+        type="Spec"
+        inherited?={@inheritance_summary.spec.inherited?}
+        source_impl_id={@inheritance_summary.spec.source_impl_id}
+        source_impls={@source_impls}
+        icon="hero-document-text"
+      />
+      <.inheritance_badge
+        type="States"
+        inherited?={@inheritance_summary.states.inherited?}
+        source_impl_id={@inheritance_summary.states.source_impl_id}
+        source_impls={@source_impls}
+        icon="hero-check-circle"
+      />
+      <.inheritance_badge
+        type="Refs"
+        inherited?={@inheritance_summary.refs.inherited?}
+        source_impl_id={@inheritance_summary.refs.source_impl_id}
+        source_impls={@source_impls}
+        icon="hero-link"
+      />
+    </div>
+    """
+  end
+
+  defp inheritance_badge(assigns) do
+    source_impl_name =
+      if assigns.inherited? && assigns.source_impl_id do
+        case Map.get(assigns.source_impls, assigns.source_impl_id) do
+          nil -> "parent"
+          impl -> impl.name
+        end
+      else
+        nil
+      end
+
+    assigns = assign(assigns, :source_impl_name, source_impl_name)
+
+    ~H"""
+    <span
+      class={[
+        "badge badge-sm gap-1",
+        @inherited? && "badge-warning",
+        not @inherited? && "badge-ghost"
+      ]}
+      title={
+        if @inherited? do
+          "Inherited from #{@source_impl_name}"
+        else
+          "Local"
+        end
+      }
+    >
+      <.icon name={@icon} class="size-3" />
+      {@type}
+      <%= if @inherited? do %>
+        <.icon name="hero-arrow-up-right" class="size-3" />
+      <% end %>
+    </span>
     """
   end
 end
