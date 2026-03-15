@@ -98,7 +98,7 @@ defmodule AcaiWeb.FeatureLive do
           |> assign(:feature_name, actual_feature_name)
           # feature-view.MAIN.1
           |> assign(:feature_description, first_spec.feature_description)
-          # data-model.SPECS.14: Get product name from preloaded association
+          # data-model.SPECS.14-1: Get product name from preloaded association
           |> assign(:product_name, first_spec.product.name)
           |> assign(:implementations_empty?, implementation_cards == [])
           # feature-view.MAIN.2

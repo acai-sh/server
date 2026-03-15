@@ -44,32 +44,4 @@ defmodule Acai.Core.ValidationsTest do
       assert cs.valid?
     end
   end
-
-  # data-model.FIELDS.2
-  describe "validate_uppercase_key/2" do
-    test "accepts uppercase alphanumeric characters" do
-      cs = changeset(%{key: "COMPONENT1"}) |> validate_uppercase_key(:key)
-      assert cs.valid?
-    end
-
-    test "accepts underscores" do
-      cs = changeset(%{key: "MY_KEY"}) |> validate_uppercase_key(:key)
-      assert cs.valid?
-    end
-
-    test "rejects lowercase" do
-      cs = changeset(%{key: "mykey"}) |> validate_uppercase_key(:key)
-      refute cs.valid?
-    end
-
-    test "rejects hyphens" do
-      cs = changeset(%{key: "MY-KEY"}) |> validate_uppercase_key(:key)
-      refute cs.valid?
-    end
-
-    test "rejects spaces" do
-      cs = changeset(%{key: "MY KEY"}) |> validate_uppercase_key(:key)
-      refute cs.valid?
-    end
-  end
 end

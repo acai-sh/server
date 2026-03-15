@@ -70,7 +70,7 @@ defmodule AcaiWeb.ImplementationLive do
 
   defp mount_implementation_view(socket, team, spec, implementation, feature_name) do
     # data-model.SPECS.13: Requirements are JSONB on the spec
-    # data-model.SPECS.14: Preload product association for breadcrumb
+    # data-model.SPECS.14-1: Preload product association for breadcrumb
     # data-model.SPECS.3-1: Preload branch association for repo info
     spec = Acai.Repo.preload(spec, [:product, :branch])
 

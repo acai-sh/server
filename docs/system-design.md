@@ -30,12 +30,12 @@ components:
 
 A spec can have multiple versions, as long as each version lives on a different git branch, and the `feature.version` numbers are different.
 
-The `specs` table maintains 1 row *per branch-local spec identity*. In other words, insert new specs to the specs table only when:
-  -> feature.product + feature.name combo is new (its a brand new feature)
-  -> branch + feature.name combo is new (its the first time that feature appears on that branch)
-
+The `specs` table maintains 1 row *per branch-local spec identity*. A spec should be inserted when;
+  -> product name + feature name combo is new (it's a brand new feature in this product)
+  -> branch + version is new (it's a branched refactoring of an existing feature)
+  
 ```elixir
-# to prevent user from duplicating a featre on the same branch
+# to prevent user from duplicating a feature on the same branch
 create unique_index(:specs, [:branch_id, :feature_name])
 # to prevent a user from iterating on specs across branches without changing the version
 create unique_index(:specs, [:product_id, :feature_name, :feature_version])
@@ -44,8 +44,7 @@ create unique_index(:specs, [:product_id, :feature_name, :feature_version])
 Otherwise, we can update existing specs. The following data is mutable in a spec:
   - the `path` (if the feature.yaml file is relocated)
   - timestamps and metadata (last_seen_commit, parsed_at, feature_description, etc)
-  - The `version` can be changed
-  - `raw_content` and the `requirements` map
+  - The `version`, `raw_content` and the `requirements` map tends to change when a spec is refactored and re-pushed
 
 # What is an Implementation?
 

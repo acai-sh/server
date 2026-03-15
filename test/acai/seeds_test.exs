@@ -174,7 +174,7 @@ defmodule Acai.SeedsTest do
       product = get_product!("mapperoni", "site")
       spec = get_spec!(product, "map-editor")
 
-      # data-model.SPECS.14: spec belongs to product
+      # data-model.SPECS.14-1: spec belongs to product
       spec_product = Repo.get(Product, spec.product_id)
       assert spec_product != nil
       assert spec_product.name == "site"
