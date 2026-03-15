@@ -2,10 +2,7 @@
 #
 #     mix run priv/repo/seeds.exs
 #
-# This seeds file creates sample data using the new data model:
-# - Products as first-class entities
-# - Specs with JSONB requirements (no separate Requirement table)
-# - FeatureImplState and FeatureImplRef instead of RequirementStatus and CodeReference
-# - Implementations belong to Products, not Specs
+# seed-data.ENVIRONMENT.1: Seed data generation must run automatically during
+# devcontainer build or when `mix run priv/repo/seeds.exs` is executed.
 
 Acai.Seeds.run()

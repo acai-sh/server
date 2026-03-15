@@ -1,24 +1,705 @@
 defmodule Acai.Seeds do
   @moduledoc """
-  Database seeding functionality for the mapperoni data model.
+  Database seeding functionality for the seed-data feature spec.
 
-  Mapperoni is a survey form builder with shareable maps that users add data to.
-  Team: mapperoni
-  Products: site (web application), api (backend API)
+  This module creates the foundational data set for the mapperoni team:
+  - Users: owner, developer, readonly (all confirmed with password "password123456")
+  - Team: mapperoni
+  - Products: site (with description), api (without description)
+  - Implementations: site has 4, api has 2, with proper inheritance graph
+  - Tracked branches: linking implementations to repo branches
+  - Access tokens: 3 for developer, 1 for owner, 0 for readonly
+  - Specs: api (core, mcp), site (map-editor, form-editor, ai-chat, map-settings)
+  - Implementation states: realistic journeys for all features
+  - Branch refs: realistic code references with variety
 
-  Features adapted from the actual acai features but mapped to mapperoni domain:
-  - Site features: map-editor, map-viewer, project-view, data-explorer, form-editor, field-settings, map-settings
-  - API features: core, push
+  All seeding operations are idempotent - running multiple times converges
+  to the same state without creating duplicates.
   """
 
   import Ecto.Query
 
   alias Acai.Repo
   alias Acai.Accounts
-  alias Acai.Teams.{Team, UserTeamRole}
+  alias Acai.Accounts.User
+  alias Acai.Teams.{Team, UserTeamRole, AccessToken}
+  alias Acai.Teams.Permissions
   alias Acai.Products.Product
-  alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
+  alias Acai.Implementations
   alias Acai.Implementations.{Implementation, Branch, TrackedBranch}
+  alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
+
+  # Deterministic raw tokens for idempotent token generation
+  @seeded_tokens [
+    # seed-data.TOKENS.1: developer has 3 access tokens
+    %{email: "developer@mapperoni.com", name: "CLI Development", token_key: "dev_cli"},
+    %{email: "developer@mapperoni.com", name: "IDE Integration", token_key: "dev_ide"},
+    %{email: "developer@mapperoni.com", name: "CI/CD Pipeline", token_key: "dev_cicd"},
+    # seed-data.TOKENS.2: owner has 1 access token
+    %{email: "owner@mapperoni.com", name: "Admin Access", token_key: "owner_admin"}
+  ]
+
+  # ============================================================================
+  # Spec Manifests (seed-data.SPECS.*)
+  # ============================================================================
+
+  # seed-data.SPECS.1: api product has 2 specs (core, mcp) on backend main branch
+  # seed-data.SPECS.1-1: core has 10 requirements
+  # seed-data.SPECS.1-2: mcp has 20 requirements
+  @api_specs [
+    %{
+      feature_name: "core",
+      feature_version: "1.0.0",
+      feature_description: "Core API functionality for mapperoni services",
+      path: "specs/core.feature.yaml",
+      raw_content: "# Core API Feature Specification\n# 10 requirements for core functionality",
+      requirements: %{
+        "core.AUTH.1" => %{
+          definition: "API must support JWT-based authentication",
+          is_deprecated: false
+        },
+        "core.AUTH.2" => %{definition: "Tokens must expire after 24 hours", is_deprecated: false},
+        "core.RATE.1" => %{
+          definition: "API must enforce rate limiting per client",
+          is_deprecated: false
+        },
+        "core.RATE.2" => %{
+          definition: "Rate limits must be configurable per endpoint",
+          is_deprecated: false
+        },
+        "core.LOG.1" => %{definition: "All API requests must be logged", is_deprecated: false},
+        "core.LOG.2" => %{
+          definition: "Logs must include request ID for tracing",
+          is_deprecated: false
+        },
+        "core.HEALTH.1" => %{
+          definition: "Health check endpoint must return 200",
+          is_deprecated: false
+        },
+        "core.HEALTH.2" => %{
+          definition: "Health check must verify database connectivity",
+          is_deprecated: false
+        },
+        "core.CORS.1" => %{
+          definition: "API must support CORS for browser clients",
+          is_deprecated: false
+        },
+        "core.VERSION.1" => %{
+          definition: "API version must be included in response headers",
+          is_deprecated: false
+        }
+      },
+      branch_key: :api_backend_main,
+      product_name: "api"
+    },
+    %{
+      feature_name: "mcp",
+      feature_version: "1.0.0",
+      feature_description: "Model Context Protocol service for map and survey data access",
+      path: "specs/mcp.feature.yaml",
+      raw_content: "# MCP Feature Specification\n# 20 requirements for MCP service",
+      requirements: %{
+        "mcp.MAP.1" => %{
+          definition: "MCP must provide read access to map data",
+          is_deprecated: false
+        },
+        "mcp.MAP.2" => %{
+          definition: "MCP must provide write access to map data",
+          is_deprecated: false
+        },
+        "mcp.MAP.3" => %{
+          definition: "Map data queries must support pagination",
+          is_deprecated: false
+        },
+        "mcp.MAP.4" => %{
+          definition: "Map data must be filterable by bounding box",
+          is_deprecated: false
+        },
+        "mcp.MAP.5" => %{definition: "Map data must support GeoJSON format", is_deprecated: false},
+        "mcp.FORM.1" => %{
+          definition: "MCP must provide read access to survey form data",
+          is_deprecated: false
+        },
+        "mcp.FORM.2" => %{
+          definition: "MCP must provide write access to survey form data",
+          is_deprecated: false
+        },
+        "mcp.FORM.3" => %{definition: "Form data must support versioning", is_deprecated: false},
+        "mcp.FORM.4" => %{definition: "Form submissions must be validated", is_deprecated: false},
+        "mcp.FORM.5" => %{
+          definition: "Form data must support conditional logic",
+          is_deprecated: false
+        },
+        "mcp.SYNC.1" => %{
+          definition: "MCP must support real-time data synchronization",
+          is_deprecated: false
+        },
+        "mcp.SYNC.2" => %{definition: "Sync conflicts must be resolvable", is_deprecated: false},
+        "mcp.SYNC.3" => %{definition: "Offline changes must queue for sync", is_deprecated: false},
+        "mcp.PERF.1" => %{
+          definition: "Map queries must complete within 100ms",
+          is_deprecated: false
+        },
+        "mcp.PERF.2" => %{
+          definition: "Form queries must complete within 50ms",
+          is_deprecated: false
+        },
+        "mcp.AUTH.1" => %{definition: "MCP must validate API tokens", is_deprecated: false},
+        "mcp.AUTH.2" => %{definition: "MCP must enforce role-based access", is_deprecated: false},
+        "mcp.CACHE.1" => %{
+          definition: "Frequently accessed maps must be cached",
+          is_deprecated: false
+        },
+        "mcp.CACHE.2" => %{
+          definition: "Cache invalidation must be supported",
+          is_deprecated: false
+        },
+        "mcp.EXPORT.1" => %{definition: "MCP must support data export", is_deprecated: false}
+      },
+      branch_key: :api_backend_main,
+      product_name: "api"
+    }
+  ]
+
+  # ============================================================================
+  # Implementation State Manifests (seed-data.IMPL_STATES.*)
+  # States are keyed by (implementation_id, feature_name) - not by spec version
+  # ============================================================================
+
+  @impl_states [
+    # seed-data.IMPL_STATES.1: api / core / Production — all ACIDs have `accepted` state
+    %{
+      product_name: "api",
+      impl_name: "Production",
+      feature_name: "core",
+      states: %{
+        "core.AUTH.1" => %{status: "accepted"},
+        "core.AUTH.2" => %{status: "accepted"},
+        "core.RATE.1" => %{status: "accepted"},
+        "core.RATE.2" => %{status: "accepted"},
+        "core.LOG.1" => %{status: "accepted"},
+        "core.LOG.2" => %{status: "accepted"},
+        "core.HEALTH.1" => %{status: "accepted"},
+        "core.HEALTH.2" => %{status: "accepted"},
+        "core.CORS.1" => %{status: "accepted"},
+        "core.VERSION.1" => %{status: "accepted"}
+      }
+    },
+    # seed-data.IMPL_STATES.2: api / core / Staging — no states (all inherited)
+    # Intentionally omitted to test inheritance
+
+    # seed-data.IMPL_STATES.3: site / map-editor / Production — all ACIDs have `accepted` state
+    %{
+      product_name: "site",
+      impl_name: "Production",
+      feature_name: "map-editor",
+      states: %{
+        "map-editor.UI.1" => %{status: "accepted"},
+        "map-editor.UI.2" => %{status: "accepted"},
+        "map-editor.UI.3" => %{status: "accepted"},
+        "map-editor.DRAW.1" => %{status: "accepted"},
+        "map-editor.DRAW.2" => %{status: "accepted"},
+        "map-editor.EDIT.1" => %{status: "accepted"},
+        "map-editor.SAVE.1" => %{status: "accepted"},
+        "map-editor.EXPORT.1" => %{status: "accepted"}
+      }
+    },
+    # seed-data.IMPL_STATES.3-note: site / map-editor does NOT have states on Staging, feat/ai-chat, or fix-map-settings
+    # Intentionally omitted for those implementations
+
+    # seed-data.IMPL_STATES.4: site / form-editor / Production — all ACIDs have `accepted` state
+    %{
+      product_name: "site",
+      impl_name: "Production",
+      feature_name: "form-editor",
+      states: %{
+        "form-editor.UI.1" => %{status: "accepted"},
+        "form-editor.UI.2" => %{status: "accepted"},
+        "form-editor.FIELD.1" => %{status: "accepted"},
+        "form-editor.FIELD.2" => %{status: "accepted"},
+        "form-editor.FIELD.3" => %{status: "accepted"},
+        "form-editor.LOGIC.1" => %{status: "accepted"},
+        "form-editor.PREVIEW.1" => %{status: "accepted"},
+        "form-editor.PUBLISH.1" => %{status: "accepted"}
+      }
+    },
+    # seed-data.IMPL_STATES.4-1: site / form-editor / Staging — all ACIDs have `accepted` state
+    %{
+      product_name: "site",
+      impl_name: "Staging",
+      feature_name: "form-editor",
+      states: %{
+        "form-editor.UI.1" => %{status: "accepted"},
+        "form-editor.UI.2" => %{status: "accepted"},
+        "form-editor.FIELD.1" => %{status: "accepted"},
+        "form-editor.FIELD.2" => %{status: "accepted"},
+        "form-editor.FIELD.3" => %{status: "accepted"},
+        "form-editor.LOGIC.1" => %{status: "accepted"},
+        "form-editor.PREVIEW.1" => %{status: "accepted"},
+        "form-editor.PUBLISH.1" => %{status: "accepted"}
+      }
+    },
+    # seed-data.IMPL_STATES.4-note: site / form-editor does NOT have states on feat/ai-chat or fix-map-settings
+    # Intentionally omitted for those implementations
+
+    # seed-data.IMPL_STATES.5: site / ai-chat / feat/ai-chat — mix of null, assigned, and completed states
+    %{
+      product_name: "site",
+      impl_name: "feat/ai-chat",
+      feature_name: "ai-chat",
+      states: %{
+        # null status - omitted from map (ai-chat.UI.1, ai-chat.UI.2)
+        # assigned status
+        "ai-chat.INPUT.1" => %{status: "assigned"},
+        "ai-chat.INPUT.2" => %{status: "assigned"},
+        # completed status
+        "ai-chat.AI.1" => %{status: "completed"},
+        "ai-chat.AI.2" => %{status: "completed"},
+        "ai-chat.ACTION.1" => %{status: "completed"},
+        "ai-chat.ACTION.2" => %{status: "completed"},
+        "ai-chat.FEEDBACK.1" => %{status: "completed"}
+      }
+    },
+    # seed-data.IMPL_STATES.5-note: site / ai-chat does NOT have states on Production, Staging, or fix-map-settings
+    # Intentionally omitted for those implementations
+
+    # seed-data.IMPL_STATES.6: site / map-settings / Production — all accepted and 1 completed ACID
+    %{
+      product_name: "site",
+      impl_name: "Production",
+      feature_name: "map-settings",
+      states: %{
+        "map-settings.UI.1" => %{status: "accepted"},
+        "map-settings.BASEMAP.1" => %{status: "accepted"},
+        "map-settings.LAYERS.1" => %{status: "accepted"},
+        "map-settings.LAYERS.2" => %{status: "completed"},
+        "map-settings.PERMISSIONS.1" => %{status: "accepted"},
+        "map-settings.SHARE.1" => %{status: "accepted"}
+      }
+    },
+    # seed-data.IMPL_STATES.6-1: site / map-settings / fix-map-settings — all accepted and 1 completed ACID
+    %{
+      product_name: "site",
+      impl_name: "fix-map-settings",
+      feature_name: "map-settings",
+      states: %{
+        "map-settings.UI.1" => %{status: "accepted"},
+        "map-settings.BASEMAP.1" => %{status: "accepted"},
+        "map-settings.LAYERS.1" => %{status: "accepted"},
+        "map-settings.LAYERS.2" => %{status: "completed"},
+        "map-settings.PERMISSIONS.1" => %{status: "accepted"},
+        "map-settings.PERMISSIONS.2" => %{status: "accepted"},
+        "map-settings.SHARE.1" => %{status: "accepted"}
+      }
+    }
+    # seed-data.IMPL_STATES.6-note: site / map-settings does NOT have states on Staging or feat/ai-chat
+    # Intentionally omitted for those implementations
+  ]
+
+  # ============================================================================
+  # Branch Ref Manifests (seed-data.REFS.*)
+  # Refs are keyed by (branch_id, feature_name) - not by spec version
+  # ============================================================================
+
+  @branch_refs [
+    # seed-data.REFS.1: backend main - every ACID in api features has at least 1 ref
+    %{
+      branch_key: :api_backend_main,
+      feature_name: "core",
+      commit: "e1f2a3b4c5d6",
+      refs: %{
+        "core.AUTH.1" => [%{path: "lib/api/auth.ex:42", is_test: false}],
+        "core.AUTH.2" => [%{path: "lib/api/auth.ex:55", is_test: false}],
+        "core.RATE.1" => [%{path: "lib/api/rate_limiter.ex:30", is_test: false}],
+        "core.RATE.2" => [%{path: "lib/api/rate_limiter.ex:45", is_test: false}],
+        "core.LOG.1" => [%{path: "lib/api/logger.ex:12", is_test: false}],
+        "core.LOG.2" => [%{path: "lib/api/logger.ex:28", is_test: false}],
+        "core.HEALTH.1" => [%{path: "lib/api/health.ex:10", is_test: false}],
+        "core.HEALTH.2" => [%{path: "lib/api/health.ex:25", is_test: false}],
+        "core.CORS.1" => [%{path: "lib/api/cors.ex:15", is_test: false}],
+        "core.VERSION.1" => [%{path: "lib/api/version.ex:8", is_test: false}]
+      }
+    },
+    %{
+      branch_key: :api_backend_main,
+      feature_name: "mcp",
+      commit: "e1f2a3b4c5d6",
+      refs: %{
+        "mcp.MAP.1" => [%{path: "lib/mcp/map.ex:30", is_test: false}],
+        "mcp.MAP.2" => [%{path: "lib/mcp/map.ex:45", is_test: false}],
+        "mcp.MAP.3" => [%{path: "lib/mcp/map.ex:60", is_test: false}],
+        "mcp.MAP.4" => [%{path: "lib/mcp/map.ex:75", is_test: false}],
+        "mcp.MAP.5" => [%{path: "lib/mcp/map.ex:90", is_test: false}],
+        "mcp.FORM.1" => [%{path: "lib/mcp/form.ex:25", is_test: false}],
+        "mcp.FORM.2" => [%{path: "lib/mcp/form.ex:40", is_test: false}],
+        "mcp.FORM.3" => [%{path: "lib/mcp/form.ex:55", is_test: false}],
+        "mcp.FORM.4" => [%{path: "lib/mcp/form.ex:70", is_test: false}],
+        "mcp.FORM.5" => [%{path: "lib/mcp/form.ex:85", is_test: false}],
+        "mcp.SYNC.1" => [%{path: "lib/mcp/sync.ex:20", is_test: false}],
+        "mcp.SYNC.2" => [%{path: "lib/mcp/sync.ex:35", is_test: false}],
+        "mcp.SYNC.3" => [%{path: "lib/mcp/sync.ex:50", is_test: false}],
+        "mcp.PERF.1" => [%{path: "lib/mcp/benchmarks.ex:15", is_test: true}],
+        "mcp.PERF.2" => [%{path: "lib/mcp/benchmarks.ex:30", is_test: true}],
+        "mcp.AUTH.1" => [%{path: "lib/mcp/auth.ex:22", is_test: false}],
+        "mcp.AUTH.2" => [%{path: "lib/mcp/auth.ex:38", is_test: false}],
+        "mcp.CACHE.1" => [%{path: "lib/mcp/cache.ex:18", is_test: false}],
+        "mcp.CACHE.2" => [%{path: "lib/mcp/cache.ex:35", is_test: false}],
+        "mcp.EXPORT.1" => [%{path: "lib/mcp/export.ex:12", is_test: false}]
+      }
+    },
+
+    # seed-data.REFS.2: feat/ai-chat - completed requirements have refs, null status do not
+    # Completed ACIDs: ai-chat.AI.1, ai-chat.AI.2, ai-chat.ACTION.1, ai-chat.ACTION.2, ai-chat.FEEDBACK.1
+    %{
+      branch_key: :site_frontend_feat_ai,
+      feature_name: "ai-chat",
+      commit: "c3d4e5f6a7b8",
+      refs: %{
+        "ai-chat.AI.1" => [%{path: "src/components/ai/ChatAI.tsx:45", is_test: false}],
+        "ai-chat.AI.2" => [%{path: "src/components/ai/ChatAI.tsx:67", is_test: false}],
+        "ai-chat.ACTION.1" => [%{path: "src/components/ai/Actions.tsx:23", is_test: false}],
+        "ai-chat.ACTION.2" => [%{path: "src/components/ai/Actions.tsx:56", is_test: false}],
+        "ai-chat.FEEDBACK.1" => [
+          %{path: "src/components/ai/Feedback.tsx:34", is_test: false},
+          %{path: "test/ai/Feedback.test.tsx:12", is_test: true}
+        ]
+        # ai-chat.UI.1, ai-chat.UI.2, ai-chat.INPUT.1, ai-chat.INPUT.2 intentionally omitted (null status)
+      }
+    },
+
+    # seed-data.REFS.3: Other features with variety of refs (production and test refs)
+    %{
+      branch_key: :site_frontend_main,
+      feature_name: "map-editor",
+      commit: "a1b2c3d4e5f6",
+      refs: %{
+        "map-editor.UI.1" => [
+          %{path: "src/components/map/Editor.tsx:30", is_test: false},
+          %{path: "test/map/Editor.test.tsx:15", is_test: true}
+        ],
+        "map-editor.UI.2" => [%{path: "src/components/map/Controls.tsx:22", is_test: false}],
+        "map-editor.UI.3" => [%{path: "src/components/map/Layers.tsx:40", is_test: false}],
+        "map-editor.DRAW.1" => [%{path: "src/components/map/Drawing.tsx:55", is_test: false}],
+        "map-editor.DRAW.2" => [%{path: "src/components/map/Drawing.tsx:78", is_test: false}],
+        "map-editor.EDIT.1" => [
+          %{path: "src/components/map/Editing.tsx:33", is_test: false},
+          %{path: "test/map/Editing.test.tsx:20", is_test: true}
+        ],
+        "map-editor.SAVE.1" => [%{path: "src/services/map/save.ts:18", is_test: false}],
+        "map-editor.EXPORT.1" => [%{path: "src/services/map/export.ts:25", is_test: false}]
+      }
+    },
+    %{
+      branch_key: :site_frontend_main,
+      feature_name: "form-editor",
+      commit: "a1b2c3d4e5f6",
+      refs: %{
+        "form-editor.UI.1" => [%{path: "src/components/form/Builder.tsx:42", is_test: false}],
+        "form-editor.UI.2" => [%{path: "src/components/form/Builder.tsx:65", is_test: false}],
+        "form-editor.FIELD.1" => [
+          %{path: "src/components/form/fields/Text.tsx:28", is_test: false}
+        ],
+        "form-editor.FIELD.2" => [
+          %{path: "src/components/form/fields/Number.tsx:30", is_test: false}
+        ],
+        "form-editor.FIELD.3" => [
+          %{path: "src/components/form/fields/Select.tsx:35", is_test: false}
+        ],
+        "form-editor.LOGIC.1" => [
+          %{path: "src/components/form/Logic.tsx:50", is_test: false},
+          %{path: "test/form/Logic.test.tsx:25", is_test: true}
+        ],
+        "form-editor.PREVIEW.1" => [%{path: "src/components/form/Preview.tsx:38", is_test: false}],
+        "form-editor.PUBLISH.1" => [%{path: "src/services/form/publish.ts:22", is_test: false}]
+      }
+    },
+    %{
+      branch_key: :site_frontend_dev,
+      feature_name: "form-editor",
+      commit: "b2c3d4e5f6a7",
+      refs: %{
+        "form-editor.UI.1" => [%{path: "src/components/form/Builder.tsx:45", is_test: false}],
+        "form-editor.FIELD.4" => [
+          %{path: "src/components/form/fields/FileUpload.tsx:40", is_test: false},
+          %{path: "test/form/FileUpload.test.tsx:18", is_test: true}
+        ],
+        "form-editor.VALIDATE.1" => [
+          %{path: "src/components/form/Validation.tsx:55", is_test: false}
+        ]
+      }
+    },
+    %{
+      branch_key: :site_frontend_fix_map,
+      feature_name: "map-settings",
+      commit: "d4e5f6a7b8c9",
+      refs: %{
+        "map-settings.UI.1" => [%{path: "src/components/settings/Panel.tsx:35", is_test: false}],
+        "map-settings.BASEMAP.1" => [
+          %{path: "src/components/settings/Basemap.tsx:42", is_test: false}
+        ],
+        "map-settings.LAYERS.1" => [
+          %{path: "src/components/settings/Layers.tsx:50", is_test: false}
+        ],
+        "map-settings.LAYERS.2" => [
+          %{path: "src/components/settings/LayerOrder.tsx:28", is_test: false},
+          %{path: "test/settings/LayerOrder.test.tsx:22", is_test: true}
+        ],
+        "map-settings.PERMISSIONS.1" => [
+          %{path: "src/components/settings/Permissions.tsx:60", is_test: false}
+        ],
+        "map-settings.PERMISSIONS.2" => [
+          %{path: "src/components/settings/TeamPermissions.tsx:45", is_test: false}
+        ],
+        "map-settings.SHARE.1" => [%{path: "src/services/settings/share.ts:30", is_test: false}]
+      }
+    },
+
+    # seed-data.REFS.4: Dangling refs - ACIDs not associated with any seeded spec
+    %{
+      branch_key: :site_frontend_main,
+      feature_name: "unimplemented-feature",
+      commit: "a1b2c3d4e5f6",
+      refs: %{
+        "unimplemented-feature.CONCEPT.1" => [%{path: "docs/future/ideas.md:10", is_test: false}],
+        "unimplemented-feature.CONCEPT.2" => [%{path: "docs/future/ideas.md:25", is_test: false}]
+      }
+    },
+    %{
+      branch_key: :api_backend_main,
+      feature_name: "future-api",
+      commit: "e1f2a3b4c5d6",
+      refs: %{
+        "future-api.IDEA.1" => [%{path: "docs/api/roadmap.md:15", is_test: false}]
+      }
+    }
+  ]
+
+  # seed-data.SPECS.3: site product has 6 spec versions for 4 features
+  @site_specs [
+    # seed-data.SPECS.3-1: map-editor has 1 spec version on main
+    %{
+      feature_name: "map-editor",
+      feature_version: "1.0.0",
+      feature_description: "Interactive map editing interface",
+      path: "specs/map-editor.feature.yaml",
+      raw_content: "# Map Editor Feature Specification",
+      requirements: %{
+        "map-editor.UI.1" => %{
+          definition: "Map editor must display base layer",
+          is_deprecated: false
+        },
+        "map-editor.UI.2" => %{
+          definition: "Map editor must support zoom controls",
+          is_deprecated: false
+        },
+        "map-editor.UI.3" => %{
+          definition: "Map editor must support layer toggles",
+          is_deprecated: false
+        },
+        "map-editor.DRAW.1" => %{
+          definition: "User can draw polygons on map",
+          is_deprecated: false
+        },
+        "map-editor.DRAW.2" => %{definition: "User can draw points on map", is_deprecated: false},
+        "map-editor.EDIT.1" => %{
+          definition: "User can edit existing shapes",
+          is_deprecated: false
+        },
+        "map-editor.SAVE.1" => %{definition: "Changes must be savable", is_deprecated: false},
+        "map-editor.EXPORT.1" => %{
+          definition: "Maps must be exportable as images",
+          is_deprecated: false
+        }
+      },
+      branch_key: :site_frontend_main,
+      product_name: "site"
+    },
+    # seed-data.SPECS.3-2: form-editor has 2 spec versions (main and dev)
+    %{
+      feature_name: "form-editor",
+      feature_version: "1.0.0",
+      feature_description: "Survey form builder interface",
+      path: "specs/form-editor.feature.yaml",
+      raw_content: "# Form Editor Feature Specification v1.0.0",
+      requirements: %{
+        "form-editor.UI.1" => %{
+          definition: "Form editor must show field palette",
+          is_deprecated: false
+        },
+        "form-editor.UI.2" => %{
+          definition: "Form editor must support drag-drop",
+          is_deprecated: false
+        },
+        "form-editor.FIELD.1" => %{definition: "Support text input fields", is_deprecated: false},
+        "form-editor.FIELD.2" => %{
+          definition: "Support number input fields",
+          is_deprecated: false
+        },
+        "form-editor.FIELD.3" => %{
+          definition: "Support select dropdown fields",
+          is_deprecated: false
+        },
+        "form-editor.LOGIC.1" => %{
+          definition: "Support conditional field visibility",
+          is_deprecated: false
+        },
+        "form-editor.PREVIEW.1" => %{
+          definition: "Form preview must be available",
+          is_deprecated: false
+        },
+        "form-editor.PUBLISH.1" => %{
+          definition: "Forms must be publishable",
+          is_deprecated: false
+        }
+      },
+      branch_key: :site_frontend_main,
+      product_name: "site"
+    },
+    %{
+      feature_name: "form-editor",
+      feature_version: "1.1.0",
+      feature_description: "Survey form builder interface (dev version)",
+      path: "specs/form-editor.feature.yaml",
+      raw_content: "# Form Editor Feature Specification v1.1.0",
+      requirements: %{
+        "form-editor.UI.1" => %{
+          definition: "Form editor must show field palette",
+          is_deprecated: false
+        },
+        "form-editor.UI.2" => %{
+          definition: "Form editor must support drag-drop",
+          is_deprecated: false
+        },
+        "form-editor.FIELD.1" => %{definition: "Support text input fields", is_deprecated: false},
+        "form-editor.FIELD.2" => %{
+          definition: "Support number input fields",
+          is_deprecated: false
+        },
+        "form-editor.FIELD.3" => %{
+          definition: "Support select dropdown fields",
+          is_deprecated: false
+        },
+        "form-editor.FIELD.4" => %{definition: "Support file upload fields", is_deprecated: false},
+        "form-editor.LOGIC.1" => %{
+          definition: "Support conditional field visibility",
+          is_deprecated: false
+        },
+        "form-editor.PREVIEW.1" => %{
+          definition: "Form preview must be available",
+          is_deprecated: false
+        },
+        "form-editor.PUBLISH.1" => %{
+          definition: "Forms must be publishable",
+          is_deprecated: false
+        },
+        "form-editor.VALIDATE.1" => %{
+          definition: "Custom validation rules supported",
+          is_deprecated: false
+        }
+      },
+      branch_key: :site_frontend_dev,
+      product_name: "site"
+    },
+    # seed-data.SPECS.3-3: ai-chat has 1 spec version only on feat/ai-chat
+    %{
+      feature_name: "ai-chat",
+      feature_version: "0.1.0",
+      feature_description: "AI-powered chat interface for map assistance",
+      path: "specs/ai-chat.feature.yaml",
+      raw_content: "# AI Chat Feature Specification",
+      requirements: %{
+        "ai-chat.UI.1" => %{definition: "Chat interface must be accessible", is_deprecated: false},
+        "ai-chat.UI.2" => %{definition: "Chat must show message history", is_deprecated: false},
+        "ai-chat.INPUT.1" => %{
+          definition: "User can type natural language queries",
+          is_deprecated: false
+        },
+        "ai-chat.INPUT.2" => %{definition: "Voice input must be supported", is_deprecated: false},
+        "ai-chat.AI.1" => %{
+          definition: "AI must understand map-related queries",
+          is_deprecated: false
+        },
+        "ai-chat.AI.2" => %{
+          definition: "AI must provide contextual responses",
+          is_deprecated: false
+        },
+        "ai-chat.ACTION.1" => %{definition: "AI can trigger map actions", is_deprecated: false},
+        "ai-chat.ACTION.2" => %{definition: "AI can create survey forms", is_deprecated: false},
+        "ai-chat.FEEDBACK.1" => %{definition: "Users can rate AI responses", is_deprecated: false}
+      },
+      branch_key: :site_frontend_feat_ai,
+      product_name: "site"
+    },
+    # seed-data.SPECS.3-4: map-settings has 2 spec versions (main and fix-map-settings)
+    %{
+      feature_name: "map-settings",
+      feature_version: "1.0.0",
+      feature_description: "Map configuration and settings panel",
+      path: "specs/map-settings.feature.yaml",
+      raw_content: "# Map Settings Feature Specification v1.0.0",
+      requirements: %{
+        "map-settings.UI.1" => %{
+          definition: "Settings panel must be accessible",
+          is_deprecated: false
+        },
+        "map-settings.BASEMAP.1" => %{
+          definition: "User can change basemap style",
+          is_deprecated: false
+        },
+        "map-settings.LAYERS.1" => %{
+          definition: "User can manage layer visibility",
+          is_deprecated: false
+        },
+        "map-settings.LAYERS.2" => %{definition: "User can reorder layers", is_deprecated: false},
+        "map-settings.PERMISSIONS.1" => %{
+          definition: "Map permissions can be configured",
+          is_deprecated: false
+        },
+        "map-settings.SHARE.1" => %{
+          definition: "Maps can be shared via link",
+          is_deprecated: false
+        }
+      },
+      branch_key: :site_frontend_main,
+      product_name: "site"
+    },
+    %{
+      feature_name: "map-settings",
+      feature_version: "1.0.1",
+      feature_description: "Map configuration and settings panel (fix version)",
+      path: "specs/map-settings.feature.yaml",
+      raw_content: "# Map Settings Feature Specification v1.0.1",
+      requirements: %{
+        "map-settings.UI.1" => %{
+          definition: "Settings panel must be accessible",
+          is_deprecated: false
+        },
+        "map-settings.BASEMAP.1" => %{
+          definition: "User can change basemap style",
+          is_deprecated: false
+        },
+        "map-settings.LAYERS.1" => %{
+          definition: "User can manage layer visibility",
+          is_deprecated: false
+        },
+        "map-settings.LAYERS.2" => %{definition: "User can reorder layers", is_deprecated: false},
+        "map-settings.PERMISSIONS.1" => %{
+          definition: "Map permissions can be configured",
+          is_deprecated: false
+        },
+        "map-settings.PERMISSIONS.2" => %{
+          definition: "Team permissions supported",
+          is_deprecated: false
+        },
+        "map-settings.SHARE.1" => %{
+          definition: "Maps can be shared via link",
+          is_deprecated: false
+        }
+      },
+      branch_key: :site_frontend_fix_map,
+      product_name: "site"
+    }
+  ]
 
   @doc """
   Runs all seeds.
@@ -31,38 +712,37 @@ defmodule Acai.Seeds do
   def run(opts \\ []) do
     silent = Keyword.get(opts, :silent, false)
 
+    # seed-data.ENVIRONMENT.1: Seed data runs automatically during devcontainer build
+    # seed-data.ENVIRONMENT.2: Seeding must be idempotent
+
     users = seed_users(silent)
     team = seed_team("mapperoni", silent)
     seed_roles(team, users, silent)
 
     products = seed_products(team, silent)
+    branches = seed_implementation_graph(team, products, silent)
+    seed_access_tokens(team, users, silent)
 
-    # Seed branches first (before specs and tracked_branches)
-    # data-model.BRANCHES.6: Branches are team-scoped
-    branches = seed_branches(team, silent)
-
-    specs = seed_specs(team, products, branches, silent)
-    impls = seed_implementations(team, products, silent)
-    seed_tracked_branches(impls, branches, silent)
-    seed_spec_impl_states(specs, impls, silent)
-    seed_spec_impl_refs(specs, impls, branches, silent)
+    # Phase 2: Specs, States, and Refs
+    seed_specs(team, products, branches, silent)
+    seed_impl_states(team, products, silent)
+    seed_branch_refs(team, branches, silent)
 
     unless silent do
       IO.puts("\n=== Seeding Complete ===")
       IO.puts("")
       IO.puts("Sample data created:")
-      IO.puts("  - Users: #{Enum.map(users, & &1.email) |> Enum.join(", ")}")
+      IO.puts("  - Users: owner@mapperoni.com, developer@mapperoni.com, readonly@mapperoni.com")
       IO.puts("  - Team: #{team.name}")
-      IO.puts("  - Products: #{Enum.map(products, & &1.name) |> Enum.join(", ")}")
-
-      IO.puts(
-        "  - Site Specs: map-editor, map-viewer, project-view, data-explorer, form-editor, field-settings, map-settings"
-      )
-
-      IO.puts("  - API Specs: core-api, push-api")
-      IO.puts("  - Implementations: production, staging environments")
+      IO.puts("  - Products: site, api")
+      IO.puts("  - Site Implementations: Production, Staging, feat/ai-chat, fix-map-settings")
+      IO.puts("  - API Implementations: Production, Staging")
+      IO.puts("  - Access Tokens: 3 for developer, 1 for owner, 0 for readonly")
+      IO.puts("  - Specs: api (core, mcp), site (map-editor, form-editor, ai-chat, map-settings)")
+      IO.puts("  - Implementation States: Realistic journeys for all features")
+      IO.puts("  - Branch Refs: References with variety across branches")
       IO.puts("")
-      IO.puts("All passwords are: Password123!")
+      IO.puts("All passwords are: password123456")
     end
 
     :ok
@@ -77,17 +757,32 @@ defmodule Acai.Seeds do
       IO.puts("\n=== Seeding Users ===")
     end
 
-    [
+    # seed-data.USERS.1: Pregenerate the 3 required user accounts
+    users = [
       seed_user("owner@mapperoni.com", silent),
       seed_user("developer@mapperoni.com", silent),
       seed_user("readonly@mapperoni.com", silent)
     ]
+
+    users
   end
 
   defp seed_user(email, silent) do
     case Accounts.get_user_by_email(email) do
       nil ->
-        {:ok, user} = Accounts.register_user(%{email: email, password: "Password123!"})
+        # seed-data.USERS.2: All users have password "password123456"
+        # seed-data.USERS.3: All users have confirmed emails
+        # Do NOT use Accounts.register_user/1 as it only uses email_changeset
+        {:ok, user} =
+          %User{}
+          |> User.email_changeset(%{email: email})
+          |> Repo.insert!()
+          |> User.password_changeset(%{password: "password123456"})
+          |> Repo.update()
+          |> case do
+            {:ok, user} -> User.confirm_changeset(user) |> Repo.update()
+            error -> error
+          end
 
         unless silent do
           IO.puts("Created user: #{email}")
@@ -95,11 +790,67 @@ defmodule Acai.Seeds do
 
         user
 
-      user ->
+      existing_user ->
+        # Converge existing user to required state
+        existing_user = converge_user_credentials(existing_user, silent)
+
         unless silent do
-          IO.puts("User already exists: #{email}")
+          IO.puts("User already exists (converged): #{email}")
         end
 
+        existing_user
+    end
+  end
+
+  # Converges an existing user to the required seed state
+  # seed-data.USERS.2: Ensure password is "password123456"
+  # seed-data.USERS.3: Ensure user is confirmed
+  defp converge_user_credentials(user, silent) do
+    user = Repo.preload(user, [])
+
+    # Check if password needs updating
+    needs_password = not User.valid_password?(user, "password123456")
+
+    # Check if confirmation is needed
+    needs_confirmation = is_nil(user.confirmed_at)
+
+    cond do
+      needs_password or needs_confirmation ->
+        user =
+          if needs_password do
+            {:ok, updated} =
+              user
+              |> User.password_changeset(%{password: "password123456"})
+              |> Repo.update()
+
+            unless silent do
+              IO.puts("  -> Updated password for #{user.email}")
+            end
+
+            updated
+          else
+            user
+          end
+
+        user =
+          if needs_confirmation do
+            {:ok, confirmed} =
+              user
+              |> User.confirm_changeset()
+              |> Repo.update()
+
+            unless silent do
+              IO.puts("  -> Confirmed #{user.email}")
+            end
+
+            confirmed
+          else
+            user
+          end
+
+        user
+
+      true ->
         user
     end
   end
@@ -113,6 +864,7 @@ defmodule Acai.Seeds do
       IO.puts("\n=== Seeding Teams ===")
     end
 
+    # seed-data.USERS.4: Generates one team called "mapperoni"
     case Repo.get_by(Team, name: name) do
       nil ->
         {:ok, team} = Repo.insert(%Team{name: name})
@@ -136,14 +888,22 @@ defmodule Acai.Seeds do
   # Role Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_roles(team, [owner, dev, readonly], silent) do
+  defp seed_roles(team, users, silent) do
     unless silent do
       IO.puts("\n=== Seeding Roles ===")
     end
 
-    seed_role(team, owner, "owner", silent)
-    seed_role(team, dev, "developer", silent)
-    seed_role(team, readonly, "readonly", silent)
+    # seed-data.USERS.5: All 3 users have their assigned role in this team
+    roles_map = %{
+      "owner@mapperoni.com" => "owner",
+      "developer@mapperoni.com" => "developer",
+      "readonly@mapperoni.com" => "readonly"
+    }
+
+    Enum.each(users, fn user ->
+      role_title = Map.get(roles_map, user.email)
+      seed_role(team, user, role_title, silent)
+    end)
   end
 
   defp seed_role(team, user, title, silent) do
@@ -151,11 +911,28 @@ defmodule Acai.Seeds do
       Repo.one(from r in UserTeamRole, where: r.team_id == ^team.id and r.user_id == ^user.id)
 
     if existing do
-      unless silent do
-        IO.puts("Role already exists for user #{user.email} in team #{team.name}")
-      end
+      # Reconcile incorrect existing roles
+      if existing.title != title do
+        # Use update_all since UserTeamRole has no primary key
+        {1, _} =
+          from(r in UserTeamRole,
+            where: r.team_id == ^team.id and r.user_id == ^user.id
+          )
+          |> Repo.update_all(set: [title: title])
 
-      existing
+        unless silent do
+          IO.puts("Updated role for #{user.email} to #{title} in team #{team.name}")
+        end
+
+        # Return the updated role
+        Repo.one!(from r in UserTeamRole, where: r.team_id == ^team.id and r.user_id == ^user.id)
+      else
+        unless silent do
+          IO.puts("Role already exists for user #{user.email} in team #{team.name}")
+        end
+
+        existing
+      end
     else
       {:ok, role} =
         Repo.insert(%UserTeamRole{team_id: team.id, user_id: user.id, title: title})
@@ -177,13 +954,14 @@ defmodule Acai.Seeds do
       IO.puts("\n=== Seeding Products ===")
     end
 
+    # seed-data.PRODUCTS.1: Create 2 products: api and site
+    # seed-data.PRODUCTS.2: site has description, api does not
+
     site_product =
       seed_product(
         team,
         "site",
-        %{
-          description: "Mapperoni web application - map-based survey builder and viewer"
-        },
+        %{description: "Mapperoni web application - map-based survey builder and viewer"},
         silent
       )
 
@@ -191,9 +969,7 @@ defmodule Acai.Seeds do
       seed_product(
         team,
         "api",
-        %{
-          description: "Mapperoni API - backend services for maps, forms, and data"
-        },
+        %{description: nil},
         silent
       )
 
@@ -204,17 +980,31 @@ defmodule Acai.Seeds do
     existing = Repo.one(from p in Product, where: p.team_id == ^team.id and p.name == ^name)
 
     if existing do
-      unless silent do
-        IO.puts("Product already exists: #{name} in team #{team.name}")
-      end
+      # Reconcile product description
+      if existing.description != attrs.description do
+        {:ok, updated} =
+          existing
+          |> Product.changeset(%{description: attrs.description})
+          |> Repo.update()
 
-      existing
+        unless silent do
+          IO.puts("Updated product description: #{name} in team #{team.name}")
+        end
+
+        updated
+      else
+        unless silent do
+          IO.puts("Product already exists: #{name} in team #{team.name}")
+        end
+
+        existing
+      end
     else
       attrs =
         Map.merge(
           %{
             name: name,
-            description: "Product for demonstration",
+            description: attrs.description,
             is_active: true,
             team_id: team.id
           },
@@ -232,752 +1022,284 @@ defmodule Acai.Seeds do
   end
 
   # ---------------------------------------------------------------------------
-  # Branch Seeding
+  # Implementation Graph Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_branches(team, silent) do
+  defp seed_implementation_graph(team, [site_product, api_product], silent) do
     unless silent do
-      IO.puts("\n=== Seeding Branches ===")
+      IO.puts("\n=== Seeding Implementation Graph ===")
     end
 
-    # Site branches
-    site_main =
-      seed_branch(
-        team,
-        %{
-          repo_uri: "github.com/mapperoni/mapperoni-site",
-          branch_name: "main",
-          last_seen_commit: "a1b2c3d4e5f6"
-        },
-        silent
-      )
+    # Create branch identities first (team-scoped)
+    branches = seed_branch_identities(team, silent)
 
-    site_develop =
-      seed_branch(
-        team,
-        %{
-          repo_uri: "github.com/mapperoni/mapperoni-site",
-          branch_name: "develop",
-          last_seen_commit: "b2c3d4e5f6a7"
-        },
-        silent
-      )
+    # Site implementations with inheritance
+    # seed-data.IMPLS.1: site has 4 implementations
+    site_prod = seed_site_production(team, site_product, branches, silent)
+    site_staging = seed_site_staging(team, site_product, site_prod, branches, silent)
+    _site_feat_ai = seed_site_feat_ai_chat(team, site_product, site_staging, branches, silent)
+    _site_fix_map = seed_site_fix_map_settings(team, site_product, site_staging, branches, silent)
 
-    # API branches
-    api_main =
-      seed_branch(
-        team,
-        %{
-          repo_uri: "github.com/mapperoni/mapperoni-api",
-          branch_name: "main",
-          last_seen_commit: "c3d4e5f6a7b8"
-        },
-        silent
-      )
+    # API implementations with inheritance
+    # seed-data.IMPLS.2: api has 2 implementations
+    api_prod = seed_api_production(team, api_product, branches, silent)
+    _api_staging = seed_api_staging(team, api_product, api_prod, branches, silent)
 
-    api_develop =
-      seed_branch(
-        team,
-        %{
-          repo_uri: "github.com/mapperoni/mapperoni-api",
-          branch_name: "develop",
-          last_seen_commit: "d4e5f6a7b8c9"
-        },
-        silent
-      )
+    # Return branches map for use by Phase 2 seeders
+    branches
+  end
+
+  # ---------------------------------------------------------------------------
+  # Branch Identity Seeding
+  # ---------------------------------------------------------------------------
+
+  defp seed_branch_identities(team, silent) do
+    unless silent do
+      IO.puts("\n=== Seeding Branch Identities ===")
+    end
+
+    # Create stable repo URIs
+    repo_frontend = "github.com/mapperoni/frontend"
+    repo_backend = "github.com/mapperoni/backend"
+    repo_microservices = "github.com/mapperoni/microservices"
+
+    # Site repos need: main, dev, feat/ai-chat, fix-map-settings, fix-#123, refactor/map-settings-compat
+    # API repos need: main, dev
 
     %{
-      site_main: site_main,
-      site_develop: site_develop,
-      api_main: api_main,
-      api_develop: api_develop
+      # Site - frontend repo branches
+      site_frontend_main:
+        get_or_create_branch(team, repo_frontend, "main", "a1b2c3d4e5f6", silent),
+      site_frontend_dev: get_or_create_branch(team, repo_frontend, "dev", "b2c3d4e5f6a7", silent),
+      site_frontend_feat_ai:
+        get_or_create_branch(team, repo_frontend, "feat/ai-chat", "c3d4e5f6a7b8", silent),
+      site_frontend_fix_map:
+        get_or_create_branch(team, repo_frontend, "fix-map-settings", "d4e5f6a7b8c9", silent),
+
+      # Site - backend repo branches
+      site_backend_main: get_or_create_branch(team, repo_backend, "main", "e5f6a7b8c9d0", silent),
+      site_backend_dev: get_or_create_branch(team, repo_backend, "dev", "f6a7b8c9d0e1", silent),
+      site_backend_fix_123:
+        get_or_create_branch(team, repo_backend, "fix-#123", "a7b8c9d0e1f2", silent),
+      site_backend_refactor:
+        get_or_create_branch(
+          team,
+          repo_backend,
+          "refactor/map-settings-compat",
+          "b8c9d0e1f2a3",
+          silent
+        ),
+
+      # Site - microservices repo branches
+      site_microservices_main:
+        get_or_create_branch(team, repo_microservices, "main", "c9d0e1f2a3b4", silent),
+      site_microservices_dev:
+        get_or_create_branch(team, repo_microservices, "dev", "d0e1f2a3b4c5", silent),
+      site_microservices_refactor:
+        get_or_create_branch(
+          team,
+          repo_microservices,
+          "refactor/map-settings-compat",
+          "e1f2a3b4c5d6",
+          silent
+        ),
+
+      # API - backend repo branches (same repo as site backend but different usage)
+      api_backend_main: get_or_create_branch(team, repo_backend, "main", "e1f2a3b4c5d6", silent),
+      api_backend_dev: get_or_create_branch(team, repo_backend, "dev", "f2a3b4c5d6e7", silent)
     }
   end
 
-  defp seed_branch(team, attrs, silent) do
-    existing =
-      Repo.one(
-        from b in Branch,
-          where:
-            b.team_id == ^team.id and b.repo_uri == ^attrs.repo_uri and
-              b.branch_name == ^attrs.branch_name
-      )
+  defp get_or_create_branch(team, repo_uri, branch_name, last_seen_commit, silent) do
+    case Implementations.get_branch_by_identity(team.id, repo_uri, branch_name) do
+      nil ->
+        attrs = %{
+          team_id: team.id,
+          repo_uri: repo_uri,
+          branch_name: branch_name,
+          last_seen_commit: last_seen_commit
+        }
 
-    if existing do
-      unless silent do
-        IO.puts("Branch already exists: #{attrs.repo_uri}/#{attrs.branch_name}")
-      end
+        {:ok, branch} =
+          %Branch{}
+          |> Branch.changeset(attrs)
+          |> Repo.insert()
 
-      existing
-    else
-      attrs = Map.put(attrs, :team_id, team.id)
+        unless silent do
+          IO.puts("Created branch: #{repo_uri}/#{branch_name}")
+        end
 
-      {:ok, branch} = Repo.insert(Branch.changeset(%Branch{}, attrs))
+        branch
 
-      unless silent do
-        IO.puts("Created branch: #{branch.repo_uri}/#{branch.branch_name}")
-      end
+      existing ->
+        # Update last_seen_commit to ensure convergence
+        {:ok, updated} =
+          existing
+          |> Branch.changeset(%{last_seen_commit: last_seen_commit})
+          |> Repo.update()
 
-      branch
+        unless silent do
+          IO.puts("Branch exists (updated): #{repo_uri}/#{branch_name}")
+        end
+
+        updated
     end
   end
 
   # ---------------------------------------------------------------------------
-  # Spec Seeding
+  # Site Implementations
   # ---------------------------------------------------------------------------
 
-  defp seed_specs(team, [site_product, api_product], branches, silent) do
-    unless silent do
-      IO.puts("\n=== Seeding Specs with JSONB Requirements ===")
-    end
-
-    # Site product specs
-    map_editor_spec = seed_map_editor_spec(team, site_product, branches.site_main, silent)
-    map_viewer_spec = seed_map_viewer_spec(team, site_product, branches.site_main, silent)
-    project_view_spec = seed_project_view_spec(team, site_product, branches.site_main, silent)
-    data_explorer_spec = seed_data_explorer_spec(team, site_product, branches.site_main, silent)
-    form_editor_spec = seed_form_editor_spec(team, site_product, branches.site_main, silent)
-    field_settings_spec = seed_field_settings_spec(team, site_product, branches.site_main, silent)
-    map_settings_spec = seed_map_settings_spec(team, site_product, branches.site_main, silent)
-
-    # API product specs
-    core_api_spec = seed_core_api_spec(team, api_product, branches.api_main, silent)
-    push_api_spec = seed_push_api_spec(team, api_product, branches.api_main, silent)
-
-    [
-      map_editor_spec,
-      map_viewer_spec,
-      project_view_spec,
-      data_explorer_spec,
-      form_editor_spec,
-      field_settings_spec,
-      map_settings_spec,
-      core_api_spec,
-      push_api_spec
-    ]
-  end
-
-  # Site: map-editor feature
-  defp seed_map_editor_spec(team, product, branch, silent) do
-    seed_spec(
-      team,
-      product,
-      branch,
-      %{
-        feature_name: "map-editor",
-        feature_description:
-          "Interactive map creation and editing interface for building shareable maps",
-        path: "features/site/map-editor.feature.yaml",
-        requirements: %{
-          "map-editor.CANVAS.1" => %{
-            "definition" => "Users must be able to create a new map with a name and description.",
-            "note" => "Map names must be unique within a project",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-editor.CANVAS.2" => %{
-            "definition" =>
-              "The canvas must support zooming from 10% to 500% with smooth transitions.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-editor.CANVAS.3" => %{
-            "definition" => "Users must be able to pan the canvas by click-dragging.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-editor.LAYERS.1" => %{
-            "definition" =>
-              "Users must be able to add multiple layers to a map (base, data, annotations).",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-editor.LAYERS.2" => %{
-            "definition" => "Layers must be reorderable via drag-and-drop in the layers panel.",
-            "note" => "Layer order affects rendering - top layers overlay bottom layers",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-editor.MARKERS.1" => %{
-            "definition" =>
-              "Users must be able to place markers on the map at specific coordinates.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-editor.MARKERS.2" => %{
-            "definition" => "Markers must support custom icons and colors.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-editor.EXPORT.1" => %{
-            "definition" => "Maps must be exportable as PNG, SVG, or GeoJSON formats.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          }
-        }
-      },
-      silent
-    )
-  end
-
-  # Site: map-viewer feature
-  defp seed_map_viewer_spec(team, product, branch, silent) do
-    seed_spec(
-      team,
-      product,
-      branch,
-      %{
-        feature_name: "map-viewer",
-        feature_description: "Public and embedded map viewing interface for shared maps",
-        path: "features/site/map-viewer.feature.yaml",
-        requirements: %{
-          "map-viewer.RENDER.1" => %{
-            "definition" =>
-              "Maps must render correctly on mobile, tablet, and desktop viewports.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-viewer.RENDER.2" => %{
-            "definition" => "Map tiles must load progressively as the user pans and zooms.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-viewer.INTERACT.1" => %{
-            "definition" => "Clicking a marker must open an info panel with submission data.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-viewer.INTERACT.2" => %{
-            "definition" => "Info panels must support rich text and image attachments.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-viewer.EMBED.1" => %{
-            "definition" => "Users must be able to generate an embed code for external websites.",
-            "note" => "Embeds use an iframe with responsive sizing",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-viewer.SHARE.1" => %{
-            "definition" => "Maps must have shareable URLs with optional password protection.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          }
-        }
-      },
-      silent
-    )
-  end
-
-  # Site: project-view feature
-  defp seed_project_view_spec(team, product, branch, silent) do
-    seed_spec(
-      team,
-      product,
-      branch,
-      %{
-        feature_name: "project-view",
-        feature_description: "Project dashboard showing all maps, forms, and data for a project",
-        path: "features/site/project-view.feature.yaml",
-        requirements: %{
-          "project-view.DASHBOARD.1" => %{
-            "definition" => "The dashboard must display a list of all maps in the project.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "project-view.DASHBOARD.2" => %{
-            "definition" =>
-              "Each map card must show submission count and last updated timestamp.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "project-view.DASHBOARD.3" => %{
-            "definition" => "The dashboard must include a quick-create button for new maps.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "project-view.ANALYTICS.1" => %{
-            "definition" => "Project analytics must show total submissions over time.",
-            "note" => "Chart is a line graph with daily aggregation",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "project-view.ANALYTICS.2" => %{
-            "definition" => "Analytics must show geographic distribution of submissions.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "project-view.MEMBERS.1" => %{
-            "definition" => "Project owners must be able to invite collaborators.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          }
-        }
-      },
-      silent
-    )
-  end
-
-  # Site: data-explorer feature
-  defp seed_data_explorer_spec(team, product, branch, silent) do
-    seed_spec(
-      team,
-      product,
-      branch,
-      %{
-        feature_name: "data-explorer",
-        feature_description: "Tabular and visual data exploration interface for form submissions",
-        path: "features/site/data-explorer.feature.yaml",
-        requirements: %{
-          "data-explorer.TABLE.1" => %{
-            "definition" => "Submissions must be viewable in a sortable, filterable table.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "data-explorer.TABLE.2" => %{
-            "definition" => "Table columns must be configurable (show/hide/reorder).",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "data-explorer.TABLE.3" => %{
-            "definition" => "Bulk operations must support export and delete for selected rows.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "data-explorer.FILTER.1" => %{
-            "definition" =>
-              "Users must be able to filter by date range, field values, and location.",
-            "note" => "Location filter uses a map bounding box selection",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "data-explorer.VISUAL.1" => %{
-            "definition" => "Data must be visualizable as charts (bar, pie, line, heatmap).",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "data-explorer.EXPORT.1" => %{
-            "definition" => "Filtered data must be exportable as CSV, Excel, or GeoJSON.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          }
-        }
-      },
-      silent
-    )
-  end
-
-  # Site: form-editor feature
-  defp seed_form_editor_spec(team, product, branch, silent) do
-    seed_spec(
-      team,
-      product,
-      branch,
-      %{
-        feature_name: "form-editor",
-        feature_description: "Survey form builder for collecting data on maps",
-        path: "features/site/form-editor.feature.yaml",
-        requirements: %{
-          "form-editor.FIELDS.1" => %{
-            "definition" => "Users must be able to add text, number, date, and choice fields.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "form-editor.FIELDS.2" => %{
-            "definition" => "Fields must support required/optional validation.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "form-editor.FIELDS.3" => %{
-            "definition" => "Fields must be reorderable via drag-and-drop.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "form-editor.LOCATION.1" => %{
-            "definition" =>
-              "Forms must capture GPS coordinates automatically or allow manual placement.",
-            "note" => "Manual placement uses the map click-to-place interaction",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "form-editor.LOCATION.2" => %{
-            "definition" =>
-              "Forms must support geofencing - restricting submissions to a defined area.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "form-editor.PREVIEW.1" => %{
-            "definition" => "Users must be able to preview the form before publishing.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "form-editor.CONDITIONAL.1" => %{
-            "definition" =>
-              "Fields must support conditional visibility based on other field values.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          }
-        }
-      },
-      silent
-    )
-  end
-
-  # Site: field-settings feature
-  defp seed_field_settings_spec(team, product, branch, silent) do
-    seed_spec(
-      team,
-      product,
-      branch,
-      %{
-        feature_name: "field-settings",
-        feature_description: "Configuration interface for form field properties and validation",
-        path: "features/site/field-settings.feature.yaml",
-        requirements: %{
-          "field-settings.VALIDATION.1" => %{
-            "definition" =>
-              "Text fields must support min/max length and regex pattern validation.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "field-settings.VALIDATION.2" => %{
-            "definition" => "Number fields must support min/max value and step increments.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "field-settings.CHOICE.1" => %{
-            "definition" =>
-              "Choice fields must support single-select, multi-select, and dropdown variants.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "field-settings.CHOICE.2" => %{
-            "definition" =>
-              "Choice options must be editable inline with add/remove/reorder capabilities.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "field-settings.DEFAULT.1" => %{
-            "definition" => "Fields must support default values and placeholder text.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "field-settings.HELP.1" => %{
-            "definition" => "Fields must support help text and tooltips for user guidance.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          }
-        }
-      },
-      silent
-    )
-  end
-
-  # Site: map-settings feature
-  defp seed_map_settings_spec(team, product, branch, silent) do
-    seed_spec(
-      team,
-      product,
-      branch,
-      %{
-        feature_name: "map-settings",
-        feature_description: "Configuration interface for map appearance, behavior, and sharing",
-        path: "features/site/map-settings.feature.yaml",
-        requirements: %{
-          "map-settings.BASEMAP.1" => %{
-            "definition" =>
-              "Users must be able to choose from multiple basemap styles (satellite, terrain, street).",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-settings.BASEMAP.2" => %{
-            "definition" => "Users must be able to provide a custom tile server URL.",
-            "note" => "Useful for organizations with private map data",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-settings.BOUNDS.1" => %{
-            "definition" =>
-              "Users must be able to set the initial map view bounds and zoom level.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-settings.BOUNDS.2" => %{
-            "definition" => "Users must be able to restrict the map to a maximum bounding box.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-settings.CONTROLS.1" => %{
-            "definition" =>
-              "Users must be able to toggle UI controls (zoom, fullscreen, layer switcher, search).",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-settings.PERMISSIONS.1" => %{
-            "definition" => "Users must be able to set map visibility (private, team, public).",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "map-settings.PERMISSIONS.2" => %{
-            "definition" => "Public maps must support optional password protection.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          }
-        }
-      },
-      silent
-    )
-  end
-
-  # API: core feature
-  defp seed_core_api_spec(team, product, branch, silent) do
-    seed_spec(
-      team,
-      product,
-      branch,
-      %{
-        feature_name: "core-api",
-        feature_description:
-          "Core API infrastructure - OpenAPI spec, authentication, and routing",
-        path: "features/api/core.feature.yaml",
-        requirements: %{
-          "core-api.OPENAPI.1" => %{
-            "definition" =>
-              "API must expose a public /api/openapi.json route with complete spec.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "core-api.OPENAPI.2" => %{
-            "definition" => "All endpoints must be namespaced under /api/v1.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "core-api.AUTH.1" => %{
-            "definition" =>
-              "All routes must require Authorization: Bearer <token> header unless explicitly public.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "core-api.AUTH.2" => %{
-            "definition" => "Token validation must check expiration and revocation status.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "core-api.RESPONSE.1" => %{
-            "definition" => "All 2xx JSON responses must wrap payload in a root 'data' key.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "core-api.ERROR.1" => %{
-            "definition" =>
-              "Errors must use a consistent format with code, message, and details fields.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "core-api.STATELESS.1" => %{
-            "definition" => "API pipeline must be strictly stateless (no sessions or flash).",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          }
-        }
-      },
-      silent
-    )
-  end
-
-  # API: push feature
-  defp seed_push_api_spec(team, product, branch, silent) do
-    seed_spec(
-      team,
-      product,
-      branch,
-      %{
-        feature_name: "push-api",
-        feature_description: "Push endpoint for CLI to ingest specs, code references, and states",
-        path: "features/api/push.feature.yaml",
-        requirements: %{
-          "push-api.SPEC.1" => %{
-            "definition" =>
-              "Push creates a new spec if no matching (repo_uri, branch_name, feature_name) exists.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "push-api.SPEC.2" => %{
-            "definition" => "Push updates the existing spec if the combination already exists.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "push-api.SPEC.3" => %{
-            "definition" =>
-              "Each push must capture the commit hash and raw content for traceability.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "push-api.REF.1" => %{
-            "definition" =>
-              "Pushing code references must overwrite all existing refs for the spec + implementation.",
-            "note" =>
-              "References include repo, file path, line/column location, and is_test flag",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "push-api.REF.2" => %{
-            "definition" => "Invalid or unknown ACIDs in the push must be skipped and reported.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "push-api.STATE.1" => %{
-            "definition" => "States map keys must be full ACID strings.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "push-api.STATE.2" => %{
-            "definition" =>
-              "States must merge with existing values, overwriting on key collision.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "push-api.IMPL.1" => %{
-            "definition" => "Pushing to an untracked branch may auto-create an implementation.",
-            "note" => "Implementation name defaults to the branch name",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "push-api.IMPL.2" => %{
-            "definition" =>
-              "Parent implementation is determined by git upstream or explicit parent field.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "push-api.INHERIT.1" => %{
-            "definition" =>
-              "Gaining a parent must snapshot states and refs from parent to child.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "push-api.INHERIT.2" => %{
-            "definition" =>
-              "Uninheriting (setting parent to null) must sever the link but retain existing states.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          },
-          "push-api.TX.1" => %{
-            "definition" =>
-              "All operations within a push must be atomic with rollback on failure.",
-            "is_deprecated" => false,
-            "replaced_by" => []
-          }
-        }
-      },
-      silent
-    )
-  end
-
-  defp seed_spec(_team, product, branch, attrs, silent) do
-    defaults = %{
-      path: "features/sample.feature.yaml",
-      last_seen_commit: branch.last_seen_commit,
-      parsed_at: DateTime.utc_now(),
-      feature_name: "sample-feature",
-      feature_description: "A sample feature for seeding",
-      feature_version: "1.0.0",
-      raw_content: "feature:\n  name: sample",
-      requirements: %{},
-      product_id: product.id,
-      branch_id: branch.id
-    }
-
-    attrs = Map.merge(defaults, attrs)
-
-    existing =
-      Repo.one(
-        from s in Spec,
-          where: s.product_id == ^product.id,
-          where: s.feature_name == ^attrs.feature_name
+  # seed-data.IMPLS.1-2: Production tracks branches main, main, and main (for 3 repos)
+  defp seed_site_production(team, product, branches, silent) do
+    impl =
+      seed_implementation(
+        team,
+        product,
+        %{name: "Production", description: "Production environment for mapperoni site"},
+        nil,
+        silent
       )
 
-    if existing do
-      unless silent do
-        IO.puts("Spec already exists: #{attrs.feature_name} in product #{product.name}")
-      end
+    # seed-data.IMPLS.1-1: Each implementation tracks 3 github repos
+    # Production: frontend/main, backend/main, microservices/main
+    seed_tracked_branch(impl, branches.site_frontend_main, silent)
+    seed_tracked_branch(impl, branches.site_backend_main, silent)
+    seed_tracked_branch(impl, branches.site_microservices_main, silent)
 
-      existing
-    else
-      {:ok, spec} = Repo.insert(Spec.changeset(%Spec{}, attrs))
+    impl
+  end
 
-      unless silent do
-        IO.puts("Created spec: #{spec.feature_name} in product #{product.name}")
-      end
+  # seed-data.IMPLS.1-3: Staging tracks branches dev, dev, and dev
+  # seed-data.IMPLS.1-7: Staging inherits from Production
+  defp seed_site_staging(team, product, parent_impl, branches, silent) do
+    impl =
+      seed_implementation(
+        team,
+        product,
+        %{name: "Staging", description: "Staging environment for mapperoni site"},
+        parent_impl.id,
+        silent
+      )
 
-      spec
-    end
+    # Staging: frontend/dev, backend/dev, microservices/dev
+    seed_tracked_branch(impl, branches.site_frontend_dev, silent)
+    seed_tracked_branch(impl, branches.site_backend_dev, silent)
+    seed_tracked_branch(impl, branches.site_microservices_dev, silent)
+
+    impl
+  end
+
+  # seed-data.IMPLS.1-4: feat/ai-chat tracks branches feat/ai-chat, dev, and dev
+  # seed-data.IMPLS.1-6: feat/ai-chat inherits from Staging
+  defp seed_site_feat_ai_chat(team, product, parent_impl, branches, silent) do
+    impl =
+      seed_implementation(
+        team,
+        product,
+        %{name: "feat/ai-chat", description: "Feature branch for AI chat integration"},
+        parent_impl.id,
+        silent
+      )
+
+    # feat/ai-chat: frontend/feat/ai-chat, backend/dev, microservices/dev
+    seed_tracked_branch(impl, branches.site_frontend_feat_ai, silent)
+    seed_tracked_branch(impl, branches.site_backend_dev, silent)
+    seed_tracked_branch(impl, branches.site_microservices_dev, silent)
+
+    impl
+  end
+
+  # seed-data.IMPLS.1-5: fix-map-settings tracks branches fix-map-settings, fix-#123, and refactor/map-settings-compat
+  # seed-data.IMPLS.1-6: fix-map-settings inherits from Staging
+  defp seed_site_fix_map_settings(team, product, parent_impl, branches, silent) do
+    impl =
+      seed_implementation(
+        team,
+        product,
+        %{name: "fix-map-settings", description: "Bug fix branch for map settings"},
+        parent_impl.id,
+        silent
+      )
+
+    # fix-map-settings: frontend/fix-map-settings, backend/fix-#123, microservices/refactor/map-settings-compat
+    seed_tracked_branch(impl, branches.site_frontend_fix_map, silent)
+    seed_tracked_branch(impl, branches.site_backend_fix_123, silent)
+    seed_tracked_branch(impl, branches.site_microservices_refactor, silent)
+
+    impl
   end
 
   # ---------------------------------------------------------------------------
-  # Implementation Seeding
+  # API Implementations
   # ---------------------------------------------------------------------------
 
-  defp seed_implementations(team, [site_product, api_product], silent) do
-    unless silent do
-      IO.puts("\n=== Seeding Implementations ===")
-    end
-
-    # Site implementations
-    site_prod_impl =
+  # seed-data.IMPLS.2-1: Each api implementation tracks 1 github repo: backend
+  defp seed_api_production(team, product, _branches, silent) do
+    impl =
       seed_implementation(
         team,
-        site_product,
-        %{
-          name: "production",
-          description: "Production environment for mapperoni site"
-        },
+        product,
+        %{name: "Production", description: "Production environment for mapperoni API"},
+        nil,
         silent
       )
 
-    site_staging_impl =
-      seed_implementation(
+    # API Production: backend/main
+    # We'll create a branch for the API product specifically
+    branch =
+      get_or_create_branch(
         team,
-        site_product,
-        %{
-          name: "staging",
-          description: "Staging environment for mapperoni site"
-        },
+        "github.com/mapperoni/api-backend",
+        "main",
+        "g3h4i5j6k7l8",
         silent
       )
 
-    # API implementations
-    api_prod_impl =
-      seed_implementation(
-        team,
-        api_product,
-        %{
-          name: "production",
-          description: "Production environment for mapperoni API"
-        },
-        silent
-      )
+    seed_tracked_branch(impl, branch, silent)
 
-    api_staging_impl =
-      seed_implementation(
-        team,
-        api_product,
-        %{
-          name: "staging",
-          description: "Staging environment for mapperoni API"
-        },
-        silent
-      )
-
-    [site_prod_impl, site_staging_impl, api_prod_impl, api_staging_impl]
+    impl
   end
 
-  defp seed_implementation(team, product, attrs, silent) do
+  # seed-data.IMPLS.2-1: API Staging tracks backend/dev
+  # seed-data.IMPLS.2-2: api Staging inherits from api Production
+  defp seed_api_staging(team, product, parent_impl, _branches, silent) do
+    impl =
+      seed_implementation(
+        team,
+        product,
+        %{name: "Staging", description: "Staging environment for mapperoni API"},
+        parent_impl.id,
+        silent
+      )
+
+    # API Staging: backend/dev
+    branch =
+      get_or_create_branch(
+        team,
+        "github.com/mapperoni/api-backend",
+        "dev",
+        "h4i5j6k7l8m9",
+        silent
+      )
+
+    seed_tracked_branch(impl, branch, silent)
+
+    impl
+  end
+
+  # ---------------------------------------------------------------------------
+  # Implementation Helpers
+  # ---------------------------------------------------------------------------
+
+  defp seed_implementation(team, product, attrs, parent_id, silent) do
     defaults = %{
       name: "production",
       description: "Production environment",
       is_active: true,
       team_id: team.id,
-      product_id: product.id
+      product_id: product.id,
+      parent_implementation_id: parent_id
     }
 
     attrs = Map.merge(defaults, attrs)
@@ -989,11 +1311,37 @@ defmodule Acai.Seeds do
       )
 
     if existing do
-      unless silent do
-        IO.puts("Implementation already exists: #{attrs.name} for product #{product.name}")
-      end
+      # Reconcile existing implementation
+      changes = %{}
 
-      existing
+      changes =
+        if existing.description != attrs.description,
+          do: Map.put(changes, :description, attrs.description),
+          else: changes
+
+      changes =
+        if existing.parent_implementation_id != attrs.parent_implementation_id,
+          do: Map.put(changes, :parent_implementation_id, attrs.parent_implementation_id),
+          else: changes
+
+      if changes != %{} do
+        {:ok, updated} =
+          existing
+          |> Implementation.changeset(changes)
+          |> Repo.update()
+
+        unless silent do
+          IO.puts("Updated implementation: #{attrs.name} for product #{product.name}")
+        end
+
+        updated
+      else
+        unless silent do
+          IO.puts("Implementation already exists: #{attrs.name} for product #{product.name}")
+        end
+
+        existing
+      end
     else
       {:ok, impl} = Repo.insert(Implementation.changeset(%Implementation{}, attrs))
 
@@ -1009,73 +1357,53 @@ defmodule Acai.Seeds do
   # Tracked Branch Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_tracked_branches([site_prod, site_staging, api_prod, api_staging], branches, silent) do
-    unless silent do
-      IO.puts("\n=== Seeding Tracked Branches ===")
-    end
-
-    # Site branches
-    seed_tracked_branch(
-      site_prod,
-      branches.site_main,
-      %{repo_uri: branches.site_main.repo_uri},
-      silent
-    )
-
-    seed_tracked_branch(
-      site_staging,
-      branches.site_develop,
-      %{repo_uri: branches.site_develop.repo_uri},
-      silent
-    )
-
-    # API branches
-    seed_tracked_branch(
-      api_prod,
-      branches.api_main,
-      %{repo_uri: branches.api_main.repo_uri},
-      silent
-    )
-
-    seed_tracked_branch(
-      api_staging,
-      branches.api_develop,
-      %{repo_uri: branches.api_develop.repo_uri},
-      silent
-    )
-
-    :ok
-  end
-
-  defp seed_tracked_branch(implementation, branch, attrs, silent) do
+  defp seed_tracked_branch(implementation, branch, silent) do
     defaults = %{
       repo_uri: branch.repo_uri,
       implementation_id: implementation.id,
       branch_id: branch.id
     }
 
-    attrs = Map.merge(defaults, attrs)
-
+    # The unique constraint is on [:implementation_id, :repo_uri]
+    # so we look for existing by implementation + repo, not branch_id
     existing =
       Repo.one(
         from tb in TrackedBranch,
           where: tb.implementation_id == ^implementation.id,
-          where: tb.branch_id == ^branch.id
+          where: tb.repo_uri == ^branch.repo_uri
       )
 
     if existing do
+      # Reconcile: update branch_id if different
+      if existing.branch_id != branch.id do
+        {:ok, updated} =
+          existing
+          |> Ecto.Changeset.change(branch_id: branch.id)
+          |> Repo.update()
+
+        unless silent do
+          IO.puts(
+            "Updated tracked branch: #{branch.repo_uri}/#{branch.branch_name} for #{implementation.name}"
+          )
+        end
+
+        updated
+      else
+        unless silent do
+          IO.puts(
+            "Tracked branch already exists: #{branch.repo_uri}/#{branch.branch_name} for implementation #{implementation.name}"
+          )
+        end
+
+        existing
+      end
+    else
+      {:ok, tracked_branch} = Repo.insert(TrackedBranch.changeset(%TrackedBranch{}, defaults))
+
       unless silent do
         IO.puts(
-          "Tracked branch already exists: #{branch.repo_uri}/#{branch.branch_name} for implementation #{implementation.name}"
+          "Created tracked branch: #{branch.repo_uri}/#{branch.branch_name} for #{implementation.name}"
         )
-      end
-
-      existing
-    else
-      {:ok, tracked_branch} = Repo.insert(TrackedBranch.changeset(%TrackedBranch{}, attrs))
-
-      unless silent do
-        IO.puts("Created tracked branch: #{branch.repo_uri}/#{branch.branch_name}")
       end
 
       tracked_branch
@@ -1083,160 +1411,302 @@ defmodule Acai.Seeds do
   end
 
   # ---------------------------------------------------------------------------
-  # FeatureImplState Seeding
+  # Access Token Seeding
   # ---------------------------------------------------------------------------
 
-  defp seed_spec_impl_states(
-         specs,
-         [site_prod, site_staging, api_prod, _api_staging],
-         silent
-       ) do
+  defp seed_access_tokens(team, users, silent) do
     unless silent do
-      IO.puts("\n=== Seeding FeatureImplStates ===")
+      IO.puts("\n=== Seeding Access Tokens ===")
     end
 
-    now = DateTime.utc_now() |> DateTime.to_iso8601()
+    users_by_email = Enum.into(users, %{}, &{&1.email, &1})
 
-    # Helper to find spec by feature_name
-    find_spec = fn name -> Enum.find(specs, &(&1.feature_name == name)) end
+    Enum.each(@seeded_tokens, fn token_config ->
+      user = Map.get(users_by_email, token_config.email)
+      seed_deterministic_token(team, user, token_config, silent)
+    end)
 
-    # Site: map-editor states
-    map_editor_spec = find_spec.("map-editor")
+    # Verify readonly has no tokens (seed-data.TOKENS.3)
+    readonly_user = Map.get(users_by_email, "readonly@mapperoni.com")
 
-    seed_spec_impl_state(
-      map_editor_spec,
-      site_prod,
-      %{
-        states: %{
-          "map-editor.CANVAS.1" => %{"status" => "completed", "updated_at" => now},
-          "map-editor.CANVAS.2" => %{"status" => "completed", "updated_at" => now},
-          "map-editor.CANVAS.3" => %{
-            "status" => "assigned",
-            "comment" => "Touch support pending",
-            "updated_at" => now
-          },
-          "map-editor.LAYERS.1" => %{"status" => "completed", "updated_at" => now},
-          "map-editor.LAYERS.2" => %{"status" => "completed", "updated_at" => now},
-          "map-editor.MARKERS.1" => %{"status" => "completed", "updated_at" => now},
-          "map-editor.MARKERS.2" => %{"status" => "assigned", "updated_at" => now},
-          "map-editor.EXPORT.1" => %{
-            "status" => "blocked",
-            "comment" => "Waiting for design specs",
-            "updated_at" => now
-          }
-        }
-      },
-      silent
-    )
+    existing_readonly_tokens =
+      Repo.all(from t in AccessToken, where: t.user_id == ^readonly_user.id)
 
-    seed_spec_impl_state(
-      map_editor_spec,
-      site_staging,
-      %{
-        states: %{
-          "map-editor.CANVAS.1" => %{"status" => "completed", "updated_at" => now},
-          "map-editor.CANVAS.2" => %{"status" => "completed", "updated_at" => now},
-          "map-editor.CANVAS.3" => %{"status" => "completed", "updated_at" => now},
-          "map-editor.LAYERS.1" => %{"status" => "completed", "updated_at" => now},
-          "map-editor.LAYERS.2" => %{"status" => "completed", "updated_at" => now},
-          "map-editor.MARKERS.1" => %{"status" => "completed", "updated_at" => now},
-          "map-editor.MARKERS.2" => %{"status" => "completed", "updated_at" => now},
-          "map-editor.EXPORT.1" => %{"status" => "completed", "updated_at" => now}
-        }
-      },
-      silent
-    )
+    if existing_readonly_tokens != [] do
+      # Delete any erroneous tokens for readonly
+      Enum.each(existing_readonly_tokens, fn token ->
+        Repo.delete!(token)
 
-    # Site: form-editor states
-    form_editor_spec = find_spec.("form-editor")
-
-    seed_spec_impl_state(
-      form_editor_spec,
-      site_prod,
-      %{
-        states: %{
-          "form-editor.FIELDS.1" => %{"status" => "completed", "updated_at" => now},
-          "form-editor.FIELDS.2" => %{"status" => "completed", "updated_at" => now},
-          "form-editor.FIELDS.3" => %{"status" => "assigned", "updated_at" => now},
-          "form-editor.LOCATION.1" => %{
-            "status" => "completed",
-            "comment" => "GPS auto-capture working",
-            "updated_at" => now
-          },
-          "form-editor.LOCATION.2" => %{"status" => "assigned", "updated_at" => now},
-          "form-editor.PREVIEW.1" => %{"status" => "completed", "updated_at" => now},
-          "form-editor.CONDITIONAL.1" => %{
-            "status" => "blocked",
-            "comment" => "Complex dependency graph",
-            "updated_at" => now
-          }
-        }
-      },
-      silent
-    )
-
-    # API: push-api states
-    push_api_spec = find_spec.("push-api")
-
-    seed_spec_impl_state(
-      push_api_spec,
-      api_prod,
-      %{
-        states: %{
-          "push-api.SPEC.1" => %{"status" => "completed", "updated_at" => now},
-          "push-api.SPEC.2" => %{"status" => "completed", "updated_at" => now},
-          "push-api.SPEC.3" => %{"status" => "completed", "updated_at" => now},
-          "push-api.REF.1" => %{"status" => "completed", "updated_at" => now},
-          "push-api.REF.2" => %{
-            "status" => "assigned",
-            "comment" => "Error reporting needs refinement",
-            "updated_at" => now
-          },
-          "push-api.STATE.1" => %{"status" => "completed", "updated_at" => now},
-          "push-api.STATE.2" => %{"status" => "completed", "updated_at" => now},
-          "push-api.IMPL.1" => %{"status" => "completed", "updated_at" => now},
-          "push-api.IMPL.2" => %{"status" => "completed", "updated_at" => now},
-          "push-api.INHERIT.1" => %{"status" => "completed", "updated_at" => now},
-          "push-api.INHERIT.2" => %{"status" => "completed", "updated_at" => now},
-          "push-api.TX.1" => %{"status" => "completed", "updated_at" => now}
-        }
-      },
-      silent
-    )
-
-    :ok
+        unless silent do
+          IO.puts("Deleted erroneous token for readonly user")
+        end
+      end)
+    end
   end
 
-  defp seed_spec_impl_state(spec, implementation, attrs, silent) do
-    defaults = %{
-      states: %{},
-      feature_name: spec.feature_name,
-      implementation_id: implementation.id
-    }
-
-    attrs = Map.merge(defaults, attrs)
+  defp seed_deterministic_token(team, user, config, silent) do
+    # Generate deterministic token values for idempotency
+    # Format: seed_{token_key}_{user_id}
+    raw_token = "seed_#{config.token_key}_#{user.id}"
+    token_hash = Base.encode16(:crypto.hash(:sha256, raw_token), case: :lower)
+    token_prefix = String.slice(raw_token, 0, 7)
 
     existing =
       Repo.one(
-        from fis in FeatureImplState,
-          where:
-            fis.feature_name == ^spec.feature_name and
-              fis.implementation_id == ^implementation.id
+        from t in AccessToken,
+          where: t.user_id == ^user.id and t.token_hash == ^token_hash
       )
 
     if existing do
       unless silent do
-        IO.puts(
-          "FeatureImplState already exists for spec #{spec.feature_name} and implementation #{implementation.name}"
-        )
+        IO.puts("Access token already exists: #{config.name} for #{user.email}")
       end
 
       existing
     else
-      {:ok, state} = Repo.insert(FeatureImplState.changeset(%FeatureImplState{}, attrs))
+      # Build the token struct with associations pre-set since changeset doesn't cast user_id/team_id
+      token_struct = %AccessToken{
+        user_id: user.id,
+        team_id: team.id
+      }
+
+      attrs = %{
+        name: config.name,
+        token_hash: token_hash,
+        token_prefix: token_prefix,
+        scopes: Permissions.scopes_for(get_role_for_email(user.email)),
+        expires_at: nil,
+        revoked_at: nil
+      }
+
+      {:ok, token} = Repo.insert(AccessToken.changeset(token_struct, attrs))
 
       unless silent do
-        IO.puts("Created feature_impl_state for spec #{spec.feature_name}")
+        IO.puts("Created access token: #{config.name} for #{user.email}")
+      end
+
+      token
+    end
+  end
+
+  defp get_role_for_email(email) do
+    case email do
+      "owner@mapperoni.com" -> "owner"
+      "developer@mapperoni.com" -> "developer"
+      "readonly@mapperoni.com" -> "readonly"
+      _ -> "readonly"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Spec Seeding (Phase 2)
+  # ---------------------------------------------------------------------------
+
+  defp seed_specs(team, products, branches, silent) do
+    unless silent do
+      IO.puts("\n=== Seeding Specs ===")
+    end
+
+    products_by_name = Enum.into(products, %{}, &{&1.name, &1})
+
+    # Seed API specs (seed-data.SPECS.1, seed-data.SPECS.1-1, seed-data.SPECS.1-2)
+    Enum.each(@api_specs, fn spec_config ->
+      product = Map.get(products_by_name, spec_config.product_name)
+      branch = Map.get(branches, spec_config.branch_key)
+      seed_spec(team, product, branch, spec_config, silent)
+    end)
+
+    # Seed Site specs (seed-data.SPECS.3, seed-data.SPECS.3-1 through 3-4)
+    Enum.each(@site_specs, fn spec_config ->
+      product = Map.get(products_by_name, spec_config.product_name)
+      branch = Map.get(branches, spec_config.branch_key)
+      seed_spec(team, product, branch, spec_config, silent)
+    end)
+  end
+
+  defp seed_spec(_team, product, branch, config, silent) do
+    now = DateTime.utc_now(:second)
+
+    spec_attrs = %{
+      branch_id: branch.id,
+      product_id: product.id,
+      feature_name: config.feature_name,
+      feature_description: config.feature_description,
+      feature_version: config.feature_version,
+      path: config.path,
+      raw_content: config.raw_content,
+      last_seen_commit: branch.last_seen_commit,
+      parsed_at: now,
+      requirements: config.requirements
+    }
+
+    # Check for existing spec by branch_id + feature_name
+    existing =
+      Repo.one(
+        from s in Spec,
+          where: s.branch_id == ^branch.id and s.feature_name == ^config.feature_name
+      )
+
+    if existing do
+      # Update existing spec (idempotent)
+      changes = %{}
+
+      changes =
+        if existing.feature_version != spec_attrs.feature_version,
+          do: Map.put(changes, :feature_version, spec_attrs.feature_version),
+          else: changes
+
+      changes =
+        if existing.feature_description != spec_attrs.feature_description,
+          do: Map.put(changes, :feature_description, spec_attrs.feature_description),
+          else: changes
+
+      changes =
+        if existing.path != spec_attrs.path,
+          do: Map.put(changes, :path, spec_attrs.path),
+          else: changes
+
+      changes =
+        if existing.raw_content != spec_attrs.raw_content,
+          do: Map.put(changes, :raw_content, spec_attrs.raw_content),
+          else: changes
+
+      changes =
+        if existing.last_seen_commit != spec_attrs.last_seen_commit,
+          do: Map.put(changes, :last_seen_commit, spec_attrs.last_seen_commit),
+          else: changes
+
+      changes =
+        if existing.requirements != spec_attrs.requirements,
+          do: Map.put(changes, :requirements, spec_attrs.requirements),
+          else: changes
+
+      if changes != %{} do
+        {:ok, updated} =
+          existing
+          |> Spec.changeset(changes)
+          |> Repo.update()
+
+        unless silent do
+          IO.puts(
+            "Updated spec: #{config.feature_name} v#{config.feature_version} on #{branch.branch_name}"
+          )
+        end
+
+        updated
+      else
+        unless silent do
+          IO.puts(
+            "Spec already exists: #{config.feature_name} v#{config.feature_version} on #{branch.branch_name}"
+          )
+        end
+
+        existing
+      end
+    else
+      {:ok, spec} =
+        %Spec{}
+        |> Spec.changeset(spec_attrs)
+        |> Repo.insert()
+
+      unless silent do
+        IO.puts(
+          "Created spec: #{config.feature_name} v#{config.feature_version} on #{branch.branch_name}"
+        )
+      end
+
+      spec
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Implementation State Seeding (Phase 2)
+  # ---------------------------------------------------------------------------
+
+  defp seed_impl_states(_team, products, silent) do
+    unless silent do
+      IO.puts("\n=== Seeding Implementation States ===")
+    end
+
+    products_by_name = Enum.into(products, %{}, &{&1.name, &1})
+
+    # Get all implementations for the products
+    product_ids = Enum.map(products, & &1.id)
+
+    implementations =
+      Repo.all(from i in Implementation, where: i.product_id in ^product_ids)
+      |> Enum.group_by(& &1.product_id)
+
+    # Build lookup: {product_name, impl_name} -> implementation
+    impl_lookup =
+      for {product_name, product} <- products_by_name,
+          impls = Map.get(implementations, product.id, []),
+          impl <- impls,
+          into: %{} do
+        {{product_name, impl.name}, impl}
+      end
+
+    Enum.each(@impl_states, fn state_config ->
+      key = {state_config.product_name, state_config.impl_name}
+
+      case Map.get(impl_lookup, key) do
+        nil ->
+          unless silent do
+            IO.puts(
+              "Warning: Implementation not found for #{state_config.product_name}/#{state_config.impl_name}"
+            )
+          end
+
+        implementation ->
+          seed_impl_state(implementation, state_config, silent)
+      end
+    end)
+  end
+
+  defp seed_impl_state(implementation, config, silent) do
+    state_attrs = %{
+      implementation_id: implementation.id,
+      feature_name: config.feature_name,
+      states: config.states
+    }
+
+    # Check for existing state
+    existing =
+      Repo.one(
+        from fis in FeatureImplState,
+          where:
+            fis.implementation_id == ^implementation.id and
+              fis.feature_name == ^config.feature_name
+      )
+
+    if existing do
+      # Update if states differ
+      if existing.states != state_attrs.states do
+        {:ok, updated} =
+          existing
+          |> FeatureImplState.changeset(%{states: state_attrs.states})
+          |> Repo.update()
+
+        unless silent do
+          IO.puts("Updated state: #{config.feature_name} for #{implementation.name}")
+        end
+
+        updated
+      else
+        unless silent do
+          IO.puts("State already exists: #{config.feature_name} for #{implementation.name}")
+        end
+
+        existing
+      end
+    else
+      {:ok, state} =
+        %FeatureImplState{}
+        |> FeatureImplState.changeset(state_attrs)
+        |> Repo.insert()
+
+      unless silent do
+        IO.puts("Created state: #{config.feature_name} for #{implementation.name}")
       end
 
       state
@@ -1244,297 +1714,75 @@ defmodule Acai.Seeds do
   end
 
   # ---------------------------------------------------------------------------
-  # FeatureBranchRef Seeding (Branch-scoped refs)
+  # Branch Ref Seeding (Phase 2)
   # ---------------------------------------------------------------------------
 
-  # data-model.FEATURE_BRANCH_REFS: Store refs on branches instead of implementations
-  defp seed_spec_impl_refs(
-         specs,
-         _impls,
-         branches,
-         silent
-       ) do
+  defp seed_branch_refs(_team, branches, silent) do
     unless silent do
-      IO.puts("\n=== Seeding FeatureBranchRefs ===")
+      IO.puts("\n=== Seeding Branch Refs ===")
     end
 
-    now = DateTime.utc_now()
+    Enum.each(@branch_refs, fn ref_config ->
+      case Map.get(branches, ref_config.branch_key) do
+        nil ->
+          unless silent do
+            IO.puts("Warning: Branch not found for key #{ref_config.branch_key}")
+          end
 
-    # Helper to find spec by feature_name
-    find_spec = fn name -> Enum.find(specs, &(&1.feature_name == name)) end
-
-    # Site: map-editor refs on site_main branch
-    map_editor_spec = find_spec.("map-editor")
-
-    seed_feature_branch_ref(
-      map_editor_spec,
-      branches.site_main,
-      %{
-        refs: %{
-          "map-editor.CANVAS.1" => [
-            %{"path" => "lib/mapperoni_web/live/map_editor_live.ex:45", "is_test" => false},
-            %{"path" => "test/mapperoni_web/live/map_editor_live_test.exs:23", "is_test" => true}
-          ],
-          "map-editor.CANVAS.2" => [
-            %{"path" => "assets/js/map_canvas.js:78", "is_test" => false},
-            %{"path" => "test/assets/js/map_canvas_test.js:34", "is_test" => true}
-          ],
-          "map-editor.CANVAS.3" => [
-            %{"path" => "lib/mapperoni_web/live/map_editor_live.ex:92", "is_test" => false},
-            %{"path" => "test/mapperoni_web/live/map_editor_live_test.exs:67", "is_test" => true}
-          ],
-          "map-editor.LAYERS.1" => [
-            %{"path" => "lib/mapperoni/layers/layer_manager.ex:23", "is_test" => false},
-            %{"path" => "test/mapperoni/layers/layer_manager_test.exs:15", "is_test" => true}
-          ],
-          "map-editor.LAYERS.2" => [
-            %{"path" => "assets/js/layer_panel.js:45", "is_test" => false},
-            %{"path" => "test/assets/js/layer_panel_test.js:28", "is_test" => true}
-          ],
-          "map-editor.MARKERS.1" => [
-            %{"path" => "lib/mapperoni/maps/marker.ex:34", "is_test" => false},
-            %{"path" => "test/mapperoni/maps/marker_test.exs:12", "is_test" => true}
-          ],
-          "map-editor.MARKERS.2" => [
-            %{"path" => "lib/mapperoni/maps/marker_styles.ex:56", "is_test" => false},
-            %{"path" => "test/mapperoni/maps/marker_styles_test.exs:22", "is_test" => true}
-          ],
-          "map-editor.EXPORT.1" => [
-            %{"path" => "lib/mapperoni/export/export_service.ex:67", "is_test" => false},
-            %{"path" => "test/mapperoni/export/export_service_test.exs:44", "is_test" => true}
-          ]
-        },
-        commit: "abc123def456",
-        pushed_at: now
-      },
-      silent
-    )
-
-    # Site: map-viewer refs on site_main branch
-    map_viewer_spec = find_spec.("map-viewer")
-
-    seed_feature_branch_ref(
-      map_viewer_spec,
-      branches.site_main,
-      %{
-        refs: %{
-          "map-viewer.RENDER.1" => [
-            %{"path" => "lib/mapperoni_web/live/map_viewer_live.ex:34", "is_test" => false},
-            %{"path" => "test/mapperoni_web/live/map_viewer_live_test.exs:18", "is_test" => true}
-          ],
-          "map-viewer.RENDER.2" => [
-            %{"path" => "assets/js/tile_loader.js:89", "is_test" => false},
-            %{"path" => "test/assets/js/tile_loader_test.js:55", "is_test" => true}
-          ],
-          "map-viewer.INTERACT.1" => [
-            %{"path" => "lib/mapperoni_web/live/map_viewer_live.ex:112", "is_test" => false},
-            %{"path" => "test/mapperoni_web/live/map_viewer_live_test.exs:78", "is_test" => true}
-          ],
-          "map-viewer.INTERACT.2" => [
-            %{"path" => "lib/mapperoni/info_panel/info_panel.ex:45", "is_test" => false},
-            %{"path" => "test/mapperoni/info_panel/info_panel_test.exs:33", "is_test" => true}
-          ],
-          "map-viewer.EMBED.1" => [
-            %{
-              "path" => "lib/mapperoni_web/controllers/embed_controller.ex:23",
-              "is_test" => false
-            },
-            %{
-              "path" => "test/mapperoni_web/controllers/embed_controller_test.exs:12",
-              "is_test" => true
-            }
-          ],
-          "map-viewer.SHARE.1" => [
-            %{"path" => "lib/mapperoni/sharing/share_service.ex:67", "is_test" => false},
-            %{"path" => "test/mapperoni/sharing/share_service_test.exs:29", "is_test" => true}
-          ]
-        },
-        commit: "xyz789abc123",
-        pushed_at: now
-      },
-      silent
-    )
-
-    # Site: form-editor refs on site_main branch
-    form_editor_spec = find_spec.("form-editor")
-
-    seed_feature_branch_ref(
-      form_editor_spec,
-      branches.site_main,
-      %{
-        refs: %{
-          "form-editor.FIELDS.1" => [
-            %{"path" => "lib/mapperoni/forms/field_types.ex:34", "is_test" => false},
-            %{"path" => "test/mapperoni/forms/field_types_test.exs:21", "is_test" => true}
-          ],
-          "form-editor.FIELDS.2" => [
-            %{"path" => "lib/mapperoni/forms/validation.ex:56", "is_test" => false},
-            %{"path" => "test/mapperoni/forms/validation_test.exs:44", "is_test" => true}
-          ],
-          "form-editor.FIELDS.3" => [
-            %{"path" => "assets/js/field_reorder.js:78", "is_test" => false},
-            %{"path" => "test/assets/js/field_reorder_test.js:55", "is_test" => true}
-          ],
-          "form-editor.LOCATION.1" => [
-            %{"path" => "lib/mapperoni/forms/gps_capture.ex:23", "is_test" => false},
-            %{"path" => "test/mapperoni/forms/gps_capture_test.exs:18", "is_test" => true}
-          ],
-          "form-editor.LOCATION.2" => [
-            %{"path" => "lib/mapperoni/forms/geofence.ex:89", "is_test" => false},
-            %{"path" => "test/mapperoni/forms/geofence_test.exs:67", "is_test" => true}
-          ],
-          "form-editor.PREVIEW.1" => [
-            %{"path" => "lib/mapperoni_web/live/form_preview_live.ex:45", "is_test" => false},
-            %{
-              "path" => "test/mapperoni_web/live/form_preview_live_test.exs:33",
-              "is_test" => true
-            }
-          ],
-          "form-editor.CONDITIONAL.1" => [
-            %{"path" => "lib/mapperoni/forms/conditional_logic.ex:112", "is_test" => false},
-            %{"path" => "test/mapperoni/forms/conditional_logic_test.exs:78", "is_test" => true}
-          ]
-        },
-        commit: "form456xyz789",
-        pushed_at: now
-      },
-      silent
-    )
-
-    # API: push-api refs on api_main branch
-    push_api_spec = find_spec.("push-api")
-
-    seed_feature_branch_ref(
-      push_api_spec,
-      branches.api_main,
-      %{
-        refs: %{
-          "push-api.SPEC.1" => [
-            %{
-              "path" => "lib/mapperoni_api/controllers/push_controller.ex:56",
-              "is_test" => false
-            },
-            %{
-              "path" => "test/mapperoni_api/controllers/push_controller_test.exs:34",
-              "is_test" => true
-            }
-          ],
-          "push-api.SPEC.2" => [
-            %{
-              "path" => "lib/mapperoni_api/controllers/push_controller.ex:89",
-              "is_test" => false
-            },
-            %{
-              "path" => "test/mapperoni_api/controllers/push_controller_test.exs:67",
-              "is_test" => true
-            }
-          ],
-          "push-api.SPEC.3" => [
-            %{"path" => "lib/mapperoni_api/services/spec_service.ex:23", "is_test" => false},
-            %{"path" => "test/mapperoni_api/services/spec_service_test.exs:45", "is_test" => true}
-          ],
-          "push-api.REF.1" => [
-            %{"path" => "lib/mapperoni_api/services/ref_service.ex:78", "is_test" => false},
-            %{"path" => "test/mapperoni_api/services/ref_service_test.exs:56", "is_test" => true}
-          ],
-          "push-api.REF.2" => [
-            %{"path" => "lib/mapperoni_api/validators/acid_validator.ex:45", "is_test" => false},
-            %{
-              "path" => "test/mapperoni_api/validators/acid_validator_test.exs:33",
-              "is_test" => true
-            }
-          ],
-          "push-api.STATE.1" => [
-            %{"path" => "lib/mapperoni_api/services/state_service.ex:112", "is_test" => false},
-            %{
-              "path" => "test/mapperoni_api/services/state_service_test.exs:89",
-              "is_test" => true
-            }
-          ],
-          "push-api.STATE.2" => [
-            %{"path" => "lib/mapperoni_api/services/state_service.ex:145", "is_test" => false},
-            %{
-              "path" => "test/mapperoni_api/services/state_service_test.exs:112",
-              "is_test" => true
-            }
-          ],
-          "push-api.IMPL.1" => [
-            %{"path" => "lib/mapperoni_api/services/impl_service.ex:67", "is_test" => false},
-            %{"path" => "test/mapperoni_api/services/impl_service_test.exs:44", "is_test" => true}
-          ],
-          "push-api.IMPL.2" => [
-            %{"path" => "lib/mapperoni_api/services/impl_service.ex:98", "is_test" => false},
-            %{"path" => "test/mapperoni_api/services/impl_service_test.exs:67", "is_test" => true}
-          ],
-          "push-api.INHERIT.1" => [
-            %{
-              "path" => "lib/mapperoni_api/services/inheritance_service.ex:34",
-              "is_test" => false
-            },
-            %{
-              "path" => "test/mapperoni_api/services/inheritance_service_test.exs:23",
-              "is_test" => true
-            }
-          ],
-          "push-api.INHERIT.2" => [
-            %{
-              "path" => "lib/mapperoni_api/services/inheritance_service.ex:78",
-              "is_test" => false
-            },
-            %{
-              "path" => "test/mapperoni_api/services/inheritance_service_test.exs:56",
-              "is_test" => true
-            }
-          ],
-          "push-api.TX.1" => [
-            %{"path" => "lib/mapperoni_api/transaction.ex:123", "is_test" => false},
-            %{"path" => "test/mapperoni_api/transaction_test.exs:78", "is_test" => true}
-          ]
-        },
-        commit: "def789abc012",
-        pushed_at: now
-      },
-      silent
-    )
-
-    :ok
+        branch ->
+          seed_branch_ref(branch, ref_config, silent)
+      end
+    end)
   end
 
-  # data-model.FEATURE_BRANCH_REFS.4: Store refs on branch with feature_name
-  defp seed_feature_branch_ref(spec, branch, attrs, silent) do
-    defaults = %{
-      refs: %{},
-      commit: "abc123",
-      pushed_at: DateTime.utc_now(),
-      feature_name: spec.feature_name,
-      branch_id: branch.id
+  defp seed_branch_ref(branch, config, silent) do
+    now = DateTime.utc_now(:second)
+
+    ref_attrs = %{
+      branch_id: branch.id,
+      feature_name: config.feature_name,
+      refs: config.refs,
+      commit: config.commit,
+      pushed_at: now
     }
 
-    attrs = Map.merge(defaults, attrs)
-
+    # Check for existing ref
     existing =
       Repo.one(
         from fbr in FeatureBranchRef,
           where:
-            fbr.feature_name == ^spec.feature_name and
-              fbr.branch_id == ^branch.id
+            fbr.branch_id == ^branch.id and
+              fbr.feature_name == ^config.feature_name
       )
 
     if existing do
-      unless silent do
-        IO.puts(
-          "FeatureBranchRef already exists for spec #{spec.feature_name} and branch #{branch.branch_name}"
-        )
+      # Update if refs differ
+      if existing.refs != ref_attrs.refs or existing.commit != ref_attrs.commit do
+        {:ok, updated} =
+          existing
+          |> FeatureBranchRef.changeset(%{refs: ref_attrs.refs, commit: ref_attrs.commit})
+          |> Repo.update()
+
+        unless silent do
+          IO.puts("Updated refs: #{config.feature_name} on #{branch.branch_name}")
+        end
+
+        updated
+      else
+        unless silent do
+          IO.puts("Refs already exist: #{config.feature_name} on #{branch.branch_name}")
+        end
+
+        existing
       end
-
-      existing
     else
-      {:ok, ref} = Repo.insert(FeatureBranchRef.changeset(%FeatureBranchRef{}, attrs))
+      {:ok, ref} =
+        %FeatureBranchRef{}
+        |> FeatureBranchRef.changeset(ref_attrs)
+        |> Repo.insert()
 
       unless silent do
-        IO.puts(
-          "Created feature_branch_ref for spec #{spec.feature_name} on branch #{branch.branch_name}"
-        )
+        IO.puts("Created refs: #{config.feature_name} on #{branch.branch_name}")
       end
 
       ref
