@@ -24,7 +24,7 @@ defmodule AcaiWeb.FeatureLive do
         # Get the first spec for display info (they share the same feature_name)
         first_spec = List.first(specs) |> Acai.Repo.preload(:product)
 
-        # data-model.SPECS.13: Requirements are now JSONB on each spec
+        # data-model.SPECS.11: Requirements are now JSONB on each spec
         # Count requirements by getting map_size of the requirements JSONB
         spec_requirement_counts =
           Map.new(specs, fn spec -> {spec.id, map_size(spec.requirements)} end)
@@ -98,7 +98,7 @@ defmodule AcaiWeb.FeatureLive do
           |> assign(:feature_name, actual_feature_name)
           # feature-view.MAIN.1
           |> assign(:feature_description, first_spec.feature_description)
-          # data-model.SPECS.14-1: Get product name from preloaded association
+          # data-model.SPECS.12: Get product name from preloaded association
           |> assign(:product_name, first_spec.product.name)
           |> assign(:implementations_empty?, implementation_cards == [])
           # feature-view.MAIN.2

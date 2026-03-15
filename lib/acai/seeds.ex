@@ -38,7 +38,7 @@ defmodule Acai.Seeds do
     products = seed_products(team, silent)
 
     # Seed branches first (before specs and tracked_branches)
-    # data-model.BRANCHES.10: Branches are team-scoped
+    # data-model.BRANCHES.6: Branches are team-scoped
     branches = seed_branches(team, silent)
 
     specs = seed_specs(team, products, branches, silent)

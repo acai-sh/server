@@ -14,16 +14,16 @@ defmodule Acai.Specs.FeatureBranchRef do
   - data-model.FEATURE_BRANCH_REFS.4-1: refs keyed by full ACID string
   - data-model.FEATURE_BRANCH_REFS.4-2: Each ACID has array of reference objects
   - data-model.FEATURE_BRANCH_REFS.4-3: Reference objects contain path, is_test
-  - data-model.FEATURE_BRANCH_REFS.6: commit hash string
-  - data-model.FEATURE_BRANCH_REFS.7: pushed_at timestamp
-  - data-model.FEATURE_BRANCH_REFS.8: Unique constraint on (branch_id, feature_name)
+  - data-model.FEATURE_BRANCH_REFS.5: commit hash string
+  - data-model.FEATURE_BRANCH_REFS.6: pushed_at timestamp
+  - data-model.FEATURE_BRANCH_REFS.7: Unique constraint on (branch_id, feature_name)
   """
   use Ecto.Schema
   import Ecto.Changeset
   import Acai.Core.Validations
 
   # data-model.FEATURE_BRANCH_REFS.1
-  # data-model.FIELDS.3
+  # data-model.FIELDS.2
   @primary_key {:id, Acai.UUIDv7, autogenerate: true}
   @foreign_key_type Acai.UUIDv7
 
@@ -38,9 +38,9 @@ defmodule Acai.Specs.FeatureBranchRef do
     # Format: %{"acid" => [%{"path" => "lib/foo.ex:42", "is_test" => false}, ...]}
     field :refs, :map, default: %{}
 
-    # data-model.FEATURE_BRANCH_REFS.6
+    # data-model.FEATURE_BRANCH_REFS.5
     field :commit, :string
-    # data-model.FEATURE_BRANCH_REFS.7
+    # data-model.FEATURE_BRANCH_REFS.6
     field :pushed_at, :utc_datetime
 
     timestamps(type: :utc_datetime)
@@ -57,7 +57,7 @@ defmodule Acai.Specs.FeatureBranchRef do
     # data-model.FEATURE_BRANCH_REFS.3-1
     |> validate_url_safe(:feature_name)
     |> check_constraint(:feature_name, name: :feature_name_url_safe)
-    # data-model.FEATURE_BRANCH_REFS.8
+    # data-model.FEATURE_BRANCH_REFS.7
     |> unique_constraint([:branch_id, :feature_name])
   end
 end

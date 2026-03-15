@@ -122,7 +122,7 @@ defmodule Acai.SeedsTest do
   end
 
   # data-model.SPECS
-  # data-model.SPECS.13: Requirements stored as JSONB
+  # data-model.SPECS.11: Requirements stored as JSONB
   describe "site spec seeding" do
     test "creates map-editor spec" do
       product = get_product!("mapperoni", "site")
@@ -149,7 +149,7 @@ defmodule Acai.SeedsTest do
       product = get_product!("mapperoni", "site")
       spec = get_spec!(product, "map-editor")
 
-      # data-model.SPECS.13-1: Requirements keyed by ACID
+      # data-model.SPECS.11-1: Requirements keyed by ACID
       assert is_map(spec.requirements)
       assert Map.has_key?(spec.requirements, "map-editor.CANVAS.1")
       assert Map.has_key?(spec.requirements, "map-editor.LAYERS.1")
@@ -174,7 +174,7 @@ defmodule Acai.SeedsTest do
       product = get_product!("mapperoni", "site")
       spec = get_spec!(product, "map-editor")
 
-      # data-model.SPECS.14-1: spec belongs to product
+      # data-model.SPECS.12: spec belongs to product
       spec_product = Repo.get(Product, spec.product_id)
       assert spec_product != nil
       assert spec_product.name == "site"

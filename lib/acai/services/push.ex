@@ -93,7 +93,7 @@ defmodule Acai.Services.Push do
 
     # Step 1: Get or create the branch
     # push.REQUEST.1, push.REQUEST.2, push.REQUEST.3
-    # data-model.BRANCHES.10, data-model.BRANCHES.10-1
+    # data-model.BRANCHES.6, data-model.BRANCHES.6-1
     {:ok, branch} =
       Acai.Implementations.get_or_create_branch(%{
         team_id: team_id,

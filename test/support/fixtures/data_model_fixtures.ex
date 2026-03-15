@@ -256,6 +256,9 @@ defmodule Acai.DataModelFixtures do
   - data-model.FEATURE_BRANCH_REFS.2: branch_id FK
   - data-model.FEATURE_BRANCH_REFS.3: feature_name
   - data-model.FEATURE_BRANCH_REFS.4: refs JSONB
+  - data-model.FEATURE_BRANCH_REFS.5: commit hash
+  - data-model.FEATURE_BRANCH_REFS.6: pushed_at timestamp
+  - data-model.FEATURE_BRANCH_REFS.7: Unique constraint on (branch_id, feature_name)
   """
   def feature_branch_ref_fixture(%Branch{} = branch, feature_name, attrs \\ %{}) do
     attrs =

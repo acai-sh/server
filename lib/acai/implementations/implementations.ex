@@ -158,7 +158,7 @@ defmodule Acai.Implementations do
   Gets a branch by its stable identity (team_id, repo_uri, branch_name).
   Returns nil if not found.
 
-  ACID: data-model.BRANCHES.10-1
+  ACID: data-model.BRANCHES.6-1
   """
   def get_branch_by_identity(team_id, repo_uri, branch_name) do
     Repo.one(
@@ -174,8 +174,8 @@ defmodule Acai.Implementations do
   Requires :team_id in attrs.
 
   ACIDs:
-  - data-model.BRANCHES.10
-  - data-model.BRANCHES.10-1
+  - data-model.BRANCHES.6
+  - data-model.BRANCHES.6-1
   """
   def get_or_create_branch(attrs) do
     attrs = Map.new(attrs)

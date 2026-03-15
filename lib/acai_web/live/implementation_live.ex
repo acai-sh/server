@@ -69,9 +69,9 @@ defmodule AcaiWeb.ImplementationLive do
   end
 
   defp mount_implementation_view(socket, team, spec, implementation, feature_name) do
-    # data-model.SPECS.13: Requirements are JSONB on the spec
-    # data-model.SPECS.14-1: Preload product association for breadcrumb
-    # data-model.SPECS.3-1: Preload branch association for repo info
+    # data-model.SPECS.11: Requirements are JSONB on the spec
+    # data-model.SPECS.12: Preload product association for breadcrumb
+    # data-model.SPECS.3: Preload branch association for repo info
     spec = Acai.Repo.preload(spec, [:product, :branch])
 
     # Build requirement rows from the JSONB requirements map
@@ -150,7 +150,7 @@ defmodule AcaiWeb.ImplementationLive do
     {:ok, socket}
   end
 
-  # data-model.SPECS.13: Build requirement rows from JSONB requirements map
+  # data-model.SPECS.11: Build requirement rows from JSONB requirements map
   defp build_requirement_rows_from_spec(spec) do
     spec.requirements
     |> Enum.map(fn {acid, data} ->
@@ -333,7 +333,7 @@ defmodule AcaiWeb.ImplementationLive do
         />
 
         <%!-- Requirement details drawer --%>
-        <%!-- data-model.SPECS.13: Pass acid instead of requirement_id --%>
+        <%!-- data-model.SPECS.11: Pass acid instead of requirement_id --%>
         <%!-- feature-impl-view.DRAWER.4: Pass aggregated_refs from tracked branches --%>
         <.live_component
           module={AcaiWeb.Live.Components.RequirementDetailsLive}

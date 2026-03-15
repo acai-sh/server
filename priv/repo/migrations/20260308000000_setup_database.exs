@@ -36,7 +36,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # ============================================================================
 
     # data-model.TEAMS.1
-    # data-model.FIELDS.3
+    # data-model.FIELDS.2
     create table(:teams, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
       # data-model.TEAMS.2
@@ -70,7 +70,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # ============================================================================
 
     # data-model.PRODUCTS.1
-    # data-model.FIELDS.3
+    # data-model.FIELDS.2
     create table(:products, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
       # data-model.PRODUCTS.2
@@ -95,7 +95,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # ============================================================================
 
     # data-model.TOKENS.1
-    # data-model.FIELDS.3
+    # data-model.FIELDS.2
     create table(:access_tokens, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
       # data-model.TOKENS.2
@@ -130,7 +130,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # ============================================================================
 
     # data-model.IMPLS.1
-    # data-model.FIELDS.3
+    # data-model.FIELDS.2
     create table(:implementations, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
       # data-model.IMPLS.2
@@ -159,25 +159,25 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # ============================================================================
 
     # data-model.BRANCHES.1
-    # data-model.FIELDS.3
+    # data-model.FIELDS.2
     create table(:branches, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
-      # data-model.BRANCHES.10: team_id is a Foreign Key to teams table, non-nullable
+      # data-model.BRANCHES.6: team_id is a Foreign Key to teams table, non-nullable
       add :team_id, references(:teams, type: :uuid, on_delete: :delete_all), null: false
-      # data-model.BRANCHES.3
+      # data-model.BRANCHES.2
       add :repo_uri, :text, null: false
-      # data-model.BRANCHES.4
+      # data-model.BRANCHES.3
       add :branch_name, :string, null: false
-      # data-model.BRANCHES.5
+      # data-model.BRANCHES.4
       add :last_seen_commit, :string, null: false
 
       timestamps(type: :utc_datetime)
     end
 
-    # data-model.BRANCHES.9: Index on (repo_uri) for listing branches by repository
+    # data-model.BRANCHES.5: Index on (repo_uri) for listing branches by repository
     create index(:branches, [:repo_uri])
 
-    # data-model.BRANCHES.10-1: Composite Unique Constraint enforces (team_id, repo_uri, branch_name)
+    # data-model.BRANCHES.6-1: Composite Unique Constraint enforces (team_id, repo_uri, branch_name)
     create unique_index(:branches, [:team_id, :repo_uri, :branch_name])
 
     # ============================================================================
@@ -214,41 +214,41 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # ============================================================================
 
     # data-model.SPECS.1
-    # data-model.FIELDS.3
+    # data-model.FIELDS.2
     create table(:specs, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
       # data-model.SPECS.2
       add :product_id, references(:products, type: :uuid, on_delete: :delete_all), null: false
-      # data-model.SPECS.3-1
+      # data-model.SPECS.3
       add :branch_id, references(:branches, type: :uuid, on_delete: :delete_all), null: false
-      # data-model.SPECS.6
+      # data-model.SPECS.4
       add :path, :text
-      # data-model.SPECS.7
+      # data-model.SPECS.5
       add :last_seen_commit, :string, null: false
-      # data-model.SPECS.8
+      # data-model.SPECS.6
       add :parsed_at, :utc_datetime, null: false
-      # data-model.SPECS.9
+      # data-model.SPECS.7
       add :feature_name, :string, null: false
-      # data-model.SPECS.10
+      # data-model.SPECS.8
       add :feature_description, :text
-      # data-model.SPECS.11
+      # data-model.SPECS.9
       add :feature_version, :string, null: false, default: "1.0.0"
-      # data-model.SPECS.12
+      # data-model.SPECS.10
       add :raw_content, :text
-      # data-model.SPECS.13
+      # data-model.SPECS.11
       add :requirements, :map, null: false, default: %{}
 
       timestamps(type: :utc_datetime)
     end
 
-    # data-model.SPECS.9-1
+    # data-model.SPECS.7-1
     execute "ALTER TABLE specs ADD CONSTRAINT feature_name_url_safe CHECK (feature_name ~ '^[a-zA-Z0-9_-]+$')"
 
-    # data-model.SPECS.14-1: Composite Unique Constraint enforces (branch_id, feature_name)
+    # data-model.SPECS.12: Composite Unique Constraint enforces (branch_id, feature_name)
     create unique_index(:specs, [:branch_id, :feature_name])
-    # data-model.SPECS.17-1: Index on (branch_id) for joining specs to branches
+    # data-model.SPECS.14: Index on (branch_id) for joining specs to branches
     create index(:specs, [:branch_id])
-    # data-model.SPECS.16
+    # data-model.SPECS.13
     create index(:specs, [:product_id])
 
     # ============================================================================
@@ -256,7 +256,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # ============================================================================
 
     # data-model.FEATURE_IMPL_STATES.1
-    # data-model.FIELDS.3
+    # data-model.FIELDS.2
     create table(:feature_impl_states, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
       # data-model.FEATURE_IMPL_STATES.2
@@ -286,7 +286,7 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # ============================================================================
 
     # data-model.FEATURE_BRANCH_REFS.1: id field is a UUIDv7 Primary Key
-    # data-model.FIELDS.3
+    # data-model.FIELDS.2
     create table(:feature_branch_refs, primary_key: false) do
       add :id, :uuid, primary_key: true, null: false
       # data-model.FEATURE_BRANCH_REFS.2: branch_id is a Foreign Key to branches table
@@ -300,9 +300,9 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
       # data-model.FEATURE_BRANCH_REFS.4-3: Each reference object contains path (string), is_test (boolean)
       add :refs, :map, null: false, default: %{}
 
-      # data-model.FEATURE_BRANCH_REFS.6: commit is a string storing the commit hash when refs were pushed
+      # data-model.FEATURE_BRANCH_REFS.5: commit is a string storing the commit hash when refs were pushed
       add :commit, :string, null: false
-      # data-model.FEATURE_BRANCH_REFS.7: pushed_at is a timestamp of when the refs were pushed
+      # data-model.FEATURE_BRANCH_REFS.6: pushed_at is a timestamp of when the refs were pushed
       add :pushed_at, :utc_datetime, null: false
 
       timestamps(type: :utc_datetime)
@@ -311,13 +311,13 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     # data-model.FEATURE_BRANCH_REFS.3-1: feature_name field only supports alphanumeric chars, hyphens, and underscores
     execute "ALTER TABLE feature_branch_refs ADD CONSTRAINT feature_name_url_safe CHECK (feature_name ~ '^[a-zA-Z0-9_-]+$')"
 
-    # data-model.FEATURE_BRANCH_REFS.8: Composite Unique Constraint enforces (branch_id, feature_name)
+    # data-model.FEATURE_BRANCH_REFS.7: Composite Unique Constraint enforces (branch_id, feature_name)
     create unique_index(:feature_branch_refs, [:branch_id, :feature_name])
 
-    # data-model.FEATURE_BRANCH_REFS.9: GIN Index on (refs) for querying by ACID key within the JSONB
+    # data-model.FEATURE_BRANCH_REFS.8: GIN Index on (refs) for querying by ACID key within the JSONB
     create index(:feature_branch_refs, [:refs], using: "gin")
 
-    # data-model.FEATURE_BRANCH_REFS.10: Index on (branch_id) for listing all features for a branch
+    # data-model.FEATURE_BRANCH_REFS.9: Index on (branch_id) for listing all features for a branch
     create index(:feature_branch_refs, [:branch_id])
   end
 end

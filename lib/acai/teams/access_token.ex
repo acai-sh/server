@@ -3,7 +3,7 @@ defmodule Acai.Teams.AccessToken do
   import Ecto.Changeset
 
   # data-model.TOKENS.1
-  # data-model.FIELDS.3
+  # data-model.FIELDS.2
   @primary_key {:id, Acai.UUIDv7, autogenerate: true}
   @foreign_key_type Acai.UUIDv7
 

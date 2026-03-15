@@ -10,8 +10,8 @@ defmodule Acai.Core.ValidationsTest do
   end
 
   # data-model.TEAMS.2-1
-  # data-model.SPECS.8-1
-  # data-model.SPECS.12-1
+  # data-model.SPECS.7-1
+  # data-model.SPECS.10-1
   describe "validate_url_safe/2" do
     test "accepts alphanumeric characters" do
       cs = changeset(%{name: "hello123"}) |> validate_url_safe(:name)

@@ -2,7 +2,7 @@ defmodule Acai.UUIDv7 do
   @moduledoc """
   A custom Ecto.Type wrapping the `UUIDv7` library for use as a primary key type.
 
-  # data-model.FIELDS.3 - All entities use UUIDv7 primary keys
+  # data-model.FIELDS.2 - All entities use UUIDv7 primary keys
 
   Usage in schemas:
       @primary_key {:id, Acai.UUIDv7, autogenerate: true}

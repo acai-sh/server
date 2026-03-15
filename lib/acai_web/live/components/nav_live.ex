@@ -95,7 +95,7 @@ defmodule AcaiWeb.Live.Components.NavLive do
 
   defp find_product_for_feature(_team, _feature_name), do: nil
 
-  # data-model.SPECS.14-1: Specs belong to products
+  # data-model.SPECS.12: Specs belong to products
   defp get_product_name_for_spec(spec) do
     # Preload product if not already loaded
     case spec.product do

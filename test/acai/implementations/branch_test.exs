@@ -6,7 +6,7 @@ defmodule Acai.Implementations.BranchTest do
   alias Acai.Implementations.Branch
 
   describe "changeset/2" do
-    # data-model.BRANCHES.10: team_id is required
+    # data-model.BRANCHES.6: team_id is required
     test "valid with required fields" do
       team = team_fixture()
 
@@ -21,10 +21,10 @@ defmodule Acai.Implementations.BranchTest do
       assert cs.valid?
     end
 
+    # data-model.BRANCHES.2
     # data-model.BRANCHES.3
     # data-model.BRANCHES.4
-    # data-model.BRANCHES.5
-    # data-model.BRANCHES.10
+    # data-model.BRANCHES.6
     test "invalid without required fields" do
       cs = Branch.changeset(%Branch{}, %{})
       refute cs.valid?

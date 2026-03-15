@@ -78,16 +78,12 @@ components:
             This allows branch metadata (like name) to be updated without breaking references.
         requirements:
             1: id field is a UUIDv7 Primary Key.
-            # 2: REMOVED - implementation_id Foreign Key (deprecated, replaced by TRACKED_BRANCHES.1)
-            3: repo_uri is the normalized URI (e.g., github.com/org/repo).
-            4: branch_name is a string (e.g., main, dev, feature-x).
-            5: last_seen_commit is a string storing the commit hash from the most recent CLI push for this branch.
-            # 6: REMOVED - Composite Unique Constraint on implementation_id, repo_uri (deprecated)
-            # 7: REMOVED - Index on repo_uri, branch_name (deprecated)
-            # 8: REMOVED - Composite Unique Constraint on repo_uri, branch_name (deprecated)
-            9: Index on (repo_uri) for listing branches by repository.
-            10: team_id is a Foreign Key to teams table, non-nullable.
-            10-1: Composite Unique Constraint enforces (team_id, repo_uri, branch_name) - each branch is unique within a team.
+            2: repo_uri is the normalized URI (e.g., github.com/org/repo).
+            3: branch_name is a string (e.g., main, dev, feature-x).
+            4: last_seen_commit is a string storing the commit hash from the most recent CLI push for this branch.
+            5: Index on (repo_uri) for listing branches by repository.
+            6: team_id is a Foreign Key to teams table, non-nullable.
+            6-1: Composite Unique Constraint enforces (team_id, repo_uri, branch_name) - each branch is unique within a team.
 
     TRACKED_BRANCHES:
         name: tracked_branches table
@@ -112,28 +108,22 @@ components:
         requirements:
             1: id field is a UUIDv7 Primary Key.
             2: product_id is a Foreign Key to products table, non-nullable.
-            # 3: REMOVED - tracked_branch_id Foreign Key (deprecated, replaced by SPECS.3-1)
-            3-1: branch_id is a Foreign Key to branches table, non-nullable.
-            # 4: REMOVED - repo_uri field (deprecated)
-            # 5: REMOVED - branch_name field (deprecated)
-            6: path is text starting from the repo root without a leading slash (e.g., features/auth.feature.yaml). Optional.
-            6-1: path is metadata only and not part of spec identity.
-            7: last_seen_commit is a string storing the commit hash from the most recent CLI push.
-            8: parsed_at is a timestamp of the most recent parse.
-            9: feature_name is the string defined under feature.name.
-            9-1: feature_name field only supports alphanumeric chars, hyphens, and underscores.
-            10: feature_description is the string defined under feature.description. Optional.
-            11: feature_version is the string defined under feature.version. Defaults to 1.0.0.
-            11-1: If present, feature_version must follow SemVer format (server enforced)
-            12: raw_content is a text field storing the original feature.yaml contents. Optional.
-            13: requirements is a JSONB column storing parsed requirement definitions keyed by ACID.
-            13-1: Each ACID key maps to an object containing definition (string), note (string, optional), is_deprecated (boolean, defaults to false), replaced_by (array of ACID strings, defaults to empty).
-            # 14: REMOVED - Composite Unique Constraint on product_id, repo_uri, branch_name, feature_name (deprecated, replaced by SPECS.14-1)
-            14-1: Composite Unique Constraint enforces (branch_id, feature_name) - one spec per feature per branch.
-            # 15: REMOVED - Composite Unique Constraint on product_id, feature_name, feature_version (deprecated)
-            16: Index on (product_id) for listing specs by product.
-            # 17: REMOVED - Index on repo_uri, branch_name (deprecated, replaced by SPECS.17-1)
-            17-1: Index on (branch_id) for joining specs to branches.
+            3: branch_id is a Foreign Key to branches table, non-nullable.
+            4: path is text starting from the repo root without a leading slash (e.g., features/auth.feature.yaml). Optional.
+            4-1: path is metadata only and not part of spec identity.
+            5: last_seen_commit is a string storing the commit hash from the most recent CLI push.
+            6: parsed_at is a timestamp of the most recent parse.
+            7: feature_name is the string defined under feature.name.
+            7-1: feature_name field only supports alphanumeric chars, hyphens, and underscores.
+            8: feature_description is the string defined under feature.description. Optional.
+            9: feature_version is the string defined under feature.version. Defaults to 1.0.0.
+            9-1: If present, feature_version must follow SemVer format (server enforced)
+            10: raw_content is a text field storing the original feature.yaml contents. Optional.
+            11: requirements is a JSONB column storing parsed requirement definitions keyed by ACID.
+            11-1: Each ACID key maps to an object containing definition (string), note (string, optional), is_deprecated (boolean, defaults to false), replaced_by (array of ACID strings, defaults to empty).
+            12: Composite Unique Constraint enforces (branch_id, feature_name) - one spec per feature per branch.
+            13: Index on (product_id) for listing specs by product.
+            14: Index on (branch_id) for joining specs to branches.
 
     FEATURE_IMPL_STATES:
         name: feature_impl_states table
@@ -156,9 +146,6 @@ components:
             6: GIN Index on (states) for querying by ACID key within the JSONB.
             7: Index on (implementation_id) for listing all features for an implementation.
 
-    # FEATURE_IMPL_REFS - REMOVED (deprecated, replaced by FEATURE_BRANCH_REFS)
-    # See replaced-by reference for current implementation.
-
     FEATURE_BRANCH_REFS:
         name: feature_branch_refs table
         description: |
@@ -177,30 +164,26 @@ components:
             4-1: refs format is an object keyed by full ACID string.
             4-2: Each ACID entry contains an array of reference objects.
             4-3: Each reference object contains path (string, e.g. lib/foo.ex:102), is_test (boolean).
-            # 5: REMOVED - agent field (deprecated, deferred post-MVP)
-            6: commit is a string storing the commit hash when refs were pushed.
-            7: pushed_at is a timestamp of when the refs were pushed.
-            8: Composite Unique Constraint enforces (branch_id, feature_name).
-            9: GIN Index on (refs) for querying by ACID key within the JSONB.
-            10: Index on (branch_id) for listing all features for a branch.
+            5: commit is a string storing the commit hash when refs were pushed.
+            6: pushed_at is a timestamp of when the refs were pushed.
+            7: Composite Unique Constraint enforces (branch_id, feature_name).
+            8: GIN Index on (refs) for querying by ACID key within the JSONB.
+            9: Index on (branch_id) for listing all features for a branch.
 
 constraints:
     FIELDS:
         requirements:
             1: All tables include created_at and updated_at timestamps managed by Ecto.
-            # 2: REMOVED (deprecated, no replacement)
-            3: All entities, except for roles, use `id` primary key as UUIDv7.
+            2: All entities, except for roles, use `id` primary key as UUIDv7.
 
     SPEC_IDENTITY:
         name: Spec identity and update semantics
         requirements:
-            # 1: REMOVED - Spec id stability on product_id, repo_uri, branch_name, feature_name (deprecated, replaced by SPEC_IDENTITY.1-1)
-            1-1: Spec id is stable across updates on the same (branch_id, feature_name) combination.
+            1: Spec id is stable across updates on the same (branch_id, feature_name) combination.
             2: Pushing an updated feature.yaml to an existing branch updates the existing spec row if feature_name matches.
             3: Renaming a feature creates a new spec; the old spec and its states remain under the old feature_name.
             4: Version changes on an existing spec update the spec row but do not create a new spec.
-            # 5: REMOVED - Version uniqueness constraint (deprecated)
-            6: Branch id is stable even if branch_name changes, allowing branch renames without breaking spec references.
+            5: Branch id is stable even if branch_name changes, allowing branch renames without breaking spec references.
 
     IMPL_CREATION:
         name: Implementation creation
@@ -211,10 +194,7 @@ constraints:
         requirements:
             1: When CLI pushes specs to an untracked branch, the server auto-creates an implementation.
             2: Implementation name defaults to the branch name being pushed.
-            # 3: REMOVED - Parent implementation inference (deprecated)
-            # 4: REMOVED - Parent branch tracking inheritance (deprecated, replaced by push.PARENTS.1)
-            # 5: REMOVED - No upstream parent handling (deprecated, replaced by push.PARENTS.2)
-            6: CLI may provide explicit --parent-impl flag to set parent at creation time. --parent-branch is deferred post-MVP.
+            3: CLI may provide explicit --parent-impl flag to set parent at creation time. --parent-branch is deferred post-MVP.
 
     INHERITANCE:
         name: Implementation inheritance semantics

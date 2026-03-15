@@ -402,7 +402,7 @@ defmodule Acai.Specs do
   On conflict, replaces the refs, commit, and pushed_at fields.
 
   ACIDs:
-  - data-model.SPEC_IDENTITY.1-1: Spec id is stable across updates on same (branch_id, feature_name)
+  - data-model.SPEC_IDENTITY.1: Spec id is stable across updates on same (branch_id, feature_name)
   - data-model.SPEC_IDENTITY.2: Pushing updated feature.yaml updates existing spec row
   - data-model.SPEC_IDENTITY.4: Version changes update spec row but don't create new spec
   """

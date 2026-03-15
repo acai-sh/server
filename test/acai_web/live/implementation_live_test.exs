@@ -23,7 +23,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
   defp create_spec_for_feature(_team, product, feature_name, opts \\ []) do
     unique_suffix = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
 
-    # data-model.SPECS.13: Requirements stored as JSONB keyed by ACID
+    # data-model.SPECS.11: Requirements stored as JSONB keyed by ACID
     requirements =
       Keyword.get(opts, :requirements, %{
         "#{feature_name}.COMP.1" => %{
