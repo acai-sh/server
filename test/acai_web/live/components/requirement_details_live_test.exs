@@ -146,7 +146,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
       %{spec: spec, implementation: implementation} = setup_data_chain()
       _role = user_team_role_fixture(team_fixture(), user, %{title: "owner"})
 
-      # data-model.SPEC_IMPL_STATES: Create a spec_impl_state with status
+      # data-model.FEATURE_IMPL_STATES: Create a feature_impl_state with status
       _spec_impl_state =
         spec_impl_state_fixture(spec, implementation, %{
           states: %{

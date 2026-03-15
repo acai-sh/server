@@ -69,7 +69,6 @@ defmodule Acai.Specs.Spec do
     )
     # data-model.SPECS.12
     |> unique_constraint([:branch_id, :feature_name])
-    # data-model.SPECS.15
     |> unique_constraint([:product_id, :feature_name, :feature_version])
   end
 end

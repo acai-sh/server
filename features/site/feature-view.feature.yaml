@@ -6,7 +6,7 @@ feature:
     prerequisites:
         - data-model.SPECS
         - data-model.IMPLS
-        - data-model.SPEC_IMPL_STATES
+        - data-model.FEATURE_IMPL_STATES
         - product-view
 
 components:

@@ -57,7 +57,7 @@ defmodule Acai.Implementations.BranchTest do
   end
 
   describe "database constraints" do
-    # data-model.BRANCHES.10-1: Composite unique on (team_id, repo_uri, branch_name)
+    # data-model.BRANCHES.6-1: Composite unique on (team_id, repo_uri, branch_name)
     test "composite unique constraint on (team_id, repo_uri, branch_name)" do
       team = team_fixture()
 

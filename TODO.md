@@ -40,9 +40,6 @@ Document a prune concept that also identifies when two branches mirror an identi
 ---
 
 plan of attack
-- spec realignment of data model, remove deprecated fields, clean up refs, handle renumbering
-plus full re-write of seed-data following the fully re-written spec
-
+- re-write of seed-data following the fully re-written spec
 - QA verification of seed data, and simulation of `push` and light review of the push api code
-
 - clean up reference concepts in UI

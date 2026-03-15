@@ -59,7 +59,6 @@ defmodule Acai.Teams.AccessToken do
     )
     |> validate_required(@required_fields)
     |> compute_expires_at(timezone_offset)
-    # data-model.TOKENS.7-1
     |> validate_not_expired()
     # data-model.TOKENS.4-1
     |> unique_constraint(:token_hash)

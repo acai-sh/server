@@ -387,7 +387,7 @@ defmodule AcaiWeb.ImplementationLive do
       class={
         [
           "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110",
-          # data-model.SPEC_IMPL_STATES.4-3: Color coding
+          # data-model.FEATURE_IMPL_STATES.4-3: Color coding
           # accepted (green), completed (blue), assigned (gold), blocked/rejected (red), null (gray)
           @requirement.status == "accepted" && "bg-success",
           @requirement.status == "completed" && "bg-info",
@@ -564,7 +564,7 @@ defmodule AcaiWeb.ImplementationLive do
   end
 
   # Status badge for table
-  # data-model.SPEC_IMPL_STATES.4-3: Color coding
+  # data-model.FEATURE_IMPL_STATES.4-3: Color coding
   # null (gray), assigned (gold), blocked (red), completed (blue), accepted (green), rejected (red)
   defp status_badge(assigns) do
     ~H"""

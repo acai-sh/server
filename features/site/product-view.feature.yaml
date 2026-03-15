@@ -7,7 +7,7 @@ feature:
         - data-model.PRODUCTS
         - data-model.SPECS
         - data-model.IMPLS
-        - data-model.SPEC_IMPL_STATES
+        - data-model.FEATURE_IMPL_STATES
 
 components:
     MATRIX:

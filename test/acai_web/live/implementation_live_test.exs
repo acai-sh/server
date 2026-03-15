@@ -56,7 +56,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
     })
   end
 
-  # data-model.SPEC_IMPL_STATES: Create spec_impl_state with JSONB states
+  # data-model.FEATURE_IMPL_STATES: Create feature_impl_state with JSONB states
   defp create_spec_impl_state(spec, implementation, opts) do
     acid_prefix = spec.feature_name <> ".COMP"
 
@@ -246,7 +246,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
     end
 
     # implementation-view.REQ_COVERAGE.2-1
-    # data-model.SPEC_IMPL_STATES.4-3: accepted (green)
+    # data-model.FEATURE_IMPL_STATES.4-3: accepted (green)
     test "green chip for accepted status", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
@@ -261,7 +261,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
     end
 
     # implementation-view.REQ_COVERAGE.2-2
-    # data-model.SPEC_IMPL_STATES.4-3: completed (blue)
+    # data-model.FEATURE_IMPL_STATES.4-3: completed (blue)
     test "blue chip for completed status", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
@@ -311,7 +311,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
     setup :register_and_log_in_user
 
     # implementation-view.TEST_COVERAGE.1
-    # data-model.SPEC_IMPL_REFS: refs stored as JSONB
+    # data-model.FEATURE_BRANCH_REFS: refs stored as JSONB
     test "renders one chip per requirement ordered by ACID", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")

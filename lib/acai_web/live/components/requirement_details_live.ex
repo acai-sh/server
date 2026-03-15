@@ -352,7 +352,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   defp format_path(_), do: ""
 
   # Badge colors for different statuses
-  # data-model.SPEC_IMPL_STATES.4-3: Valid status values are null, assigned, blocked, completed, accepted, rejected
+  # data-model.FEATURE_IMPL_STATES.4-3: Valid status values are null, assigned, blocked, completed, accepted, rejected
   # Color coding: null (gray), assigned (gold), blocked (red), completed (blue), accepted (green), rejected (red)
   defp status_badge_color(status) do
     case status do

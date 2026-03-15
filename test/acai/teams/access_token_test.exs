@@ -47,7 +47,6 @@ defmodule Acai.Teams.AccessTokenTest do
              ]
     end
 
-    # data-model.TOKENS.6-2
     test "scopes field accepts custom scope values" do
       cs =
         AccessToken.changeset(%AccessToken{}, %{
