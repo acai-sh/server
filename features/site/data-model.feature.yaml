@@ -39,7 +39,7 @@ components:
             4: token_hash is a string storing the SHA-256 hash of the raw token.
             4-1: token_hash has a UNIQUE constraint, which serves as its index.
             5: token_prefix is a string storing the unhashed prefix.
-            6: scopes is a JSONB array of strings defining the permitted API actions, default no scopes.
+            6: scopes is a JSONB array of strings defining the permitted API actions, set by server, db falls back to no scopes
             6-1: Default new token scopes are set by the server on creation; specs:read, specs:write, states:read, states:write, refs:read, refs:write, impls:read, impls:write, team:read.
             7: expires_at is a timestamp indicating when the token naturally invalidates. Optional.
             8: revoked_at is a timestamp for manual, soft-delete invalidation. Optional.
@@ -155,7 +155,7 @@ components:
             9-1: feature_name field only supports alphanumeric chars, hyphens, and underscores.
             10: feature_description is the string defined under feature.description. Optional.
             11: feature_version is the string defined under feature.version. Defaults to 1.0.0.
-            11-1: If present, feature_version must follow SemVer format.
+            11-1: If present, feature_version must follow SemVer format (server enforced)
             12: raw_content is a text field storing the original feature.yaml contents. Optional.
             13: requirements is a JSONB column storing parsed requirement definitions keyed by ACID.
             13-1: Each ACID key maps to an object containing definition (string), note (string, optional), is_deprecated (boolean, defaults to false), replaced_by (array of ACID strings, defaults to empty).
@@ -283,7 +283,8 @@ constraints:
     FIELDS:
         requirements:
             1: All tables include created_at and updated_at timestamps managed by Ecto.
-            2: Any field in any table that ends with _key must only support url-safe alphanumeric chars, hyphens and underscores.
+            2:
+                deprecated: true
             3: All entities, except for roles, use `id` primary key as UUIDv7.
 
     SPEC_IDENTITY:

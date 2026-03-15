@@ -33,3 +33,16 @@ When querying refs for a given feature + implementation:
 4. If none found, repeat for impl.parent_implementation_id (inheritance walk)
 
 This works even when 2 products share a feature name (e.g. `auth`) and both track the same branch — refs are keyed on feature + branch, and the query always starts from a specific implementation which belongs to one product.
+
+# Ideas
+Document a prune concept that also identifies when two branches mirror an identical spec (child specs can be removed)
+
+---
+
+plan of attack
+- spec realignment of data model, remove deprecated fields, clean up refs, handle renumbering
+plus full re-write of seed-data following the fully re-written spec
+
+- QA verification of seed data, and simulation of `push` and light review of the push api code
+
+- clean up reference concepts in UI

@@ -6,72 +6,78 @@ feature:
 
 components:
     USERS:
-        name: User Accounts
+        name: Users, teams & roles
         requirements:
             1: |
                 Pregenerate the following user accounts:
-                - `owner@testing.team`
-                - `developer@testing.team`
-                - `readonly@testing.team`
+                - `owner@mapperoni.com`
+                - `developer@mapperoni.com`
+                - `readonly@mapperoni.com`
             2: All pregenerated users must have the password `password123456`
-            3: All pregenerated users must be marked as confirmed
-
-    TEAMS:
-        name: Teams and Membership
-        requirements:
-            1: |
-                Generate two teams:
-                - `testing-team`
-                - `empty-team`
-            2: |
-                Assign the pregenerated users to `testing-team` with their respective roles:
-                - `owner@testing.team` -> `owner`
-                - `developer@testing.team` -> `developer`
-                - `readonly@testing.team` -> `readonly`
-            3: |
-                Assign the pregenerated users to `empty-team` as well with their respective roles:
-                - `owner@testing.team` -> `owner`
-                - `developer@testing.team` -> `developer`
-                - `readonly@testing.team` -> `readonly`
+            3: All pregenerated users have already confirmed emails
+            4: Generates one team called `mapperoni`
+            5: All 3 users have their assigned role in this team, for example `readonly@mapperoni.com` has the readonly role.
 
     PRODUCTS:
-        name: Products
-        description: First-class product entities for organizing features and implementations
         requirements:
-            1: |
-                Generate at least 2 `Products` for `testing-team`:
-                - `acai.sh` - main product with multiple features and implementations
-                - `example.com` - secondary product for testing multi-product scenarios
-            2: Each product must have a description
-            3: Products must be created before specs so specs can reference them
+            1: 2 products - `api` and `site`
+            2: site has a product description string, api does not
 
-    MOCK_DATA:
-        name: Mock Domain Data
-        description: Functional data for testing-team to enable QA of core features
+    IMPLS:
+        description: Implementations, branches, tracked_branches
         requirements:
-            1: |
-                Generate at least 3 `Specs` for `testing-team` distributed across products:
-                - One spec with a full set of requirements and multiple implementations
-                - One spec with pending requirements and no implementations
-                - One spec with a mix of completed, partially completed, and deprecated requirements
-            2: |
-                Requirements for each spec must cover:
-                - Both `COMPONENT` and `CONSTRAINT` group types
-                - Nested requirements (sub-requirements)
-                - Requirements with notes and `replaced_by` ACIDs
-            3: |
-                Generate `Implementations` for the products in `testing-team`:
-                - At least one "Production" implementation spanning multiple features in a product
-                - At least one "Staging" implementation for testing inheritance
-                - At least one implementation with a linked `TrackedBranch`
-            4: |
-                Generate `FeatureImplementationStates` for implementations:
-                - Populate JSONB status_snapshot with varying statuses for requirements
-                - Ensure some features have accepted, implemented, and null statuses
-            5: |
-                Generate a history of `ActivityEvents` for `testing-team`:
-                - Events for product creation, spec creation, requirement updates, and implementation progress
-                - Events attributed to different team members (owner, developer)
+            1: site has 4 implementations - Production, Staging, feat/ai-chat, and fix-map-settings
+            1-1: Each implementation tracks 3 github repos - `frontend`, `backend` and `microservices`
+            1-2: Production tracks branches `main`, `main`, and `main`
+            1-3: Staging tracks branches `dev`, `dev`, and `dev`
+            1-4: feat/ai-chat tracks branches `feat/ai-chat`, `dev`, and `dev`
+            1-5: fix-map-settings tracks branches `fix-map-settings` `fix-#123` and `refactor/map-settings-compat`
+            1-6: inheritence - the fix-map-settings implementation and feat/ai-chat implementation both inherit from Staging
+            1-7: inheritence - Staging inherits from Production
+            2: api has 2 implementations - Production and Staging
+            2-1: Each implementation tracks 1 github repo `backend`, tracking `main` and `dev` respectively
+            2-2: Staging inherits from Production
+
+    SPECS:
+        requirements:
+            1: api product has 2 specs defining 2 features, called `core` and `mcp`, both on `backend` repo's `main` branch
+            1-note: Implementer should be sure to fill any relevant fields with mock data
+            1-1: the `core` spec has a set of 10 requirements describing core api functionality, e.g. versioning and openapi specs generation
+            1-2: the `mcp` spec has a set of 20 requirements describing must-haves for an mcp service that provides read and write access to map data and survey form data
+            3: site product has 6 spec versions for 4 features; `map-editor`, `map-settings`, `form-editor`, and `ai-chat`, all defined in the frontend repo
+            3-1: The `map-editor` feature has 1 spec version, on `main`
+            3-2: The `form-editor` feature has 2 spec versions, one on `main`, one on `dev`
+            3-3: The `ai-chat` feature has 1 spec version, only defined on `feat/ai-chat`
+            3-4: The `map-settings` feature has 2 spec versions, one on `main` and one on `fix-map-settings
+
+    IMPL_STATES:
+        description: Trying to simulate real journeys. For example, a complete feature, a new feature, a fix of an existing feature, etc.
+        requirements:
+            1: api / core / Production - all ACIDs have `accepted` state
+            2: api / core / Staging - no states (all inherited)
+            3: site / map-editor / production - all ACIDs have `accepted` state
+            3-note: site / map-editor does not have states on staging nor feat/ai-chat nor fix-map-settings impls
+            4: site / form-editor / production - all ACIDs have `accepted` state
+            4-1: site / form-editor / staging - all ACIDs have `accepted` state
+            4-note: site / form-editor does not have states on feat/ai-chat nor fix-map-settings impls
+            5: site / ai-chat / feat/ai-chat - has a mix of null, `assigned` and `completed` states
+            5-note: site / ai-chat does not have states on production, nor staging, nor fix-map-settings impls, because it represents a brand new feature on the feat/ai-chat branch
+            6: site / map-settings / production - has all accepted and 1 `completed` ACID
+            6-1: site / map-settings / fix-map-settings - has all accepted and 1 `completed` ACID
+            6-note: site / map-settings does not have states on staging nor feat/ai-chat
+
+    REFS:
+        description: similar to above, reflects real world progress on features
+        requirements:
+            1: Simulate that we pushed from backend repo's `main` and every single ACID in both api features has at least 1 ref
+            2: Simulate that we pushed from `feat/ai-chat` branch in frontend repo and the `completed` requirements have some refs but the `null` status requirements have no refs
+            3: For the other features and branches simulate a variety refs on many branches, some with is_test, some null
+            4: Simulate that some danging refs were pushed to some branches (an ACID that is not actually associated with any feature)
+    TOKENS:
+        requirements:
+            1: developer has 3 access tokens generated
+            2: owner has 1 access token generated
+            3: readonly has no access tokens
 
 constraints:
     ENVIRONMENT:
