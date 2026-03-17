@@ -12,7 +12,9 @@ defmodule Acai.SeedsTest do
   All tests reference seed-data.* ACIDs.
   """
 
-  use Acai.DataCase, async: false
+  use ExUnit.Case, async: false
+
+  import Ecto.Query
 
   alias Acai.Repo
   alias Acai.Accounts
@@ -22,13 +24,14 @@ defmodule Acai.SeedsTest do
   alias Acai.Implementations.{Implementation, TrackedBranch, Branch}
   alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
 
-  setup do
-    # Clean slate for each test
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
+  setup_all do
+    owner = Ecto.Adapters.SQL.Sandbox.start_owner!(Repo, shared: true)
 
-    # Run seeds using the module
+    on_exit(fn ->
+      Ecto.Adapters.SQL.Sandbox.stop_owner(owner)
+    end)
+
     Acai.Seeds.run(silent: true)
-
     :ok
   end
 

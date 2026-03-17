@@ -1,15 +1,17 @@
 # System Design & ADR
-
 This document provides an overview of key system design decisions for acai.sh, a tool for spec-driven development.
 
-Acai.sh is a CLI and API that supports a spec-driven development workflow:
-- Write requirements and acceptance criteria in `feature.yaml` spec files
-- Run a CLI command to extract Acceptance Criteria IDs (ACIDs) and push them to a server
-- Use the dashboard, CLI, and API to track implementation progress and conduct structured QA
+## Product Overview
 
-The result: AI agents can more easily query and search requirements, specs, states, and code refs across repos and implementations, helping them self-assign work and stay on-track. Humans get a cross-sectional view of their products, feature specs, and AI agent changes.
+Acai.sh is a set of tools, including a webapp and JSON REST API (both in this Elixir Phoenix app), and a CLI (separate repo). The tools are used to support a spec-driven software development workflow.
+- Write requirements and acceptance criteria in `feature.yaml` spec files, following a standard spec format we've invented.
+- Run a CLI command to extract the specs and push them to the server. The CLI also looks for references to requirement IDs in your codebase, and records those as well.
+- Use the dashboard to see a cross-sectional view of your products, features, and implementations. Drill down to see whether a requirement is represented in tests or application code.
+- Annotate your projects with states (e.g. "assigned", "completed", "accepted") and comments, to empower collaboration and coordination and to effectively manage your software projects.
 
-## Mental Model
+The result: AI agents can use the CLI to query and search requirements, specs, states, and code references across repos and implementations. This enables them to self-assign work and stay on-track. Humans can use the dashboard to monitor progress, report issues, or mark requirements as "accepted".
+
+## Data Model
 
 ### What is a Spec?
 
@@ -23,105 +25,110 @@ feature:
 components:
     EXAMPLE:
       requirements:
-        1: The ACID for this requirement is 'my-feature.EXAMPLE.1'
-        1-1: The ACID for this sub-requirement is 'my-feature.EXAMPLE.1-1'
+        1: The requirement ID for this requirement is 'my-feature.EXAMPLE.1'
+        1-1: The requirement ID for this sub-requirement is 'my-feature.EXAMPLE.1-1'
 ```
 
-A spec can have multiple versions on different git branches with different `feature.version` numbers. The `specs` table maintains one row per branch-local spec identity (see `data-model.SPEC_IDENTITY`). A spec is inserted when:
-- Product name + feature name combo is new (brand new feature)
-- Branch + version is new (branched refactoring of existing feature)
+The `specs` table maintains one row per branch-local spec identity: `branch_id` + `feature_name`. A spec is inserted when:
+- A feature is first pushed to a branch
+- A feature is renamed, creating a new `feature_name` on that branch
 
-Otherwise, existing specs are updated. The `path`, `version`, `raw_content`, and `requirements` map are all mutable per `data-model.SPEC_IDENTITY.4`.
+Otherwise, the existing spec row is updated. `path` is mutable metadata, `feature_version` updates in place, and `raw_content` plus `requirements` are overwritten on each successful push.
 
 ### What is an Implementation?
 
-One product can have many implementations. An implementation is a group of tracked branches with optional parent inheritance per `data-model.INHERITANCE`.
+One product can have many implementations. An implementation is a product-wide environment defined by a set of tracked branches, with optional parent inheritance.
 
 Examples:
 - `Production` tracks `frontend/main` and `backend/main`, no parent
 - `Staging` tracks `frontend/dev` and `backend/dev`, parent is `Production`
 - `experiment-1` tracks `frontend/experiment` and `backend/dev`, parent is `Staging`
 
-Constraints per `data-model.TRACKED_BRANCHES.4`:
-- feature.yaml files must be pushed from tracked branches or parent implementation's tracked branches
+Core constraint:
 - An implementation cannot track two branches in the same repo
 
-The `branches` table stores stable rows per `(team_id, repo_uri, branch_name)` per `data-model.BRANCHES.6-1`, enabling branch renames without breaking foreign keys. The `tracked_branches` join table associates implementations with branches they track.
+The `branches` table stores stable rows per `(team_id, repo_uri, branch_name)`, enabling branch renames without breaking foreign keys. The `tracked_branches` join table associates implementations with branches they track.
 
 ### Implementation Inheritance
 
-Supported via optional `parent_implementation_id` with `ON DELETE SET NULL` per `data-model.IMPLS.7-1`. Inheritance allows quick branch/implementation creation without losing parent refs, status updates, and specs.
+Supported via optional `parent_implementation_id` with `ON DELETE SET NULL`.
 
-We use lazy inheritance: states and refs are resolved by traversing the parent chain on each query per `data-model.INHERITANCE.2`, not snapshotted at creation. This trades potential staleness (when child branches drift from parent) for write performance. Developers can always do a full push from the child branch or pull upstream git changes.
+Inheritance behavior differs by data type:
+- Specs are resolved across tracked branches, with the child's spec taking precedence when both parent and child have the same feature
+- States are snapshotted from the parent on the first push for a given `(implementation_id, feature_name)`; later parent changes do not affect the child
+- Code references are aggregated across tracked branches, walking up the parent chain when needed
 
-New implementations are created automatically when pushing from an untracked branch per `push.NEW_IMPLS.1`.
+New implementations are created automatically when specs are pushed to an untracked branch, and the default implementation name is the branch name.
 
 ## Data Model
 
-See `setup_database.exs` for the schema and `data-model.feature.yaml` for the full spec.
+This section summarizes the schema implemented in `priv/repo/migrations/20260308000000_setup_database.exs`.
 
 ### Key Tables
 
 | Table | Purpose | Key Constraints |
 |-------|---------|-----------------|
-| `teams` | Top-level tenant for RBAC and billing | Unique name, URL-safe chars only (`data-model.TEAMS.2-1`) |
-| `products` | Collection of features | Unique `(team_id, name)` per `data-model.PRODUCTS.6` |
-| `branches` | Stable branch identity | Unique `(team_id, repo_uri, branch_name)` per `data-model.BRANCHES.6-1` |
-| `tracked_branches` | Implementation ↔ Branch join table | Unique `(implementation_id, repo_uri)` per `data-model.TRACKED_BRANCHES.4` |
-| `specs` | Branch-local spec files | Unique `(branch_id, feature_name)` per `data-model.SPECS.12` |
-| `feature_impl_states` | ACID states per feature + implementation | GIN index on JSONB states per `data-model.FEATURE_IMPL_STATES.6` |
-| `feature_branch_refs` | Code refs per feature + branch | GIN index on JSONB refs per `data-model.FEATURE_BRANCH_REFS.8` |
+| `teams` | Top-level tenant for RBAC and billing | Unique name, URL-safe chars only |
+| `products` | Collection of features | Unique `(team_id, name)` |
+| `access_tokens` | API access tokens with scoped permissions | Unique `token_hash` |
+| `user_team_roles` | Team membership join table | Unique `(team_id, user_id)` role assignment |
+| `implementations` | Product-wide environments with optional inheritance | Unique `(product_id, name)`; parent uses `ON DELETE SET NULL` |
+| `branches` | Stable branch identity | Unique `(team_id, repo_uri, branch_name)` |
+| `tracked_branches` | Implementation ↔ Branch join table | Unique `(implementation_id, repo_uri)` |
+| `specs` | Branch-local spec files | Unique `(branch_id, feature_name)` |
+| `feature_impl_states` | Requirement states per feature + implementation | GIN index on JSONB states |
+| `feature_branch_refs` | Code references per feature + branch | GIN index on JSONB refs |
 
-Both `feature_impl_states` and `feature_branch_refs` are keyed by `feature_name` (ACID prefix), not `spec_id`. This allows pushing states/refs without a local spec file—useful for monorepos where specs live in a different repo than the implementing code.
+Both `feature_impl_states` and `feature_branch_refs` are keyed by `feature_name` (the requirement ID prefix), not `spec_id`. This allows pushing states and code references without a local spec file, which is useful for monorepos where specs live in a different repo than the implementing code.
+
+`access_tokens.scopes` is stored as a non-null JSONB field in the database. Default scopes are assigned by application code rather than by a database default.
 
 ### Standard Fields
 
-All tables include `created_at` and `updated_at` timestamps per `data-model.FIELDS.1`. All entities use UUIDv7 primary keys per `data-model.FIELDS.2`, except `user_team_roles`.
+All tables described by this data model include `created_at` and `updated_at` timestamps. Primary keys are stored in `uuid` columns and generated as UUIDv7 values by the application, except `user_team_roles`, which has no `id` primary key.
 
 ## CLI (MVP)
 
 Most use-cases are covered by `acai push`:
-- `acai push`: Git-aware push of changed specs/refs only
+- `acai push`: Git-aware push of changed specs and code references only
 - `acai push --all`: Full repo scan and push (useful for setup or major drift)
 
 ## API (MVP)
 
 ### POST /api/v1/push
 
-See `push.feature.yaml` for the full spec.
-
 **Authentication**: Bearer token with vanilla access token generated in UI.
 
 **Key Behaviors**:
-- All operations are atomic per `push.TX.1`—any failure rolls back the entire push
-- Push is idempotent per `push.IDEMPOTENCY.1`
-- Partial pushes merge with existing data per `push.WRITE_STATES.3` and `push.REFS.5`
-- First state write snapshots from parent then merges per `push.WRITE_STATES.2`
+- All operations are atomic; any failure rolls back the entire push
+- Push is idempotent
+- Partial pushes merge with existing data
+- First state write snapshots from parent, then merges
 
 **Common Rejection Scenarios**:
-- Multi-product push (`push.NEW_IMPLS.4`)
-- States without implementation (`push.NEW_IMPLS.2`)
-- Implementation name collision (`push.NEW_IMPLS.5`)
-- Branch tracked by different implementation (`push.EXISTING_IMPLS.4`)
+- Multi-product push
+- States without implementation
+- Implementation name collision
+- Branch tracked by different implementation
 
 ## Key User Journeys
 
 All journeys work locally, on CI (GitHub Actions), or via git hooks:
-- Update existing spec (`push.UPDATE_SPEC`)
-- Add new spec (`push.INSERT_SPEC`)
-- Delete/rename feature or product (`data-model.SPEC_IDENTITY.3`)
-- Edit code/tests → new refs (`push.WRITE_REFS`)
-- Change implementation state (`push.WRITE_STATES`)
-- Mixed changes in single commit (`push.TX.1`)
+- Update existing spec
+- Add new spec
+- Delete or rename a feature or product
+- Edit code or tests, creating new code references
+- Change implementation state
+- Mix spec, code reference, and state changes in a single push
 
 ## Edge Cases
 
-| Case | Behavior | ACID |
+| Case | Behavior | Note |
 |------|----------|------|
-| Orphaned states | Retained for reinstatement | `push.WRITE_STATES.4` |
-| Dangling refs | Allowed, persisted if format valid | `push.REFS.3` |
-| Spec rename | New spec created; old preserved | `data-model.SPEC_IDENTITY.3` |
-| Parent deleted | Child survives (SET NULL) | `data-model.IMPLS.7-1` |
-| First state write | Snapshot from parent, then merge | `push.WRITE_STATES.2` |
-| Override mode | Replace entire bucket | `push.REFS.6`, `push.STATES.1` |
-| Concurrent pushes | Last-write-wins | `push.TX.2` |
+| Orphaned states | Retained for reinstatement | Retained data |
+| Dangling code references | Allowed, persisted if format valid | Valid reference shape only |
+| Spec rename | New spec created; old preserved | New feature identity |
+| Parent deleted | Child survives | `ON DELETE SET NULL` |
+| First state write | Snapshot from parent, then merge | Copy-on-first-write |
+| Override mode | Replace entire bucket | Full bucket replacement |
+| Concurrent pushes | Last-write-wins | Latest successful write |

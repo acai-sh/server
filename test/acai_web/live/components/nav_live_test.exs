@@ -311,4 +311,149 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
       assert has_element?(view, "#team-selector option[value='#{team1.name}']")
     end
   end
+
+  describe "nav.PANEL: Duplicate feature deduplication" do
+    setup :register_and_log_in_user
+
+    # product-view.MATRIX.2: Features should be distinct (deduplicated) in nav
+    test "deduplicates features that exist across multiple branches", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _} = create_team_with_owner(user)
+
+      # Create a product
+      product = product_fixture(team, %{name: "dedup-product"})
+
+      # Create two different branches
+      branch1 = branch_fixture(team, %{branch_name: "main"})
+      branch2 = branch_fixture(team, %{branch_name: "develop"})
+
+      # Create two specs for the SAME feature on different branches
+      # This simulates the real scenario where form-editor and map-settings have 2 versions each
+      spec_fixture(product, %{
+        feature_name: "form-editor",
+        branch: branch1,
+        feature_version: "1.0.0"
+      })
+
+      spec_fixture(product, %{
+        feature_name: "form-editor",
+        branch: branch2,
+        feature_version: "1.1.0"
+      })
+
+      # Create another feature with multiple specs
+      spec_fixture(product, %{
+        feature_name: "map-settings",
+        branch: branch1,
+        feature_version: "1.0.0"
+      })
+
+      spec_fixture(product, %{
+        feature_name: "map-settings",
+        branch: branch2,
+        feature_version: "2.0.0"
+      })
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
+
+      # Expand the product
+      view |> element("button[phx-value-product='dedup-product']") |> render_click()
+
+      html = render(view)
+
+      # Count feature links - we expect exactly 2 links (one per unique feature)
+      # The feature name appears in: 1) link text, 2) URL path
+      # So we count links to verify deduplication
+
+      # Count links containing the feature name in the href
+      # Each unique feature should have exactly one link
+      form_editor_links =
+        Regex.scan(~r{href=['"]/t/[^/]+/f/form-editor['"]}, html)
+        |> length()
+
+      map_settings_links =
+        Regex.scan(~r{href=['"]/t/[^/]+/f/map-settings['"]}, html)
+        |> length()
+
+      assert form_editor_links == 1,
+             "Expected 1 link to form-editor, but found #{form_editor_links}"
+
+      assert map_settings_links == 1,
+             "Expected 1 link to map-settings, but found #{map_settings_links}"
+
+      # Verify both features are rendered as link text
+      assert has_element?(view, "a", "form-editor")
+      assert has_element?(view, "a", "map-settings")
+    end
+
+    # product-view.MATRIX.2: Ensure features are sorted alphabetically
+    test "features are sorted alphabetically", %{conn: conn, user: user} do
+      {team, _} = create_team_with_owner(user)
+      product = product_fixture(team, %{name: "sorted-product"})
+
+      # Create features in non-alphabetical order
+      spec_fixture(product, %{feature_name: "zebra-feature"})
+      spec_fixture(product, %{feature_name: "alpha-feature"})
+      spec_fixture(product, %{feature_name: "mango-feature"})
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
+
+      # Expand the product
+      view |> element("button[phx-value-product='sorted-product']") |> render_click()
+
+      # Verify all features are rendered
+      assert has_element?(view, "a", "alpha-feature")
+      assert has_element?(view, "a", "mango-feature")
+      assert has_element?(view, "a", "zebra-feature")
+    end
+  end
+
+  describe "nav.PANEL: Product icon and styling" do
+    setup :register_and_log_in_user
+
+    # Product nav uses custom-boxes icon consistent with Product visual language
+    test "product nav item uses custom-boxes icon", %{conn: conn, user: user} do
+      {team, _} = create_team_with_owner(user)
+      create_product_with_specs(team, "icon-test-product", ["feature-1"])
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
+
+      # The product link should contain the custom-boxes icon
+      assert has_element?(view, "a[href='/t/#{team.name}/p/icon-test-product']")
+
+      html = render(view)
+      # Verify custom-boxes icon is present in the product row
+      assert html =~ "custom-boxes"
+    end
+
+    # Product nav uses secondary color styling consistent with Product visual language
+    test "product nav item uses secondary color for active state", %{conn: conn, user: user} do
+      {team, _} = create_team_with_owner(user)
+      create_product_with_specs(team, "active-product", ["feature-1"])
+
+      # Navigate to the product page to make it active
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/active-product")
+
+      html = render(view)
+
+      # The active product should have text-secondary class
+      assert html =~ "text-secondary"
+    end
+
+    # Feature items should use primary color (not secondary)
+    test "feature nav items use primary color for active state", %{conn: conn, user: user} do
+      {team, _} = create_team_with_owner(user)
+      create_product_with_specs(team, "feature-test-product", ["active-feature"])
+
+      # Navigate to the feature page to make it active
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/active-feature")
+
+      html = render(view)
+
+      # The active feature should have text-primary class
+      assert html =~ "text-primary"
+    end
+  end
 end

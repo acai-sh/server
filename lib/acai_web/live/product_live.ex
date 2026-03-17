@@ -149,16 +149,6 @@ defmodule AcaiWeb.ProductLive do
     )
   end
 
-  # Handle product selector change
-  # product-view.PRODUCT_SELECTOR.2
-  @impl true
-  def handle_event("select_product", %{"product" => %{"product_id" => product_name}}, socket) do
-    %{team: team} = socket.assigns
-
-    # Patch the URL to the new product without full page navigation
-    {:noreply, push_patch(socket, to: ~p"/t/#{team.name}/p/#{product_name}")}
-  end
-
   # Calculate cell color based on completion percentage
   # product-view.MATRIX.4
   defp completion_color_class(percentage) when percentage <= 50, do: ""
@@ -183,33 +173,26 @@ defmodule AcaiWeb.ProductLive do
       current_path={@current_path}
     >
       <div class="space-y-6">
-        <%!-- product-view.MAIN.1: Page header --%>
-        <.content_header
-          page_title="Product Overview"
-          resource_name={@product_name}
-          resource_icon="hero-circle-stack"
-          breadcrumb_items={[
-            %{label: "Overview", navigate: ~p"/t/#{@team.name}", icon: "hero-home"},
-            %{label: @product_name}
-          ]}
-        />
+        <%!-- product-view.MAIN.1: Page header with breadcrumb --%>
+        <nav class="flex items-center gap-2 text-sm text-base-content/70">
+          <.link navigate={~p"/t/#{@team.name}"} class="hover:text-primary flex items-center gap-1">
+            <.icon name="hero-home" class="size-4" />
+          </.link>
+          <span class="text-base-content/40">/</span>
+          <span class="text-base-content font-medium">{@product_name}</span>
+        </nav>
 
-        <%!-- Product selector dropdown --%>
-        <%!-- product-view.PRODUCT_SELECTOR.1 --%>
-        <div class="flex items-center gap-4">
-          <form phx-change="select_product" id="product-selector-form">
-            <.input
-              type="select"
-              name="product[product_id]"
-              value={@product_name}
-              options={Enum.map(@products, &{&1.name, &1.name})}
-              class="select select-bordered w-64"
-            />
-          </form>
-          <span class="text-sm text-base-content/60">
-            {length(@active_implementations)} active implementation{if length(@active_implementations) !=
-                                                                         1, do: "s", else: ""}
-          </span>
+        <%!-- product-view.MAIN.2: Page title --%>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+          <span class="text-2xl font-bold">Overview of the</span>
+          <span class="text-2xl font-bold">{@product_name}</span>
+          <span class="text-2xl font-bold">product</span>
+        </div>
+
+        <%!-- product-view.MAIN.3: Implementation count --%>
+        <div class="text-sm text-base-content/60">
+          {length(@active_implementations)} active implementation{if length(@active_implementations) !=
+                                                                       1, do: "s", else: ""}
         </div>
 
         <%!-- Empty state --%>
@@ -233,18 +216,18 @@ defmodule AcaiWeb.ProductLive do
           <%!-- Feature × Implementation Matrix --%>
           <%!-- product-view.MATRIX.1, product-view.MATRIX.2 --%>
           <div class="overflow-x-auto border border-base-300 rounded-lg">
-            <table class="table table-zebra w-full">
+            <table class="table w-full">
               <thead>
-                <tr class="bg-base-200">
+                <tr class="bg-base-100">
                   <%!-- Feature name column header --%>
-                  <th class="sticky left-0 bg-base-200 z-10 min-w-[200px] border-r border-base-300">
+                  <th class="sticky left-0 bg-base-100 z-10 min-w-[200px] border-r border-base-300">
                     Feature
                   </th>
                   <%!-- Implementation column headers --%>
                   <%= for impl <- @active_implementations do %>
                     <th class="text-center min-w-[100px] border-l border-base-300 first:border-l-0">
                       <div class="flex flex-col items-center gap-1">
-                        <.icon name="hero-server" class="size-4 text-base-content/50" />
+                        <.icon name="hero-tag" class="size-4 text-secondary" />
                         <span class="text-xs font-medium truncate max-w-[120px]" title={impl.name}>
                           {impl.name}
                         </span>
@@ -255,7 +238,7 @@ defmodule AcaiWeb.ProductLive do
               </thead>
               <tbody>
                 <%= for row <- @matrix_rows do %>
-                  <tr class="hover:bg-base-200/50">
+                  <tr class="bg-base-100 hover:bg-base-200/50">
                     <%!-- Feature name cell (row header) --%>
                     <%!-- product-view.MATRIX.5 --%>
                     <td class="sticky left-0 bg-base-100 z-10 border-r border-base-300 p-0">
@@ -275,7 +258,7 @@ defmodule AcaiWeb.ProductLive do
                     </td>
                     <%!-- Completion cells --%>
                     <%= for cell <- row.cells do %>
-                      <td class="text-center border-l border-base-300 first:border-l-0 p-0">
+                      <td class="bg-base-100 text-center border-l border-base-300 first:border-l-0 p-0">
                         <%!-- product-view.MATRIX.7 --%>
                         <.link
                           navigate={"/t/#{@team.name}/i/#{cell.implementation_slug}/f/#{row.feature_name}"}

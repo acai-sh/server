@@ -423,7 +423,7 @@ defmodule AcaiWeb.CoreComponents do
   end
 
   @doc """
-  Renders a [Heroicon](https://heroicons.com).
+  Renders a [Heroicon](https://heroicons.com) or custom SVG icon.
 
   Heroicons come in three styles – outline, solid, and mini.
   By default, the outline style is used, but solid and mini may
@@ -439,11 +439,27 @@ defmodule AcaiWeb.CoreComponents do
 
       <.icon name="hero-x-mark" />
       <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
+
+  ## Custom Icons
+
+  Custom SVG icons can be added by placing `.svg` files in `assets/icons/`.
+  These icons are automatically processed by the Tailwind plugin in
+  `assets/vendor/custom_icons.js` and can be used with the `custom-` prefix.
+
+  ## Examples
+
+      <.icon name="custom-git-branch" class="size-5" />
   """
-  attr :name, :string, required: true
-  attr :class, :any, default: "size-4"
+  attr :name, :string, required: true, doc: "the icon name with 'hero-' or 'custom-' prefix"
+  attr :class, :any, default: "size-4", doc: "CSS classes for sizing (e.g., 'size-5')"
 
   def icon(%{name: "hero-" <> _} = assigns) do
+    ~H"""
+    <span class={[@name, @class]} />
+    """
+  end
+
+  def icon(%{name: "custom-" <> _} = assigns) do
     ~H"""
     <span class={[@name, @class]} />
     """
@@ -524,6 +540,11 @@ defmodule AcaiWeb.CoreComponents do
   attr :page_title, :string, required: true, doc: "the static page title (e.g., 'Team Overview')"
   attr :resource_name, :string, required: true, doc: "the resource name to display"
   attr :resource_icon, :string, default: nil, doc: "optional icon name for the resource"
+
+  attr :resource_icon_color, :string,
+    default: "primary",
+    doc: "color class for the resource icon (primary, secondary, etc.)"
+
   attr :resource_description, :string, default: nil, doc: "optional description text"
 
   attr :breadcrumb_items, :list,
@@ -560,7 +581,7 @@ defmodule AcaiWeb.CoreComponents do
 
       <.header>
         <:icon :if={@resource_icon}>
-          <.icon name={@resource_icon} class="size-6 text-primary" />
+          <.icon name={@resource_icon} class={"size-6 text-#{@resource_icon_color}"} />
         </:icon>
         {@resource_name}
         <:actions :if={@actions != []}>

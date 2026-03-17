@@ -1,12 +1,13 @@
 defmodule AcaiWeb.ImplementationLive do
   use AcaiWeb, :live_view
 
-  import Ecto.Query
+  import AcaiWeb.Helpers.RepoFormatter
 
   alias Acai.Teams
   alias Acai.Specs
   alias Acai.Implementations
 
+  # feature-impl-view.ROUTING.1
   @impl true
   def mount(
         %{"team_name" => team_name, "feature_name" => feature_name, "impl_slug" => impl_slug},
@@ -15,10 +16,11 @@ defmodule AcaiWeb.ImplementationLive do
       ) do
     team = Teams.get_team_by_name!(team_name)
 
-    # implementation-view.ROUTING.2: Parse slug and look up implementation
+    # feature-impl-view.ROUTING.3: impl_id is the UUID used for lookup
+    # Parse the slug to get the implementation by UUID
     case Implementations.get_implementation_by_slug(impl_slug) do
       nil ->
-        # implementation-view.ROUTING.3: Redirect if implementation not found
+        # feature-impl-view.ROUTING.3: Redirect if implementation not found
         socket =
           socket
           |> put_flash(:error, "Implementation not found")
@@ -29,23 +31,7 @@ defmodule AcaiWeb.ImplementationLive do
       implementation ->
         # Verify the implementation belongs to this team
         if implementation.team_id == team.id do
-          # data-model.IMPLS: Implementation belongs to product, not spec
-          # Find the spec for this feature_name within the same product
-          implementation = Acai.Repo.preload(implementation, :product)
-
-          case find_spec_for_feature(team, implementation.product_id, feature_name) do
-            nil ->
-              # No spec found for this feature in this product
-              socket =
-                socket
-                |> put_flash(:error, "Feature not found in this product")
-                |> push_navigate(to: ~p"/t/#{team.name}/f/#{feature_name}")
-
-              {:ok, socket}
-
-            spec ->
-              mount_implementation_view(socket, team, spec, implementation, feature_name)
-          end
+          mount_implementation_view(socket, team, implementation, feature_name)
         else
           # Team mismatch - redirect
           socket =
@@ -58,17 +44,50 @@ defmodule AcaiWeb.ImplementationLive do
     end
   end
 
-  # Find a spec by feature_name for a given product
-  defp find_spec_for_feature(_team, product_id, feature_name) do
-    Acai.Repo.one(
-      from s in Acai.Specs.Spec,
-        where: s.product_id == ^product_id,
-        where: s.feature_name == ^feature_name,
-        limit: 1
-    )
+  # Mount implementation view with data loading
+  defp mount_implementation_view(socket, team, implementation, feature_name) do
+    # data-model.IMPLS: Implementation belongs to product
+    # Preload product for context
+    implementation = Acai.Repo.preload(implementation, :product)
+    product = implementation.product
+
+    # feature-impl-view.INHERITANCE.1: Find canonical spec using tracked branches + inheritance
+    case Specs.resolve_canonical_spec(feature_name, implementation.id) do
+      {nil, nil} ->
+        # No spec found for this feature anywhere in the ancestry
+        socket =
+          socket
+          |> put_flash(:error, "Feature not found for this implementation")
+          |> push_navigate(to: ~p"/t/#{team.name}/f/#{feature_name}")
+
+        {:ok, socket}
+
+      {spec, spec_source} ->
+        load_implementation_data(
+          socket,
+          team,
+          product,
+          spec,
+          implementation,
+          feature_name,
+          spec_source
+        )
+    end
   end
 
-  defp mount_implementation_view(socket, team, spec, implementation, feature_name) do
+  # Load all data for the implementation view
+  defp load_implementation_data(
+         socket,
+         team,
+         product,
+         spec,
+         implementation,
+         feature_name,
+         spec_source
+       ) do
+    sort_field = socket.assigns[:sort_field] || :acid
+    sort_dir = socket.assigns[:sort_dir] || :asc
+
     # data-model.SPECS.11: Requirements are JSONB on the spec
     # data-model.SPECS.12: Preload product association for breadcrumb
     # data-model.SPECS.3: Preload branch association for repo info
@@ -77,23 +96,35 @@ defmodule AcaiWeb.ImplementationLive do
     # Build requirement rows from the JSONB requirements map
     requirements = build_requirement_rows_from_spec(spec)
 
-    # data-model.FEATURE_IMPL_STATES: Load states from feature_impl_states JSONB
-    spec_impl_state = Specs.get_spec_impl_state(spec, implementation)
-    states = if spec_impl_state, do: spec_impl_state.states, else: %{}
+    # feature-impl-view.INHERITANCE.2: Load states with inheritance walking
+    {spec_impl_state, state_source_impl_id} =
+      Specs.get_feature_impl_state_with_inheritance(feature_name, implementation.id)
 
-    # data-model.INHERITANCE.8: Aggregate refs from feature_branch_refs across tracked branches
-    # feature-impl-view.MAIN.4: Refs column shows total refs across tracked branches
-    # feature-impl-view.INHERITANCE.3: Refs aggregated from tracked branches
-    _ref_counts = Implementations.count_refs_for_implementation(feature_name, implementation.id)
+    states = if spec_impl_state, do: spec_impl_state.states, else: %{}
+    states_inherited = state_source_impl_id != nil
+
+    # feature-impl-view.INHERITANCE.3: Aggregate refs with inheritance
+    {aggregated_refs, refs_source_impl_id} =
+      Implementations.get_aggregated_refs_with_inheritance(feature_name, implementation.id)
+
+    refs_inherited = refs_source_impl_id != nil
 
     # Load tracked branches with preloaded branch association
     tracked_branches = Implementations.list_tracked_branches(implementation)
 
-    # Get aggregated refs for the drawer (we'll pass this to the drawer component)
-    {aggregated_refs, is_inherited} =
-      Implementations.get_aggregated_refs_with_inheritance(feature_name, implementation.id)
+    # feature-impl-view.ROUTING.4: Load implementations that can resolve this feature
+    # feature-impl-view.INHERITANCE.1: Includes implementations that inherit the feature from parents
+    # feature-impl-view.CARDS.1-4
+    available_implementations = Specs.list_implementations_for_feature(feature_name, product)
+
+    # feature-impl-view.ROUTING.4: Load features scoped to this implementation's tracked branches
+    # feature-impl-view.INHERITANCE.1: Includes features inherited from parent implementations
+    # feature-impl-view.CARDS.1-3
+    available_features = Specs.list_features_for_implementation(implementation, product)
 
     # Build requirement rows with status and counts
+    # feature-impl-view.LIST.2: Table columns are ACID, Status, Definition, Refs count
+    # feature-impl-view.LIST.4: Refs column shows total number of code references across all tracked branches
     requirement_rows =
       requirements
       |> Enum.map(fn req ->
@@ -103,12 +134,13 @@ defmodule AcaiWeb.ImplementationLive do
         # feature-impl-view.DRAWER.4: Get refs for this ACID from aggregated branch refs
         acid_refs = Implementations.get_refs_for_acid(aggregated_refs, acid)
 
-        # Count refs and tests across all branches
+        # feature-impl-view.LIST.4: Count ALL refs (test + non-test) across all branches
         refs_count =
           Enum.reduce(acid_refs, 0, fn {_branch, ref_list}, acc ->
-            acc + Enum.count(ref_list, fn ref -> not Map.get(ref, "is_test", false) end)
+            acc + length(ref_list)
           end)
 
+        # Keep tests_count for coverage grids
         tests_count =
           Enum.reduce(acid_refs, 0, fn {_branch, ref_list}, acc ->
             acc + Enum.count(ref_list, fn ref -> Map.get(ref, "is_test", false) end)
@@ -118,6 +150,7 @@ defmodule AcaiWeb.ImplementationLive do
           id: acid,
           acid: acid,
           definition: req.definition,
+          # feature-impl-view.LIST.3: Status column shows state of this implementation, or inherited
           status: state_data["status"],
           refs_count: refs_count,
           tests_count: tests_count,
@@ -126,21 +159,48 @@ defmodule AcaiWeb.ImplementationLive do
           replaced_by: req.replaced_by
         }
       end)
-      |> Enum.sort_by(& &1.acid)
+      # feature-impl-view.LIST.2-2
+      # feature-impl-view.LIST.2-3
+      |> sort_requirements(sort_field, sort_dir)
+
+    # Load source implementations for inherited items (for popper links)
+    states_source_impl =
+      if state_source_impl_id do
+        Implementations.get_implementation(state_source_impl_id)
+        |> Acai.Repo.preload(:team)
+      else
+        nil
+      end
+
+    refs_source_impl =
+      if refs_source_impl_id do
+        Implementations.get_implementation(refs_source_impl_id)
+        |> Acai.Repo.preload(:team)
+      else
+        nil
+      end
 
     socket =
       socket
       |> assign(:team, team)
+      |> assign(:product, product)
       |> assign(:spec, spec)
       |> assign(:implementation, implementation)
       |> assign(:feature_name, feature_name)
       |> assign(:requirements, requirement_rows)
+      |> assign(:sort_field, sort_field)
+      |> assign(:sort_dir, sort_dir)
       |> assign(:tracked_branches, tracked_branches)
+      |> assign(:available_implementations, available_implementations)
+      |> assign(:available_features, available_features)
       |> assign(:selected_acid, nil)
       |> assign(:drawer_visible, false)
-      |> assign(:sort_by, :acid)
-      |> assign(:sort_dir, :asc)
-      |> assign(:refs_inherited, is_inherited)
+      |> assign(:spec_source, spec_source)
+      |> assign(:spec_inherited, spec_source.is_inherited)
+      |> assign(:states_inherited, states_inherited)
+      |> assign(:states_source_impl, states_source_impl)
+      |> assign(:refs_inherited, refs_inherited)
+      |> assign(:refs_source_impl, refs_source_impl)
       |> assign(:aggregated_refs, aggregated_refs)
       |> assign(
         :current_path,
@@ -164,28 +224,116 @@ defmodule AcaiWeb.ImplementationLive do
     end)
   end
 
-  @impl true
-  def handle_event("sort", %{"by" => by}, socket) do
-    by_atom = String.to_existing_atom(by)
-    current_dir = socket.assigns.sort_dir
+  # feature-impl-view.LIST.2-2
+  # feature-impl-view.LIST.2-3
+  defp sort_requirements(requirements, sort_field, sort_dir) do
+    sorted = Enum.sort_by(requirements, &requirement_sort_key(&1, sort_field))
 
-    # Toggle direction if clicking same column, otherwise default to asc
-    new_dir =
-      if socket.assigns.sort_by == by_atom do
-        if current_dir == :asc, do: :desc, else: :asc
-      else
-        :asc
-      end
-
-    sorted_requirements = sort_requirements(socket.assigns.requirements, by_atom, new_dir)
-
-    {:noreply,
-     socket
-     |> assign(:sort_by, by_atom)
-     |> assign(:sort_dir, new_dir)
-     |> assign(:requirements, sorted_requirements)}
+    case sort_dir do
+      :desc -> Enum.reverse(sorted)
+      _ -> sorted
+    end
   end
 
+  defp requirement_sort_key(requirement, :acid) do
+    {String.downcase(requirement.acid), String.downcase(requirement.definition || "")}
+  end
+
+  defp requirement_sort_key(requirement, :status) do
+    {status_sort_rank(requirement.status), String.downcase(requirement.acid)}
+  end
+
+  defp requirement_sort_key(requirement, :definition) do
+    {String.downcase(requirement.definition || ""), String.downcase(requirement.acid)}
+  end
+
+  defp requirement_sort_key(requirement, :refs_count) do
+    {requirement.refs_count, String.downcase(requirement.acid)}
+  end
+
+  defp requirement_sort_key(requirement, _sort_field),
+    do: requirement_sort_key(requirement, :acid)
+
+  defp status_sort_rank("accepted"), do: 1
+  defp status_sort_rank("completed"), do: 2
+  defp status_sort_rank("assigned"), do: 3
+  defp status_sort_rank("blocked"), do: 4
+  defp status_sort_rank("rejected"), do: 5
+  defp status_sort_rank(_status), do: 6
+
+  defp normalize_sort_field("acid"), do: :acid
+  defp normalize_sort_field("status"), do: :status
+  defp normalize_sort_field("definition"), do: :definition
+  defp normalize_sort_field("refs_count"), do: :refs_count
+  defp normalize_sort_field(_field), do: :acid
+
+  defp next_sort_dir(current_field, current_dir, new_field) when current_field == new_field do
+    case current_dir do
+      :asc -> :desc
+      _ -> :asc
+    end
+  end
+
+  defp next_sort_dir(_current_field, _current_dir, _new_field), do: :asc
+
+  defp acid_dom_id(acid), do: String.replace(acid, ".", "-")
+
+  # Handle params for URL changes (patch navigation)
+  # feature-impl-view.CARDS.1-2: Reload page data when URL is patched via dropdown changes
+  @impl true
+  def handle_params(
+        %{"team_name" => team_name, "feature_name" => feature_name, "impl_slug" => impl_slug},
+        uri,
+        socket
+      ) do
+    # Update current_path for navigation highlighting
+    socket = assign(socket, :current_path, URI.parse(uri).path)
+
+    # Only reload data if params have actually changed (not on initial mount)
+    current_impl = socket.assigns[:implementation]
+    current_feature = socket.assigns[:feature_name]
+
+    should_reload =
+      is_nil(current_impl) or
+        is_nil(current_feature) or
+        Implementations.implementation_slug(current_impl) != impl_slug or
+        current_feature != feature_name
+
+    if should_reload do
+      reload_implementation_data(socket, team_name, impl_slug, feature_name)
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Reload implementation data after URL patch (shared logic with mount)
+  defp reload_implementation_data(socket, team_name, impl_slug, feature_name) do
+    team = Teams.get_team_by_name!(team_name)
+
+    case Implementations.get_implementation_by_slug(impl_slug) do
+      nil ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Implementation not found")
+         |> push_navigate(to: ~p"/t/#{team.name}/f/#{feature_name}")}
+
+      implementation ->
+        if implementation.team_id == team.id do
+          # Reload all data for the new implementation/feature
+          {:ok, new_socket} =
+            mount_implementation_view(socket, team, implementation, feature_name)
+
+          {:noreply, new_socket}
+        else
+          {:noreply,
+           socket
+           |> put_flash(:error, "Implementation not found")
+           |> push_navigate(to: ~p"/t/#{team.name}/f/#{feature_name}")}
+        end
+    end
+  end
+
+  @impl true
   def handle_event("open_drawer", %{"acid" => acid}, socket) do
     {:noreply,
      socket
@@ -200,25 +348,58 @@ defmodule AcaiWeb.ImplementationLive do
      |> assign(:selected_acid, nil)}
   end
 
+  # feature-impl-view.CARDS.1-2: Handle implementation dropdown change with patch navigation
+  def handle_event("select_implementation", %{"impl_id" => impl_slug}, socket) do
+    %{
+      team: team,
+      feature_name: feature_name,
+      available_implementations: available_implementations
+    } =
+      socket.assigns
+
+    allowed_impl_slugs =
+      MapSet.new(available_implementations, &Implementations.implementation_slug/1)
+
+    # feature-impl-view.CARDS.1-4
+    if MapSet.member?(allowed_impl_slugs, impl_slug) do
+      # Patch to the new URL without full page reload
+      {:noreply, push_patch(socket, to: ~p"/t/#{team.name}/i/#{impl_slug}/f/#{feature_name}")}
+    else
+      {:noreply, put_flash(socket, :error, "Implementation is not available for this feature")}
+    end
+  end
+
+  # feature-impl-view.LIST.2-2
+  # feature-impl-view.LIST.2-3
+  def handle_event("sort_requirements", %{"field" => field}, socket) do
+    sort_field = normalize_sort_field(field)
+    sort_dir = next_sort_dir(socket.assigns[:sort_field], socket.assigns[:sort_dir], sort_field)
+
+    {:noreply,
+     socket
+     |> assign(:sort_field, sort_field)
+     |> assign(:sort_dir, sort_dir)
+     |> assign(
+       :requirements,
+       sort_requirements(socket.assigns.requirements, sort_field, sort_dir)
+     )}
+  end
+
+  # feature-impl-view.CARDS.1-2: Handle feature dropdown change with patch navigation
+  def handle_event("select_feature", %{"feature_name" => new_feature_name}, socket) do
+    %{team: team, implementation: implementation} = socket.assigns
+    impl_slug = Implementations.implementation_slug(implementation)
+
+    # Patch to the new URL without full page reload
+    {:noreply, push_patch(socket, to: ~p"/t/#{team.name}/i/#{impl_slug}/f/#{new_feature_name}")}
+  end
+
   @impl true
   def handle_info("drawer_closed", socket) do
     {:noreply,
      socket
      |> assign(:selected_acid, nil)
      |> assign(:drawer_visible, false)}
-  end
-
-  defp sort_requirements(requirements, by, dir) do
-    sorted =
-      case by do
-        :acid -> Enum.sort_by(requirements, & &1.acid)
-        :status -> Enum.sort_by(requirements, &(&1.status || ""))
-        :definition -> Enum.sort_by(requirements, & &1.definition)
-        :refs -> Enum.sort_by(requirements, & &1.refs_count)
-        :tests -> Enum.sort_by(requirements, & &1.tests_count)
-      end
-
-    if dir == :desc, do: Enum.reverse(sorted), else: sorted
   end
 
   @impl true
@@ -231,86 +412,108 @@ defmodule AcaiWeb.ImplementationLive do
       current_path={@current_path}
     >
       <div class="space-y-6">
-        <%!-- implementation-view.MAIN.1: Page header --%>
-        <%!-- data-model.PRODUCTS: Product is now a separate entity --%>
-        <.content_header
-          page_title="Implementation"
-          resource_name={@implementation.name}
-          resource_icon="hero-code-bracket"
-          breadcrumb_items={[
-            %{label: "Overview", navigate: ~p"/t/#{@team.name}", icon: "hero-home"},
-            %{
-              label: @spec.product.name,
-              navigate: ~p"/t/#{@team.name}/p/#{@spec.product.name}"
-            },
-            %{label: @feature_name, navigate: ~p"/t/#{@team.name}/f/#{@feature_name}"},
-            %{label: @implementation.name}
-          ]}
+        <%!-- feature-impl-view.MAIN.1: Page header with breadcrumb --%>
+        <nav class="flex items-center gap-2 text-sm text-base-content/70">
+          <.link navigate={~p"/t/#{@team.name}"} class="hover:text-primary flex items-center gap-1">
+            <.icon name="hero-home" class="size-4" />
+          </.link>
+          <span class="text-base-content/40">/</span>
+          <.link navigate={~p"/t/#{@team.name}/p/#{@product.name}"} class="hover:text-primary">
+            {@product.name}
+          </.link>
+          <span class="text-base-content/40">/</span>
+          <.link navigate={~p"/t/#{@team.name}/f/#{@feature_name}"} class="hover:text-primary">
+            {@feature_name}
+          </.link>
+          <span class="text-base-content/40">/</span>
+          <span class="text-base-content font-medium">{@implementation.name}</span>
+        </nav>
+
+        <%!-- feature-impl-view.CARDS.1: Interactive title picker with dropdowns --%>
+        <.title_picker
+          implementation={@implementation}
+          feature_name={@feature_name}
+          available_implementations={@available_implementations}
+          available_features={@available_features}
         />
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <%!-- implementation-view.CANONICAL_SPEC.1 --%>
-          <.info_card title="Target Spec">
-            <div class="flex flex-col gap-2">
-              <div class="flex items-center sm:absolute top-4 right-6">
-                <.link
-                  navigate={~p"/t/#{@team.name}/f/#{@feature_name}"}
-                  class="link link-primary flex items-center gap-2 font-medium"
-                >
-                  <.icon name="hero-cube" class="size-4" />
-                  {@feature_name}
-                </.link>
-              </div>
-              <div class="text-sm text-base-content/70">
-                <div class="mt-2 flex flex-col gap-1 font-mono text-xs">
-                  <div class="flex items-center gap-2">
-                    <span class="truncate">{@spec.branch.repo_uri}</span>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <span class="truncate">{@spec.path}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </.info_card>
+          <%!-- feature-impl-view.CARDS.2: Target spec card with labeled fields and inheritance badge --%>
+          <.target_spec_card
+            spec={@spec}
+            spec_inherited={@spec_inherited}
+            spec_source={@spec_source}
+            feature_name={@feature_name}
+            team={@team}
+          />
 
-          <%!-- implementation-view.LINKED_BRANCHES: Tracked branches --%>
-          <.info_card title="Tracked Branches">
-            <.tracked_branches_list branches={@tracked_branches} />
-          </.info_card>
+          <%!-- feature-impl-view.CARDS.3: Tracked branches card listing branch names --%>
+          <.tracked_branches_card branches={@tracked_branches} />
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <%!-- implementation-view.REQ_COVERAGE: Requirements coverage grid --%>
-          <.coverage_section title="Requirements Coverage">
+          <.coverage_section
+            title="Requirements Coverage"
+            inherited={@states_inherited}
+            source_impl={@states_source_impl}
+            feature_name={@feature_name}
+          >
             <.req_coverage_grid
               requirements={@requirements}
               on_click="open_drawer"
+              inherited={@states_inherited}
             />
             <div class="mt-3 pt-3 border-t border-base-200 flex flex-wrap gap-x-3 gap-y-1 text-xs text-base-content/50">
               <span class="flex items-center gap-1">
-                <span class="w-2 h-2 rounded-sm bg-success" /> accepted
+                <span class={[
+                  "w-2 h-2 rounded-sm",
+                  @states_inherited && "bg-success/30",
+                  !@states_inherited && "bg-success"
+                ]} /> accepted
               </span>
               <span class="flex items-center gap-1">
-                <span class="w-2 h-2 rounded-sm bg-info" /> completed
+                <span class={[
+                  "w-2 h-2 rounded-sm",
+                  @states_inherited && "bg-info/30",
+                  !@states_inherited && "bg-info"
+                ]} /> completed
               </span>
               <span class="flex items-center gap-1">
-                <span class="w-2 h-2 rounded-sm bg-warning" /> assigned
+                <span class={[
+                  "w-2 h-2 rounded-sm",
+                  @states_inherited && "bg-warning/30",
+                  !@states_inherited && "bg-warning"
+                ]} /> assigned
               </span>
               <span class="flex items-center gap-1">
-                <span class="w-2 h-2 rounded-sm bg-error" /> blocked
+                <span class={[
+                  "w-2 h-2 rounded-sm",
+                  @states_inherited && "bg-error/30",
+                  !@states_inherited && "bg-error"
+                ]} /> blocked
               </span>
               <span class="flex items-center gap-1">
-                <span class="w-2 h-2 rounded-sm bg-error opacity-60" /> rejected
+                <span class={[
+                  "w-2 h-2 rounded-sm",
+                  @states_inherited && "bg-error/30",
+                  !@states_inherited && "bg-error opacity-60"
+                ]} /> rejected
               </span>
             </div>
           </.coverage_section>
 
           <%!-- implementation-view.TEST_COVERAGE: Test coverage grid --%>
-          <.coverage_section title="Test Coverage">
+          <.coverage_section
+            title="Test Coverage"
+            inherited={@refs_inherited}
+            source_impl={@refs_source_impl}
+            feature_name={@feature_name}
+          >
             <.test_coverage_grid
               requirements={@requirements}
               on_click="open_drawer"
+              inherited={@refs_inherited}
             />
             <% reqs_with_tests = Enum.count(@requirements, &(&1.tests_count > 0)) %>
             <% total_reqs = Enum.count(@requirements) %>
@@ -326,10 +529,10 @@ defmodule AcaiWeb.ImplementationLive do
         <%!-- implementation-view.REQ_LIST: Requirements table --%>
         <.requirements_table
           requirements={@requirements}
-          sort_by={@sort_by}
-          sort_dir={@sort_dir}
-          on_sort="sort"
           on_row_click="open_drawer"
+          inherited={@states_inherited}
+          sort_field={@sort_field}
+          sort_dir={@sort_dir}
         />
 
         <%!-- Requirement details drawer --%>
@@ -349,31 +552,333 @@ defmodule AcaiWeb.ImplementationLive do
     """
   end
 
+  # feature-impl-view.CARDS.1: Interactive title picker with dropdowns
+  # feature-impl-view.CARDS.1-3
+  # feature-impl-view.CARDS.1-4
+  # Rendered directly on background without card wrapper
+  defp title_picker(assigns) do
+    ~H"""
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+      <%!-- Implementation dropdown with popover API --%>
+      <div class="flex-shrink-0">
+        <button
+          class="btn btn-outline btn-xl flex items-center gap-2 justify-start font-bold lg:text-2xl px-2 border-secondary border-dashed"
+          popovertarget="impl-popover"
+          style="anchor-name:--anchor-impl"
+        >
+          <.icon name="hero-tag" class="size-5 text-secondary" />
+          <span class="truncate">{@implementation.name}</span>
+          <.icon name="hero-chevron-down" class="size-4 ml-auto text-base-content/50" />
+        </button>
+        <ul
+          class="dropdown menu w-52 rounded-box bg-base-100 shadow-sm"
+          popover
+          id="impl-popover"
+          style="position-anchor:--anchor-impl"
+        >
+          <li :for={impl <- @available_implementations}>
+            <a
+              href="#"
+              phx-click="select_implementation"
+              phx-value-impl_id={Implementations.implementation_slug(impl)}
+              class={[
+                "flex items-center gap-2",
+                impl.id == @implementation.id && "active"
+              ]}
+            >
+              <.icon name="hero-tag" class="size-5 text-secondary" />
+              <span class="truncate">{impl.name}</span>
+              <%= if impl.id == @implementation.id do %>
+                <.icon name="hero-check" class="size-4 ml-auto text-success" />
+              <% end %>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <span class="text-2xl font-bold">implementation of the</span>
+
+      <%!-- Feature dropdown with popover API --%>
+      <div class="flex-shrink-0">
+        <button
+          class="btn btn-outline btn-xl flex items-center gap-2 justify-start font-bold lg:text-2xl px-2 border-primary border-dashed"
+          popovertarget="feature-popover"
+          style="anchor-name:--anchor-feature"
+        >
+          <.icon name="hero-cube" class="size-4 text-primary" />
+          <span class="truncate">{@feature_name}</span>
+          <.icon name="hero-chevron-down" class="size-4 ml-auto text-base-content/50" />
+        </button>
+        <ul
+          class="dropdown menu w-52 rounded-box bg-base-100 shadow-sm"
+          popover
+          id="feature-popover"
+          style="position-anchor:--anchor-feature"
+        >
+          <li :for={{name, _value} <- @available_features}>
+            <a
+              href="#"
+              phx-click="select_feature"
+              phx-value-feature_name={name}
+              class={[
+                "flex items-center gap-2",
+                name == @feature_name && "active"
+              ]}
+            >
+              <.icon name="hero-cube" class="size-4 text-primary" />
+              <span class="truncate">{name}</span>
+              <%= if name == @feature_name do %>
+                <.icon name="hero-check" class="size-4 ml-auto text-success" />
+              <% end %>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <span class="text-2xl font-bold">feature</span>
+    </div>
+    """
+  end
+
+  # feature-impl-view.CARDS.2: Target spec card with labeled fields and inheritance badge
+  defp target_spec_card(assigns) do
+    ~H"""
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
+            Target Spec
+          </h3>
+          <%!-- feature-impl-view.CARDS.2-2: Inherited badge with popover --%>
+          <%= if @spec_inherited do %>
+            <% spec_inherited_popover_id = "spec-inherited-popover-#{@spec.id}" %>
+            <button
+              type="button"
+              class="badge badge-warning cursor-pointer transition-colors hover:bg-warning/80"
+              popovertarget={spec_inherited_popover_id}
+              style="anchor-name:--spec-inherited-anchor"
+            >
+              <.icon name="hero-cloud-arrow-down" class="size-4" />Inherited
+            </button>
+            <div
+              popover
+              id={spec_inherited_popover_id}
+              class="dropdown rounded-box bg-base-100 shadow-sm border border-base-300 p-3 w-80 space-y-2"
+              style="position-anchor:--spec-inherited-anchor"
+            >
+              <p class="text-xs text-base-content/70">
+                No spec has been pushed for this implementation. It has been inherited from
+                <%= if @spec_source && @spec_source.source_implementation_id do %>
+                  <% source_impl =
+                    Acai.Implementations.get_implementation(@spec_source.source_implementation_id) %>
+                  <%= if source_impl do %>
+                    <.link
+                      navigate={
+                        ~p"/t/#{@team.name}/i/#{Acai.Implementations.implementation_slug(source_impl)}/f/#{@feature_name}"
+                      }
+                      class="link link-primary"
+                    >
+                      {source_impl.name}
+                    </.link>
+                  <% else %>
+                    parent implementation
+                  <% end %>
+                <% else %>
+                  parent implementation
+                <% end %>
+              </p>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="space-y-3 text-base-content/80">
+          <%!-- feature-impl-view.CARDS.2-1: Labeled repo_uri --%>
+          <%!-- feature-impl-view.CARDS.2-2: Display only repo name for known patterns --%>
+          <% target_spec_repo_popover_id = "target-spec-repo-popover-#{@spec.branch.id}" %>
+          <div class="flex items-center gap-2">
+            <div class="w-20 flex-shrink-0 flex items-center gap-1.5 text-xs text-base-content/50">
+              <.icon name="hero-code-bracket-square" class="size-4" />
+              <span>Repo</span>
+            </div>
+            <%!-- feature-impl-view.CARDS.2-1: Repository badge opens a clickable popover --%>
+            <button
+              type="button"
+              class="badge badge-md badge-soft cursor-pointer transition-colors hover:bg-base-200"
+              popovertarget={target_spec_repo_popover_id}
+              style="anchor-name:--target-spec-repo-anchor"
+            >
+              <.icon name="hero-code-bracket-square" class="size-4" />
+              <span>{format_repo_name(@spec.branch.repo_uri)}</span>
+            </button>
+            <div
+              popover
+              id={target_spec_repo_popover_id}
+              class="dropdown rounded-box bg-base-100 shadow-sm border border-base-300 p-3 w-80 space-y-2"
+              style="position-anchor:--target-spec-repo-anchor"
+            >
+              <p class="text-xs uppercase tracking-wider text-base-content/50">Repository URI</p>
+              <a
+                href={repo_http_url(@spec.branch.repo_uri)}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="link link-primary text-sm break-all"
+              >
+                {@spec.branch.repo_uri}
+              </a>
+            </div>
+          </div>
+
+          <%!-- feature-impl-view.CARDS.2-1: Labeled branch --%>
+          <div class="flex items-center gap-2">
+            <div class="w-20 flex-shrink-0 flex items-center gap-1.5 text-xs text-base-content/50">
+              <.icon name="custom-git-branch" class="size-3.5" />
+              <span>Branch</span>
+            </div>
+            <span class="text-sm">{@spec.branch.branch_name}</span>
+          </div>
+
+          <%!-- feature-impl-view.CARDS.2-1: Labeled path --%>
+          <div class="flex items-center gap-2">
+            <div class="w-20 flex-shrink-0 flex items-center gap-1.5 text-xs text-base-content/50">
+              <.icon name="hero-document-text" class="size-3.5" />
+              <span>Path</span>
+            </div>
+            <span class="text-sm">{@spec.path}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  # feature-impl-view.CARDS.3: Tracked branches card
+  defp tracked_branches_card(assigns) do
+    ~H"""
+    <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card-body p-4">
+        <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider mb-2 flex-shrink-0">
+          Tracked Branches
+        </h3>
+
+        <%= if @branches == [] do %>
+          <p class="text-sm text-base-content/50 flex-shrink-0">No tracked branches</p>
+        <% else %>
+          <%!-- feature-impl-view.CARDS.3-1: Tracked branches use same repo display rules as target spec card --%>
+          <%!-- Keep the title fixed and scroll only the list when enough rows accumulate --%>
+          <div class="flex flex-col gap-2 max-h-32 overflow-y-auto pr-1">
+            <div
+              :for={tracked_branch <- @branches}
+              class="text-sm flex items-center gap-2"
+            >
+              <% tracked_repo_popover_id = "tracked-branch-repo-popover-#{tracked_branch.branch_id}" %>
+              <%!-- feature-impl-view.CARDS.3-1: Repository badge opens a clickable popover --%>
+              <button
+                type="button"
+                class="badge badge-md badge-soft cursor-pointer transition-colors hover:bg-base-200"
+                popovertarget={tracked_repo_popover_id}
+                style={"anchor-name:--tracked-branch-repo-anchor-#{tracked_branch.branch_id}"}
+              >
+                <.icon name="hero-code-bracket-square" class="size-4" />
+                <span>{format_repo_name(tracked_branch.branch.repo_uri)}</span>
+              </button>
+              <div
+                popover
+                id={tracked_repo_popover_id}
+                class="dropdown rounded-box bg-base-100 shadow-sm border border-base-300 p-3 w-80 space-y-2"
+                style={"position-anchor:--tracked-branch-repo-anchor-#{tracked_branch.branch_id}"}
+              >
+                <p class="text-xs uppercase tracking-wider text-base-content/50">Repository URI</p>
+                <a
+                  href={repo_http_url(tracked_branch.branch.repo_uri)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="link link-primary text-sm break-all"
+                >
+                  {tracked_branch.branch.repo_uri}
+                </a>
+              </div>
+              <%!-- Branch badge --%>
+              <div class="badge badge-md">
+                <.icon name="custom-git-branch" class="size-3.5" />
+                <span>{tracked_branch.branch.branch_name}</span>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
   # Coverage section wrapper
   defp coverage_section(assigns) do
     ~H"""
     <div class="card bg-base-100 border border-base-300 shadow-sm">
       <div class="card-body">
-        <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider mb-3">
-          {@title}
-        </h3>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
+            {@title}
+          </h3>
+          <%= if @inherited do %>
+            <% inherited_popover_id =
+              "inherited-popover-#{@title |> String.downcase() |> String.replace(" ", "-")}" %>
+            <button
+              type="button"
+              class="badge badge-warning cursor-pointer transition-colors hover:bg-warning/80"
+              popovertarget={inherited_popover_id}
+              style={"anchor-name:--inherited-anchor-#{@title |> String.downcase() |> String.replace(" ", "-")}"}
+            >
+              <.icon name="hero-cloud-arrow-down" class="size-4" />Inherited
+            </button>
+            <div
+              popover
+              id={inherited_popover_id}
+              class="dropdown rounded-box bg-base-100 shadow-sm border border-base-300 p-3 w-80 space-y-2"
+              style={"position-anchor:--inherited-anchor-#{@title |> String.downcase() |> String.replace(" ", "-")}"}
+            >
+              <p class="text-xs text-base-content/70">
+                No {inheritance_message(@title)} for this implementation. They have been inherited from
+                <%= if @source_impl do %>
+                  <.link
+                    navigate={
+                      ~p"/t/#{@source_impl.team.name}/i/#{Implementations.implementation_slug(@source_impl)}/f/#{@feature_name}"
+                    }
+                    class="link link-primary"
+                  >
+                    {@source_impl.name}
+                  </.link>
+                <% else %>
+                  parent implementation
+                <% end %>
+              </p>
+            </div>
+          <% end %>
+        </div>
         {render_slot(@inner_block)}
       </div>
     </div>
     """
   end
 
+  # Helper to get inheritance message based on section title
+  defp inheritance_message("Requirements Coverage"), do: "states have been added"
+  defp inheritance_message("Test Coverage"), do: "refs have been pushed"
+  defp inheritance_message(_), do: "items have been added"
+
   # implementation-view.REQ_COVERAGE: Requirements coverage grid
+  # feature-impl-view.LIST.2-3
   defp req_coverage_grid(assigns) do
     ~H"""
-    <div class="flex flex-wrap gap-2">
+    <div id="requirements-coverage-grid" class="flex flex-wrap gap-2">
       <.link
         :for={req <- @requirements}
+        id={"req-coverage-chip-#{acid_dom_id(req.acid)}"}
+        data-acid={req.acid}
         phx-click={@on_click}
         phx-value-acid={req.acid}
         class="cursor-pointer"
       >
-        <.req_chip requirement={req} />
+        <.req_chip requirement={req} inherited={@inherited} />
       </.link>
     </div>
     """
@@ -389,11 +894,14 @@ defmodule AcaiWeb.ImplementationLive do
           "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110",
           # data-model.FEATURE_IMPL_STATES.4-3: Color coding
           # accepted (green), completed (blue), assigned (gold), blocked/rejected (red), null (gray)
-          @requirement.status == "accepted" && "bg-success",
-          @requirement.status == "completed" && "bg-info",
-          @requirement.status == "assigned" && "bg-warning",
-          (@requirement.status == "blocked" || @requirement.status == "rejected") && "bg-error",
-          (@requirement.status == nil || @requirement.status == "") && "bg-base-300"
+          # When inherited, use 30% opacity
+          @requirement.status == "accepted" && ((@inherited && "bg-success/30") || "bg-success"),
+          @requirement.status == "completed" && ((@inherited && "bg-info/30") || "bg-info"),
+          @requirement.status == "assigned" && ((@inherited && "bg-warning/30") || "bg-warning"),
+          (@requirement.status == "blocked" || @requirement.status == "rejected") &&
+            ((@inherited && "bg-error/30") || "bg-error"),
+          (@requirement.status == nil || @requirement.status == "") &&
+            ((@inherited && "bg-base-300/30") || "bg-base-300")
         ]
       }
     />
@@ -401,16 +909,19 @@ defmodule AcaiWeb.ImplementationLive do
   end
 
   # implementation-view.TEST_COVERAGE: Test coverage grid
+  # feature-impl-view.LIST.2-3
   defp test_coverage_grid(assigns) do
     ~H"""
-    <div class="flex flex-wrap gap-1.5">
+    <div id="test-coverage-grid" class="flex flex-wrap gap-1.5">
       <.link
         :for={req <- @requirements}
+        id={"test-coverage-chip-#{acid_dom_id(req.acid)}"}
+        data-acid={req.acid}
         phx-click={@on_click}
         phx-value-acid={req.acid}
         class="cursor-pointer"
       >
-        <.test_chip requirement={req} />
+        <.test_chip requirement={req} inherited={@inherited} />
       </.link>
     </div>
     """
@@ -423,11 +934,14 @@ defmodule AcaiWeb.ImplementationLive do
       title={"#{@requirement.acid} (#{@requirement.tests_count} tests)"}
       class={
         [
-          "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110 flex items-center justify-center text-[10px] font-bold text-white",
+          "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110 flex items-center justify-center text-[10px] font-bold",
           # implementation-view.TEST_COVERAGE.2-1: Green if tests exist
-          @requirement.tests_count > 0 && "bg-success",
+          # When inherited, use 30% opacity and adjust text color
+          @requirement.tests_count > 0 &&
+            ((@inherited && "bg-success/30 text-success") || "bg-success text-white"),
           # implementation-view.TEST_COVERAGE.2-2: Gray if no tests
-          @requirement.tests_count == 0 && "bg-base-300"
+          @requirement.tests_count == 0 &&
+            ((@inherited && "bg-base-300/30 text-base-content/50") || "bg-base-300 text-white")
         ]
       }
     >
@@ -438,98 +952,90 @@ defmodule AcaiWeb.ImplementationLive do
     """
   end
 
-  # Info card wrapper
-  defp info_card(assigns) do
-    ~H"""
-    <div class="card bg-base-100 border border-base-300 shadow-sm">
-      <div class="card-body">
-        <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
-          {@title}
-        </h3>
-        {render_slot(@inner_block)}
-      </div>
-    </div>
-    """
-  end
-
-  # implementation-view.LINKED_BRANCHES: Tracked branches list
-  defp tracked_branches_list(assigns) do
-    ~H"""
-    <div class="space-y-2">
-      <%= if @branches == [] do %>
-        <p class="text-sm text-base-content/50">No tracked branches</p>
-      <% else %>
-        <div :for={tracked_branch <- @branches} class="flex items-center gap-2 text-sm">
-          <.icon name="hero-link" class="size-4 text-base-content/50" />
-          <span class="text-base-content/80">{tracked_branch.branch.repo_uri}</span>
-          <span class="text-base-content/40">/</span>
-          <span class="text-primary font-medium">{tracked_branch.branch.branch_name}</span>
-        </div>
-      <% end %>
-    </div>
-    """
-  end
-
-  # implementation-view.REQ_LIST: Requirements table
+  # feature-impl-view.LIST: Requirements table
+  # feature-impl-view.LIST.2: Table columns are ACID, Status, Definition, Refs count
+  # feature-impl-view.LIST.2-2
   defp requirements_table(assigns) do
     ~H"""
     <div class="card bg-base-100 border border-base-300 shadow-sm">
       <div class="card-body p-0">
         <div class="overflow-x-auto">
-          <table class="table">
+          <table class="table" id="requirements-list-table">
             <thead>
               <tr>
-                <.sortable_header
-                  label="ACID"
-                  by="acid"
-                  current_by={@sort_by}
-                  dir={@sort_dir}
-                  on_sort={@on_sort}
-                />
-                <.sortable_header
-                  label="Status"
-                  by="status"
-                  current_by={@sort_by}
-                  dir={@sort_dir}
-                  on_sort={@on_sort}
-                />
-                <.sortable_header
-                  label="Definition"
-                  by="definition"
-                  current_by={@sort_by}
-                  dir={@sort_dir}
-                  on_sort={@on_sort}
-                />
-                <.sortable_header
-                  label="Refs"
-                  by="refs"
-                  current_by={@sort_by}
-                  dir={@sort_dir}
-                  on_sort={@on_sort}
-                />
-                <.sortable_header
-                  label="Tests"
-                  by="tests"
-                  current_by={@sort_by}
-                  dir={@sort_dir}
-                  on_sort={@on_sort}
-                />
+                <th>
+                  <button
+                    id="sort-requirements-acid"
+                    type="button"
+                    phx-click="sort_requirements"
+                    phx-value-field="acid"
+                    class="flex items-center gap-2"
+                  >
+                    <span>ACID</span>
+                    <span class="text-[10px] uppercase text-base-content/40">
+                      {if @sort_field == :acid, do: Atom.to_string(@sort_dir), else: "sort"}
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    id="sort-requirements-status"
+                    type="button"
+                    phx-click="sort_requirements"
+                    phx-value-field="status"
+                    class="flex items-center gap-2"
+                  >
+                    <span>Status</span>
+                    <span class="text-[10px] uppercase text-base-content/40">
+                      {if @sort_field == :status, do: Atom.to_string(@sort_dir), else: "sort"}
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    id="sort-requirements-definition"
+                    type="button"
+                    phx-click="sort_requirements"
+                    phx-value-field="definition"
+                    class="flex items-center gap-2"
+                  >
+                    <span>Definition</span>
+                    <span class="text-[10px] uppercase text-base-content/40">
+                      {if @sort_field == :definition, do: Atom.to_string(@sort_dir), else: "sort"}
+                    </span>
+                  </button>
+                </th>
+                <th class="text-center">
+                  <button
+                    id="sort-requirements-refs-count"
+                    type="button"
+                    phx-click="sort_requirements"
+                    phx-value-field="refs_count"
+                    class="inline-flex items-center gap-2"
+                  >
+                    <span>Refs</span>
+                    <span class="text-[10px] uppercase text-base-content/40">
+                      {if @sort_field == :refs_count, do: Atom.to_string(@sort_dir), else: "sort"}
+                    </span>
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>
+              <%!-- feature-impl-view.LIST.5: Clicking a row opens the requirement details drawer --%>
               <tr
                 :for={req <- @requirements}
+                id={"requirement-row-#{String.replace(req.acid, ".", "-")}"}
                 class="hover:bg-base-200 cursor-pointer"
                 phx-click={@on_row_click}
                 phx-value-acid={req.acid}
               >
                 <td class="font-mono text-sm">{req.acid}</td>
                 <td>
-                  <.status_badge status={req.status} />
+                  <.status_badge status={req.status} inherited={@inherited} />
                 </td>
                 <td class="max-w-md truncate">{req.definition}</td>
                 <td class="text-center">{req.refs_count}</td>
-                <td class="text-center">{req.tests_count}</td>
               </tr>
             </tbody>
           </table>
@@ -539,47 +1045,32 @@ defmodule AcaiWeb.ImplementationLive do
     """
   end
 
-  # Sortable table header
-  defp sortable_header(assigns) do
-    ~H"""
-    <th class="cursor-pointer select-none" phx-click={@on_sort} phx-value-by={@by}>
-      <div class="flex items-center gap-1">
-        <span>{@label}</span>
-        <.sort_indicator by={@by} current_by={@current_by} dir={@dir} />
-      </div>
-    </th>
-    """
-  end
-
-  # Sort indicator arrow
-  defp sort_indicator(assigns) do
-    ~H"""
-    <%= if @by == @current_by do %>
-      <.icon
-        name={if @dir == :asc, do: "hero-chevron-up", else: "hero-chevron-down"}
-        class="size-4"
-      />
-    <% end %>
-    """
-  end
-
   # Status badge for table
   # data-model.FEATURE_IMPL_STATES.4-3: Color coding
   # null (gray), assigned (gold), blocked (red), completed (blue), accepted (green), rejected (red)
   defp status_badge(assigns) do
     ~H"""
     <%= if @status do %>
-      <span class={[
-        "badge badge-sm",
-        @status == "accepted" && "badge-success",
-        @status == "completed" && "badge-info",
-        @status == "assigned" && "badge-warning",
-        (@status == "blocked" || @status == "rejected") && "badge-error"
-      ]}>
+      <span class={
+        [
+          "badge badge-sm",
+          # Use badge-soft when inherited
+          @inherited && "badge-soft",
+          @status == "accepted" && "badge-success",
+          @status == "completed" && "badge-info",
+          @status == "assigned" && "badge-warning",
+          (@status == "blocked" || @status == "rejected") && "badge-error"
+        ]
+      }>
         {@status}
       </span>
     <% else %>
-      <span class="badge badge-ghost badge-sm text-base-content/50">No status</span>
+      <span class={[
+        "badge badge-sm text-base-content/50",
+        (@inherited && "badge-soft badge-ghost") || "badge-ghost"
+      ]}>
+        No status
+      </span>
     <% end %>
     """
   end

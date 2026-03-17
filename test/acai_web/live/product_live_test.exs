@@ -79,7 +79,7 @@ defmodule AcaiWeb.ProductLiveTest do
       create_implementation_for_product(product, name: "Impl-1")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
-      assert has_element?(view, "h1", "MyProduct")
+      assert has_element?(view, "span", "MyProduct")
     end
 
     # product-view.ROUTING.1
@@ -92,7 +92,7 @@ defmodule AcaiWeb.ProductLiveTest do
       # Access with lowercase URL
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/myproduct")
       # Should display the actual product name from database
-      assert has_element?(view, "h1", "MyProduct")
+      assert has_element?(view, "span", "MyProduct")
     end
 
     # product-view.ROUTING.2
@@ -286,31 +286,10 @@ defmodule AcaiWeb.ProductLiveTest do
     end
   end
 
-  describe "product selector" do
+  describe "page header" do
     setup :register_and_log_in_user
 
-    # product-view.PRODUCT_SELECTOR.1
-    test "dropdown lists all products in the team", %{conn: conn, user: user} do
-      {team, _role} = create_team_with_owner(user)
-      _product1 = create_product(team, "Product-One")
-      _product2 = create_product(team, "Product-Two")
-
-      # Create spec and impl for one product so the page loads
-      product1 = create_product(team, "Active-Product")
-      create_spec_for_product(team, product1, "feature-1")
-      create_implementation_for_product(product1, name: "Impl-1")
-
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/Active-Product")
-
-      # Should have select with all products
-      assert has_element?(view, "select")
-      assert has_element?(view, "option[value='Product-One']")
-      assert has_element?(view, "option[value='Product-Two']")
-      assert has_element?(view, "option[value='Active-Product']")
-    end
-
-    # product-view.PRODUCT_SELECTOR.1
-    test "current product is selected in dropdown", %{conn: conn, user: user} do
+    test "renders product name in title", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "MyProduct")
       create_spec_for_product(team, product, "feature-1")
@@ -318,33 +297,24 @@ defmodule AcaiWeb.ProductLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
 
-      # The select should have the current product value set
-      assert has_element?(view, "select")
       html = render(view)
-      # The select element should have the current product name in its options
+      assert html =~ "Overview of the"
       assert html =~ "MyProduct"
     end
 
-    # product-view.PRODUCT_SELECTOR.2
-    test "changing product patches URL via handle_params", %{conn: conn, user: user} do
+    test "renders breadcrumb with home link", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
-      product1 = create_product(team, "Product-One")
-      product2 = create_product(team, "Product-Two")
-      create_spec_for_product(team, product1, "feature-1")
-      create_spec_for_product(team, product2, "feature-2")
-      create_implementation_for_product(product1, name: "Impl-1")
-      create_implementation_for_product(product2, name: "Impl-1")
+      product = create_product(team, "MyProduct")
+      create_spec_for_product(team, product, "feature-1")
+      create_implementation_for_product(product, name: "Impl-1")
 
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/Product-One")
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
 
-      # Change the product selection
-      view
-      |> form("#product-selector-form", %{"product" => %{"product_id" => "Product-Two"}})
-      |> render_change()
-
-      # The page should update to show Product-Two's features
-      assert has_element?(view, "h1", "Product-Two")
-      assert has_element?(view, "td", "feature-2")
+      # Should have breadcrumb with home icon
+      assert has_element?(view, "nav a[href='/t/#{team.name}']")
+      html = render(view)
+      assert html =~ "Overview of the"
+      assert html =~ "MyProduct"
     end
   end
 

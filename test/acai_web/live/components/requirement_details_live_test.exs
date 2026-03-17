@@ -297,8 +297,8 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
       assert html =~ "lib/my_app/foo.ex:42"
     end
 
-    # requirement-details.DRAWER.5-4
-    test "clickable link format is correct", %{user: user} do
+    # feature-impl-view.DRAWER.5: Each ref renders as clickable link to source file at the specific line
+    test "clickable link includes line number anchor", %{user: user} do
       %{spec: spec, implementation: implementation} = setup_data_chain()
       _role = user_team_role_fixture(team_fixture(), user, %{title: "owner"})
 
@@ -328,7 +328,44 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
       html = render_drawer(assigns)
       # The link uses the actual branch repo_uri from the database
       # Branch is created by tracked_branch_fixture with default repo_uri
+      # feature-impl-view.DRAWER.5: Link should include #L42 line anchor
       assert html =~ "lib/my_app/foo.ex"
+      assert html =~ "#L42"
+    end
+
+    # feature-impl-view.DRAWER.5: Link works without line number when not present
+    test "clickable link works without line number", %{user: user} do
+      %{spec: spec, implementation: implementation} = setup_data_chain()
+      _role = user_team_role_fixture(team_fixture(), user, %{title: "owner"})
+
+      _spec_impl_ref =
+        spec_impl_ref_fixture(spec, implementation, %{
+          refs: %{
+            "test-feature.COMP.1" => [
+              %{
+                "path" => "lib/my_app/bar.ex",
+                "is_test" => false
+              }
+            ]
+          }
+        })
+
+      aggregated_refs = get_aggregated_refs(spec, implementation)
+
+      assigns = %{
+        id: "test-drawer",
+        acid: "test-feature.COMP.1",
+        spec: spec,
+        implementation: implementation,
+        aggregated_refs: aggregated_refs,
+        visible: true
+      }
+
+      html = render_drawer(assigns)
+      # Should show the file path without line anchor
+      assert html =~ "lib/my_app/bar.ex"
+      # Should not have line anchor since no line number in path
+      refute html =~ "#L"
     end
 
     # requirement-details.DRAWER.5-5
@@ -452,6 +489,313 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
       # Drawer should have phx-window-keydown="close" and phx-key="Escape"
       assert html =~ "phx-window-keydown=\"close\""
       assert html =~ "phx-key=\"Escape\""
+    end
+  end
+
+  describe "feature-impl-view.DRAWER.4-1: Repository name display in references" do
+    setup :register_and_log_in_user
+
+    # feature-impl-view.DRAWER.4-1
+    test "repo chip shows repo name for GitHub URIs", %{user: user} do
+      team = team_fixture()
+      product = product_fixture(team)
+      _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+      requirements = %{
+        "test-feature.COMP.1" => %{
+          "definition" => "Test requirement",
+          "note" => nil,
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+
+      # Create branch with GitHub URI
+      branch = branch_fixture(team, %{repo_uri: "github.com/owner/my-repo", branch_name: "main"})
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          requirements: requirements,
+          branch: branch
+        })
+
+      implementation = implementation_fixture(product, %{name: "Production"})
+
+      # Need to create tracked branch linking implementation to the spec's branch
+      tracked_branch_fixture(implementation, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec_impl_ref with refs on the GitHub branch
+      spec_impl_ref_fixture(spec, implementation, %{
+        refs: %{
+          "test-feature.COMP.1" => [
+            %{
+              "path" => "lib/file.ex:10",
+              "is_test" => false
+            }
+          ]
+        }
+      })
+
+      aggregated_refs = get_aggregated_refs(spec, implementation)
+
+      assigns = %{
+        id: "test-drawer",
+        acid: "test-feature.COMP.1",
+        spec: spec,
+        implementation: implementation,
+        aggregated_refs: aggregated_refs,
+        visible: true
+      }
+
+      html = render_drawer(assigns)
+
+      # feature-impl-view.DRAWER.4-1: Should show only "my-repo" not the full URI
+      assert html =~ "my-repo"
+      # Verify the clickable repository popover link is rendered
+      assert html =~ "href=\"https://github.com/owner/my-repo\""
+    end
+
+    # feature-impl-view.DRAWER.4-1
+    test "repo chip shows repo name for GitLab URIs", %{user: user} do
+      team = team_fixture()
+      product = product_fixture(team)
+      _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+      requirements = %{
+        "test-feature.COMP.1" => %{
+          "definition" => "Test requirement",
+          "note" => nil,
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+
+      # Create branch with GitLab URI
+      branch = branch_fixture(team, %{repo_uri: "gitlab.com/group/project", branch_name: "main"})
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          requirements: requirements,
+          branch: branch
+        })
+
+      implementation = implementation_fixture(product, %{name: "Production"})
+
+      # Need to create tracked branch linking implementation to the spec's branch
+      tracked_branch_fixture(implementation, branch: branch, repo_uri: branch.repo_uri)
+
+      spec_impl_ref_fixture(spec, implementation, %{
+        refs: %{
+          "test-feature.COMP.1" => [
+            %{
+              "path" => "lib/file.ex:10",
+              "is_test" => false
+            }
+          ]
+        }
+      })
+
+      aggregated_refs = get_aggregated_refs(spec, implementation)
+
+      assigns = %{
+        id: "test-drawer",
+        acid: "test-feature.COMP.1",
+        spec: spec,
+        implementation: implementation,
+        aggregated_refs: aggregated_refs,
+        visible: true
+      }
+
+      html = render_drawer(assigns)
+
+      # feature-impl-view.DRAWER.4-1: Should show only "project" not the full URI
+      assert html =~ "project"
+      # Verify the clickable repository popover link is rendered
+      assert html =~ "href=\"https://gitlab.com/group/project\""
+    end
+
+    # feature-impl-view.DRAWER.4-1
+    test "repo chip shows full repo_uri for unknown patterns", %{user: user} do
+      team = team_fixture()
+      product = product_fixture(team)
+      _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+      requirements = %{
+        "test-feature.COMP.1" => %{
+          "definition" => "Test requirement",
+          "note" => nil,
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+
+      # Create branch with unknown URI pattern
+      unknown_uri = "bitbucket.org/team/project"
+      branch = branch_fixture(team, %{repo_uri: unknown_uri, branch_name: "main"})
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          requirements: requirements,
+          branch: branch
+        })
+
+      implementation = implementation_fixture(product, %{name: "Production"})
+
+      # Need to create tracked branch linking implementation to the spec's branch
+      tracked_branch_fixture(implementation, branch: branch, repo_uri: branch.repo_uri)
+
+      spec_impl_ref_fixture(spec, implementation, %{
+        refs: %{
+          "test-feature.COMP.1" => [
+            %{
+              "path" => "lib/file.ex:10",
+              "is_test" => false
+            }
+          ]
+        }
+      })
+
+      aggregated_refs = get_aggregated_refs(spec, implementation)
+
+      assigns = %{
+        id: "test-drawer",
+        acid: "test-feature.COMP.1",
+        spec: spec,
+        implementation: implementation,
+        aggregated_refs: aggregated_refs,
+        visible: true
+      }
+
+      html = render_drawer(assigns)
+
+      # feature-impl-view.DRAWER.4-1: Unknown patterns should show full URI
+      assert html =~ "bitbucket.org/team/project"
+    end
+
+    # feature-impl-view.DRAWER.4-1
+    # Regression test: hosts that share a prefix with known hosts should NOT be reformatted
+    test "repo chip shows full URI for hosts sharing prefix with known hosts", %{user: user} do
+      team = team_fixture()
+      product = product_fixture(team)
+      _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+      requirements = %{
+        "test-feature.COMP.1" => %{
+          "definition" => "Test requirement",
+          "note" => nil,
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+
+      # Create branch with URI that shares prefix with github.com but is different
+      # github.com.au should NOT be treated as github.com
+      prefix_uri = "github.com.au/team/repo"
+      branch = branch_fixture(team, %{repo_uri: prefix_uri, branch_name: "main"})
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          requirements: requirements,
+          branch: branch
+        })
+
+      implementation = implementation_fixture(product, %{name: "Production"})
+
+      # Need to create tracked branch linking implementation to the spec's branch
+      tracked_branch_fixture(implementation, branch: branch, repo_uri: branch.repo_uri)
+
+      spec_impl_ref_fixture(spec, implementation, %{
+        refs: %{
+          "test-feature.COMP.1" => [
+            %{
+              "path" => "lib/file.ex:10",
+              "is_test" => false
+            }
+          ]
+        }
+      })
+
+      aggregated_refs = get_aggregated_refs(spec, implementation)
+
+      assigns = %{
+        id: "test-drawer",
+        acid: "test-feature.COMP.1",
+        spec: spec,
+        implementation: implementation,
+        aggregated_refs: aggregated_refs,
+        visible: true
+      }
+
+      html = render_drawer(assigns)
+
+      # feature-impl-view.DRAWER.4-1: Should show the full URI, not just "repo"
+      assert html =~ "github.com.au/team/repo"
+      # Verify the clickable repository popover link is rendered
+      assert html =~ "href=\"https://github.com.au/team/repo\""
+    end
+
+    # feature-impl-view.DRAWER.4-1
+    # Regression test: gitlab.com.internal should NOT match gitlab.com
+    test "repo chip shows full URI for gitlab.com.internal host", %{user: user} do
+      team = team_fixture()
+      product = product_fixture(team)
+      _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+      requirements = %{
+        "test-feature.COMP.1" => %{
+          "definition" => "Test requirement",
+          "note" => nil,
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+
+      # gitlab.com.internal should NOT be treated as gitlab.com
+      prefix_uri = "gitlab.com.internal/group/project"
+      branch = branch_fixture(team, %{repo_uri: prefix_uri, branch_name: "main"})
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          requirements: requirements,
+          branch: branch
+        })
+
+      implementation = implementation_fixture(product, %{name: "Production"})
+
+      tracked_branch_fixture(implementation, branch: branch, repo_uri: branch.repo_uri)
+
+      spec_impl_ref_fixture(spec, implementation, %{
+        refs: %{
+          "test-feature.COMP.1" => [
+            %{
+              "path" => "lib/file.ex:10",
+              "is_test" => false
+            }
+          ]
+        }
+      })
+
+      aggregated_refs = get_aggregated_refs(spec, implementation)
+
+      assigns = %{
+        id: "test-drawer",
+        acid: "test-feature.COMP.1",
+        spec: spec,
+        implementation: implementation,
+        aggregated_refs: aggregated_refs,
+        visible: true
+      }
+
+      html = render_drawer(assigns)
+
+      # Should show the full URI, not just "project"
+      # Verify the clickable repository popover link is rendered
+      assert html =~ "href=\"https://gitlab.com.internal/group/project\""
     end
   end
 end

@@ -140,17 +140,17 @@ defmodule AcaiWeb.TeamsLive do
               href="https://acai.sh"
               target="_blank"
               rel="noopener noreferrer"
-              class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-secondary/40 transition-all duration-200 cursor-pointer group"
+              class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-accent/40 transition-all duration-200 cursor-pointer group"
             >
               <div class="card-body flex-row items-center gap-4">
-                <div class="rounded-lg bg-secondary/10 p-3">
-                  <.icon name="hero-book-open" class="size-6 text-secondary" />
+                <div class="rounded-lg bg-accent/10 p-3">
+                  <.icon name="hero-book-open" class="size-6 text-accent" />
                 </div>
                 <div class="flex-1">
-                  <h3 class="font-semibold text-base group-hover:text-secondary transition-colors">
+                  <h3 class="font-semibold text-base group-hover:text-accent transition-colors">
                     Docs
                   </h3>
-                  <p class="text-sm text-base-content/60">Documentation and guides</p>
+                  <p class="text-sm text-base-content/60">Guides & API reference</p>
                 </div>
                 <.icon
                   name="hero-arrow-top-right-on-square"
@@ -163,14 +163,14 @@ defmodule AcaiWeb.TeamsLive do
               href="https://acai.sh/quickstart"
               target="_blank"
               rel="noopener noreferrer"
-              class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-secondary/40 transition-all duration-200 cursor-pointer group"
+              class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-accent/40 transition-all duration-200 cursor-pointer group"
             >
               <div class="card-body flex-row items-center gap-4">
-                <div class="rounded-lg bg-secondary/10 p-3">
-                  <.icon name="hero-rocket-launch" class="size-6 text-secondary" />
+                <div class="rounded-lg bg-accent/10 p-3">
+                  <.icon name="hero-rocket-launch" class="size-6 text-accent" />
                 </div>
                 <div class="flex-1">
-                  <h3 class="font-semibold text-base group-hover:text-secondary transition-colors">
+                  <h3 class="font-semibold text-base group-hover:text-accent transition-colors">
                     Getting Started
                   </h3>
                   <p class="text-sm text-base-content/60">Quick start guide</p>

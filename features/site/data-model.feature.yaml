@@ -39,8 +39,8 @@ components:
             4: token_hash is a string storing the SHA-256 hash of the raw token.
             4-1: token_hash has a UNIQUE constraint, which serves as its index.
             5: token_prefix is a string storing the unhashed prefix.
-            6: scopes is a JSONB array of strings defining the permitted API actions, set by server, db falls back to no scopes
-            6-1: Default new token scopes are set by the server on creation; specs:read, specs:write, states:read, states:write, refs:read, refs:write, impls:read, impls:write, team:read.
+            6: scopes is a non-null JSONB array of strings defining the permitted API actions.
+            6-1: Default new token scopes are assigned by application code on creation; the migration does not define a database default. Standard defaults are specs:read, specs:write, states:read, states:write, refs:read, refs:write, impls:read, impls:write, team:read.
             7: expires_at is a timestamp indicating when the token naturally invalidates. Optional.
             8: revoked_at is a timestamp for manual, soft-delete invalidation. Optional.
             9: last_used_at is a timestamp updated on successful authentication to track stale tokens. Optional.
@@ -53,12 +53,13 @@ components:
             1: team_id is a Foreign Key to teams table.
             2: user_id is a Foreign Key to users table.
             3: title field is a non-nullable string.
+            4: Composite Unique Constraint enforces (team_id, user_id).
 
     IMPLS:
         name: implementations table
         description: |
-            A global environment belonging to a product that encompasses the state of all features within that product.
-            Implementations can inherit from a parent implementation to form an inheritance chain.
+            A product-wide environment defined by a set of tracked branches.
+            Implementations encompass the state of all features within a product and can inherit from a parent implementation.
         requirements:
             1: id field is a UUIDv7 Primary Key.
             2: product_id is a Foreign Key to products table.
@@ -119,8 +120,8 @@ components:
             9: feature_version is the string defined under feature.version. Defaults to 1.0.0.
             9-1: If present, feature_version must follow SemVer format (server enforced)
             10: raw_content is a text field storing the original feature.yaml contents. Optional.
-            11: requirements is a JSONB column storing parsed requirement definitions keyed by ACID.
-            11-1: Each ACID key maps to an object containing definition (string), note (string, optional), is_deprecated (boolean, defaults to false), replaced_by (array of ACID strings, defaults to empty).
+            11: requirements is a JSONB column storing parsed requirement definitions keyed by requirement ID.
+            11-1: Each requirement ID key maps to an object containing definition (string), note (string, optional), is_deprecated (boolean, defaults to false), replaced_by (array of requirement ID strings, defaults to empty).
             12: Composite Unique Constraint enforces (branch_id, feature_name) - one spec per feature per branch.
             13: Index on (product_id) for listing specs by product.
             14: Index on (branch_id) for joining specs to branches.
@@ -128,53 +129,53 @@ components:
     FEATURE_IMPL_STATES:
         name: feature_impl_states table
         description: |
-            Stores ACID states for a specific feature + implementation combination, stored as JSONB.
+            Stores requirement states for a specific feature/implementation pair, stored as JSONB.
             Keyed by feature_name (not spec_id) to allow states to exist without a local spec file.
             This enables pushing states from a backend repo for a feature whose spec lives in the frontend repo.
-            States are keyed by full ACID (e.g., my-feature.MY_COMPONENT.1-1).
-            Orphaned states (ACIDs removed from spec) are retained for potential reinstatement.
+            States are keyed by full requirement ID (e.g., my-feature.MY_COMPONENT.1-1).
+            Orphaned states (requirement IDs removed from a spec) are retained for potential reinstatement.
         requirements:
             1: id field is a UUIDv7 Primary Key.
             2: implementation_id is a Foreign Key to implementations table.
-            3: feature_name is a string matching the feature.name from the spec file (ACID prefix).
+            3: feature_name is a string matching the feature.name from the spec file (the requirement ID prefix).
             3-1: feature_name field only supports alphanumeric chars, hyphens, and underscores.
-            4: states is a JSONB column storing ACID statuses.
-            4-1: states format is an object keyed by full ACID string.
-            4-2: Each ACID entry contains status (string), comment (string, optional), metadata (object, optional), updated_at (timestamp).
+            4: states is a JSONB column storing requirement statuses.
+            4-1: states format is an object keyed by full requirement ID string.
+            4-2: Each requirement ID entry contains status (string), comment (string, optional), metadata (object, optional), updated_at (timestamp).
             4-3: Valid status values are `null`, `"assigned"`, `"blocked"`, `"incomplete"`, `"completed"`, `"rejected"`, or `"accepted"`.
             5: Composite Unique Constraint enforces (implementation_id, feature_name).
-            6: GIN Index on (states) for querying by ACID key within the JSONB.
+            6: GIN Index on (states) for querying by requirement ID key within the JSONB.
             7: Index on (implementation_id) for listing all features for an implementation.
 
     FEATURE_BRANCH_REFS:
         name: feature_branch_refs table
         description: |
-            Stores code references linking ACIDs to file locations in the codebase, scoped to a branch.
-            Keyed by feature_name (not spec_id) to allow refs to exist without a local spec file.
-            This enables pushing refs from a backend repo for a feature whose spec lives in the frontend repo.
-            Refs belong to branches (not implementations) because they represent file locations at a specific commit on a branch.
-            The dashboard aggregates refs across an implementation's tracked branches.
+            Stores code references linking requirement IDs to file locations in the codebase, scoped to a branch.
+            Keyed by feature_name (not spec_id) to allow code references to exist without a local spec file.
+            This enables pushing code references from a backend repo for a feature whose spec lives in the frontend repo.
+            Code references belong to branches (not implementations) because they represent file locations at a specific commit on a branch.
+            The dashboard aggregates code references across an implementation's tracked branches.
             Pushed exclusively by CLI.
         requirements:
             1: id field is a UUIDv7 Primary Key.
             2: branch_id is a Foreign Key to branches table.
-            3: feature_name is a string matching the feature.name from the spec file (ACID prefix).
+            3: feature_name is a string matching the feature.name from the spec file (the requirement ID prefix).
             3-1: feature_name field only supports alphanumeric chars, hyphens, and underscores.
-            4: refs is a JSONB column storing ACID references.
-            4-1: refs format is an object keyed by full ACID string.
-            4-2: Each ACID entry contains an array of reference objects.
+            4: refs is a JSONB column storing code references keyed by requirement ID.
+            4-1: refs format is an object keyed by full requirement ID string.
+            4-2: Each requirement ID entry contains an array of reference objects.
             4-3: Each reference object contains path (string, e.g. lib/foo.ex:102), is_test (boolean).
-            5: commit is a string storing the commit hash when refs were pushed.
-            6: pushed_at is a timestamp of when the refs were pushed.
+            5: commit is a string storing the commit hash when code references were pushed.
+            6: pushed_at is a timestamp of when the code references were pushed.
             7: Composite Unique Constraint enforces (branch_id, feature_name).
-            8: GIN Index on (refs) for querying by ACID key within the JSONB.
+            8: GIN Index on (refs) for querying by requirement ID key within the JSONB.
             9: Index on (branch_id) for listing all features for a branch.
 
 constraints:
     FIELDS:
         requirements:
-            1: All tables include created_at and updated_at timestamps managed by Ecto.
-            2: All entities, except for roles, use `id` primary key as UUIDv7.
+            1: All tables defined by this spec include created_at and updated_at timestamps managed by Ecto.
+            2: All entities, except for roles, use `id` primary key UUID columns populated by the application as UUIDv7 values.
 
     SPEC_IDENTITY:
         name: Spec identity and update semantics
@@ -204,7 +205,7 @@ constraints:
             3: If a spec exists on both parent and child implementation's tracked branches, child's spec takes precedence.
             4: If a spec only exists on a parent implementation's tracked branch, states inherit from parent.
             5: Inheritance recurses up the chain with worst case depth of 3 to 4 levels (e.g., prod to dev to feature to task).
-            6: States are snapshotted from parent on first push (per feature_name + implementation). After snapshot, parent changes do not affect the child.
+            6: States are snapshotted from parent on first push for a given (feature_name, implementation). After snapshot, parent changes do not affect the child.
             7: Push operations create or update feature_impl_states keyed by feature_name, not spec_id.
-            8: When querying refs for an implementation, the system aggregates feature_branch_refs across all tracked branches, walking up the parent chain's tracked branches if not found.
-            9: feature_name-based keys allow refs/states to exist for features whose spec lives in a different repo (monorepo support).
+            8: When querying code references for an implementation, the system aggregates feature_branch_refs across all tracked branches, walking up the parent chain's tracked branches if not found.
+            9: feature_name-based keys allow code references and states to exist for features whose spec lives in a different repo (monorepo support).

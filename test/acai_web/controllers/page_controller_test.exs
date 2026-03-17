@@ -1,5 +1,5 @@
 defmodule AcaiWeb.PageControllerTest do
-  use AcaiWeb.ConnCase
+  use AcaiWeb.ConnCase, async: true
 
   test "GET / redirects to /teams", %{conn: conn} do
     # index-view.REDIRECT.1

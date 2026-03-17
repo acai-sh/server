@@ -1,7 +1,7 @@
 feature:
     name: feature-impl-view
     product: site
-    description: Requirements view for a single feature within a specific implementation.
+    description: View for a single feature within a specific implementation. e.g. ""
     prerequisites:
         - data-model.SPECS
         - data-model.IMPLS
@@ -10,26 +10,34 @@ feature:
         - feature-view
 
 components:
-    MAIN:
-        name: Main requirements for the feature-impl view.
+    CARDS:
+        name: Info cards and header content
         requirements:
-            1: Renders feature name and description from spec.
-            2: Table columns are ACID, Status, Definition, Refs count.
-            2-1: Renders the next nearest ancestor implementation's spec if none exists for this impl.
-            3: Status column shows state of this implementation, or of the inherited implementation
-            4: Refs column shows total number of code references across all tracked branches for this implementation
-            5: Clicking a row opens the requirement details drawer for that ACID.
-            6: Co-located with details about the feature and implementation, the user sees a concise summary the inheritance states;
-            6-1: If refs are inherited
-            6-2: If states are inherited
-            6-3: If the spec and spec requirements are inherited
-            6-note: Consider badges and tooltips here
+            1: Renders an interactive title header "<impl-name> implementation of the <feature-name> feature"
+            1-1: The impl name and feature name are interactive dropdowns
+            1-2: On change, the implementation or feature is patch-navigated (not a full page reload) and url + nav reflects the new state
+            1-3: The feature dropdown only lists features that resolve for the selected implementation within the current product, including features inherited from ancestor implementations.
+            1-4: The implementation dropdown only lists implementations that resolve the current feature within the current product, including implementations that inherit the feature from ancestor implementations.
+            2: Renders a 'target-spec' card
+            2-1: Indicates which spec is being referenced - the repo_uri, branch, and path, with labels.
+            2-2: For known repo URI patterns (GitHub, GitLab), displays only the repository name
+            2-3: Known patterns include GitHub and GitLab URIs
+            2-4: For unknown URI patterns, displays the full repo_uri unchanged
+            2-5: Indicates with a badge if the spec is inherited or is local
+            2-5-note: inherited means; not pushed to a tracked branch, but found in an ancestor's. Local means; directly pushed to this implementation's tracked branch. There is only ever 1 canonical spec from this view.
+            3: Renders a 'tracked-branches' card that lists every tracked branch name
 
-    IMPL_SELECTOR:
-        name: Implementation dropdown
+    LIST:
+        name: List of requirements
         requirements:
-            1: Dropdown lists all active implementations in the product.
-            2: Changing selection patches URL via handle_params without full navigation.
+            1: Renders requirements list
+            2: Table columns are ACID, Status, Definition, Refs count.
+            2-1: Renders the next nearest ancestor implementation's requirements if none exists for this impl.
+            2-2: The table columns are sortable.
+            2-3: The active table sort order is mirrored by the requirement coverage chip order and the test coverage chip order.
+            3: Status column shows state of this implementation, or of the inherited implementation.
+            4: Refs column shows total number of code references across all tracked branches for this implementation.
+            5: Clicking a row opens the requirement details drawer for that ACID.
 
     DRAWER:
         name: Requirement details drawer
@@ -53,6 +61,6 @@ constraints:
 
     INHERITANCE:
         requirements:
-            1: If spec not found on impl tracked branches, recurse up parent_implementation_id chain.
+            1: If feature spec is not found on the implementation's tracked branches, recurse up parent_implementation_id chain to find nearest
             2: States are read from feature_impl_states for this implementation. If not found, walk parent chain.
             3: Refs are aggregated from feature_branch_refs across all tracked branches for this implementation. If not found, walk parent chain's tracked branches.

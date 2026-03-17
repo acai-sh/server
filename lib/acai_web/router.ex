@@ -87,6 +87,8 @@ defmodule AcaiWeb.Router do
       # feature-view.MAIN
       live "/t/:team_name/f/:feature_name", FeatureLive
       # implementation-view.MAIN
+      # feature-impl-view.ROUTING.1: Route uses /t/:team_name/i/:impl_name-:impl_id/f/:feature_name
+      # The :impl_slug parameter captures the format "{sanitized_name}-{uuid_without_dashes}"
       live "/t/:team_name/i/:impl_slug/f/:feature_name", ImplementationLive
       # team-settings.AUTH.1
       live "/t/:team_name/settings", TeamSettingsLive

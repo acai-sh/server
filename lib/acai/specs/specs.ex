@@ -31,6 +31,24 @@ defmodule Acai.Specs do
   end
 
   @doc """
+  Lists all unique feature names for a product.
+
+  Returns a list of {feature_name, feature_name} tuples for dropdown options.
+
+  ACIDs:
+  - feature-view.MAIN.1: Load available features for dropdown selector
+  """
+  def list_features_for_product(%Product{} = product) do
+    Repo.all(
+      from s in Spec,
+        where: s.product_id == ^product.id,
+        select: {s.feature_name, s.feature_name},
+        distinct: true,
+        order_by: s.feature_name
+    )
+  end
+
+  @doc """
   Gets a spec by ID.
   """
   def get_spec!(id), do: Repo.get!(Spec, id)
@@ -190,6 +208,16 @@ defmodule Acai.Specs do
         implementation_id,
         visited \\ MapSet.new()
       ) do
+    get_feature_impl_state_with_inheritance_impl(feature_name, implementation_id, nil, visited)
+  end
+
+  # Internal implementation that tracks the original implementation ID for inheritance
+  defp get_feature_impl_state_with_inheritance_impl(
+         feature_name,
+         implementation_id,
+         original_impl_id,
+         visited
+       ) do
     # Prevent infinite loops in case of circular references
     if MapSet.member?(visited, implementation_id) do
       {nil, nil}
@@ -206,9 +234,13 @@ defmodule Acai.Specs do
           impl = Repo.get(Acai.Implementations.Implementation, implementation_id)
 
           if impl && impl.parent_implementation_id do
-            get_feature_impl_state_with_inheritance(
+            # Track the original implementation ID on first call
+            orig_id = original_impl_id || implementation_id
+
+            get_feature_impl_state_with_inheritance_impl(
               feature_name,
               impl.parent_implementation_id,
+              orig_id,
               visited
             )
           else
@@ -216,7 +248,9 @@ defmodule Acai.Specs do
           end
 
         state ->
-          {state, implementation_id}
+          # If we walked up the parent chain, return the original impl ID as source
+          source_impl_id = if original_impl_id, do: implementation_id, else: nil
+          {state, source_impl_id}
       end
     end
   end
@@ -476,10 +510,6 @@ defmodule Acai.Specs do
   @doc """
   Legacy: Gets refs for a spec and implementation.
   Now delegates to Implementations.count_refs_for_implementation/2.
-
-  ACIDs:
-  - feature-impl-view.MAIN.4: Refs column shows total refs across tracked branches
-  - feature-impl-view.INHERITANCE.3: Refs aggregated from tracked branches
   """
   def get_spec_impl_ref(%Spec{} = spec, %Implementation{} = implementation) do
     # Return a pseudo-ref structure for backwards compatibility
@@ -556,5 +586,238 @@ defmodule Acai.Specs do
     end)
 
     {:ok, %{}}
+  end
+
+  # --- Features for Implementation (Product-scoped) ---
+
+  @doc """
+  Lists all features accessible to an implementation, filtered to the current product.
+
+  Features are determined by specs on the implementation's tracked branches or inherited
+  from parent implementations. The results are filtered to only include specs belonging
+  to the specified product, preventing cross-product feature leakage when branches are shared.
+
+  Returns a list of {feature_name, feature_name} tuples for dropdown options.
+
+  ACIDs:
+  - feature-impl-view.ROUTING.4: feature_name scoped to implementation tracked branches
+  - feature-impl-view.INHERITANCE.1: Recurse up parent chain if spec not found on tracked branches
+  - feature-impl-view.CARDS.1-3
+  """
+  def list_features_for_implementation(%Implementation{} = implementation, %Product{} = product) do
+    # feature-impl-view.CARDS.1-3
+    # Get all spec IDs accessible to this implementation (tracked branches + inheritance)
+    spec_ids = get_all_accessible_spec_ids(implementation.id)
+
+    if spec_ids == [] do
+      []
+    else
+      Repo.all(
+        from s in Spec,
+          where: s.id in ^spec_ids,
+          where: s.product_id == ^product.id,
+          select: {s.feature_name, s.feature_name},
+          distinct: true,
+          order_by: s.feature_name
+      )
+    end
+  end
+
+  # Get all spec IDs accessible to an implementation (tracked branches + inheritance)
+  defp get_all_accessible_spec_ids(implementation_id, visited \\ MapSet.new()) do
+    if MapSet.member?(visited, implementation_id) do
+      []
+    else
+      visited = MapSet.put(visited, implementation_id)
+      implementation = Repo.get(Acai.Implementations.Implementation, implementation_id)
+
+      if is_nil(implementation) do
+        []
+      else
+        # Get specs on tracked branches
+        branch_ids =
+          Repo.all(
+            from tb in Acai.Implementations.TrackedBranch,
+              where: tb.implementation_id == ^implementation.id,
+              select: tb.branch_id
+          )
+
+        local_spec_ids =
+          if branch_ids == [] do
+            []
+          else
+            Repo.all(
+              from s in Spec,
+                where: s.branch_id in ^branch_ids,
+                select: s.id
+            )
+          end
+
+        # Recurse to parent
+        parent_spec_ids =
+          if implementation.parent_implementation_id do
+            get_all_accessible_spec_ids(implementation.parent_implementation_id, visited)
+          else
+            []
+          end
+
+        Enum.uniq(local_spec_ids ++ parent_spec_ids)
+      end
+    end
+  end
+
+  # --- Implementations for Feature (Canonical Resolution) ---
+
+  @doc """
+  Lists all implementations in a product that have a valid canonical spec for the given feature.
+
+  An implementation is considered "valid" for a feature if `resolve_canonical_spec/3` returns
+  a spec for that (feature_name, implementation_id) pair. This includes:
+  - Implementations with the spec on their tracked branches
+  - Implementations that inherit the spec from a parent implementation
+
+  Returns a list of Implementation structs that can be used in dropdown selectors.
+
+  ACIDs:
+  - feature-impl-view.INHERITANCE.1: Recurse up parent chain if spec not found on tracked branches
+  - feature-impl-view.ROUTING.4: feature_name scoped to implementation tracked branches
+  - feature-impl-view.CARDS.1-4
+  """
+  def list_implementations_for_feature(feature_name, %Product{} = product) do
+    # feature-impl-view.CARDS.1-4
+    # Get all implementations for the product
+    implementations =
+      Repo.all(
+        from i in Acai.Implementations.Implementation,
+          where: i.product_id == ^product.id,
+          order_by: i.name
+      )
+
+    # Filter to only implementations that can resolve the feature
+    Enum.filter(implementations, fn impl ->
+      case resolve_canonical_spec(feature_name, impl.id) do
+        {nil, nil} -> false
+        {_spec, _source_info} -> true
+      end
+    end)
+  end
+
+  # --- Canonical Spec Resolution with Inheritance ---
+
+  alias Acai.Implementations.{Implementation, TrackedBranch}
+
+  @doc """
+  Resolves the canonical spec for a feature_name and implementation.
+
+  The resolution follows this order:
+  1. Search for specs on the implementation's tracked branches (by branch_id)
+     that also belong to the implementation's product
+  2. If not found, recurse up the parent_implementation_id chain,
+     but only consider specs that belong to the original implementation's product
+
+  Returns {spec, source_info} where source_info is a map containing:
+  - :is_inherited - boolean indicating if spec came from parent chain
+  - :source_implementation_id - the implementation ID where spec was found (or nil if local)
+  - :source_branch - the branch where spec was found (or nil)
+
+  Returns {nil, nil} if no spec found anywhere in the ancestry, or if the only
+  matching spec belongs to a different product than the implementation.
+
+  ACIDs:
+  - feature-impl-view.INHERITANCE.1: Recurse up parent chain if spec not found on tracked branches
+  - feature-impl-view.ROUTING.4: feature_name scoped to implementation tracked branches
+  - feature-impl-view.ROUTING.4: spec must belong to the same product as the implementation
+  """
+  def resolve_canonical_spec(feature_name, implementation_id, visited \\ MapSet.new()) do
+    resolve_canonical_spec_with_product(feature_name, implementation_id, nil, visited)
+  end
+
+  # Internal implementation that carries the original product_id through recursion
+  defp resolve_canonical_spec_with_product(
+         feature_name,
+         implementation_id,
+         original_product_id,
+         visited
+       ) do
+    # Prevent infinite loops in case of circular references
+    if MapSet.member?(visited, implementation_id) do
+      {nil, nil}
+    else
+      visited = MapSet.put(visited, implementation_id)
+      implementation = Repo.get(Implementation, implementation_id)
+
+      if is_nil(implementation) do
+        {nil, nil}
+      else
+        # On the first call, capture the original implementation's product_id
+        # This is the product that the spec must belong to for resolution to succeed
+        product_id = original_product_id || implementation.product_id
+
+        # Get tracked branch IDs for this implementation
+        branch_ids =
+          Repo.all(
+            from tb in TrackedBranch,
+              where: tb.implementation_id == ^implementation.id,
+              select: tb.branch_id
+          )
+
+        # Search for spec on tracked branches first, scoped to the original product
+        spec =
+          if branch_ids != [] do
+            Repo.one(
+              from s in Spec,
+                where:
+                  s.feature_name == ^feature_name and
+                    s.branch_id in ^branch_ids and
+                    s.product_id == ^product_id,
+                preload: [:product, :branch],
+                limit: 1
+            )
+          else
+            nil
+          end
+
+        if spec do
+          # Found spec on this implementation's tracked branches
+          # Only valid if the spec's product matches the original implementation's product
+          source_info = %{
+            is_inherited: original_product_id != nil,
+            source_implementation_id:
+              if(original_product_id != nil, do: implementation_id, else: nil),
+            source_branch: spec.branch
+          }
+
+          {spec, source_info}
+        else
+          # Not found, check parent implementation
+          if implementation.parent_implementation_id do
+            {parent_spec, parent_source} =
+              resolve_canonical_spec_with_product(
+                feature_name,
+                implementation.parent_implementation_id,
+                product_id,
+                visited
+              )
+
+            if parent_spec do
+              # Found in parent chain - mark as inherited
+              source_info = %{
+                is_inherited: true,
+                source_implementation_id:
+                  parent_source.source_implementation_id ||
+                    implementation.parent_implementation_id,
+                source_branch: parent_source.source_branch
+              }
+
+              {parent_spec, source_info}
+            else
+              {nil, nil}
+            end
+          else
+            {nil, nil}
+          end
+        end
+      end
+    end
   end
 end

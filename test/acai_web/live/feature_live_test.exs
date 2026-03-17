@@ -90,7 +90,8 @@ defmodule AcaiWeb.FeatureLiveTest do
       create_spec_for_feature(team, product, "my-feature")
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
-      assert has_element?(view, "h1", "my-feature")
+      # Feature name is in the dropdown button
+      assert has_element?(view, "button", "my-feature")
     end
 
     # feature-view.ROUTING.1
@@ -102,11 +103,11 @@ defmodule AcaiWeb.FeatureLiveTest do
       # Access with lowercase URL
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/myfeature")
       # Should display the actual feature name from database
-      assert has_element?(view, "h1", "MyFeature")
+      assert has_element?(view, "button", "MyFeature")
     end
 
     # feature-view.MAIN.2
-    test "renders feature description when present", %{conn: conn, user: user} do
+    test "renders page title", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
 
@@ -115,7 +116,10 @@ defmodule AcaiWeb.FeatureLiveTest do
       )
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
-      assert has_element?(view, "p", "A test feature description")
+      # Page title is in the text spans around the dropdown
+      html = render(view)
+      assert html =~ "Overview of the"
+      assert html =~ "my-feature"
     end
 
     # feature-view.MAIN.2
@@ -129,7 +133,7 @@ defmodule AcaiWeb.FeatureLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
       # Should still render the page without error
-      assert has_element?(view, "h1", "my-feature")
+      assert has_element?(view, "button", "my-feature")
       # Description paragraph should not be present
       refute has_element?(view, "p", "Description")
     end
@@ -188,7 +192,8 @@ defmodule AcaiWeb.FeatureLiveTest do
 
       expected_slug = Implementations.implementation_slug(impl)
 
-      assert expected_slug =~ ~r/^[a-z0-9-]+\+[0-9a-f]{32}$/
+      # feature-impl-view.ROUTING.1: Route uses impl_name-impl_id format with dash separator
+      assert expected_slug =~ ~r/^[a-z0-9-]+-[0-9a-f]{32}$/
       assert has_element?(view, "a[href='/t/#{team.name}/i/#{expected_slug}/f/my-feature']")
     end
   end
@@ -349,7 +354,8 @@ defmodule AcaiWeb.FeatureLiveTest do
       # Test various case combinations
       for feature_name <- ["MyFeature", "myfeature", "MYFEATURE", "Myfeature"] do
         {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/#{feature_name}")
-        assert has_element?(view, "h1", "MyFeature")
+        # Feature name is in the dropdown button
+        assert has_element?(view, "button", "MyFeature")
       end
     end
 

@@ -261,6 +261,7 @@ defmodule AcaiWeb.TeamLive do
           page_title="Team Overview"
           resource_name={@team.name}
           resource_icon="hero-user-group"
+          resource_icon_color="accent"
           breadcrumb_items={[
             %{label: "Overview", navigate: ~p"/t/#{@team.name}", icon: "hero-home"}
           ]}
@@ -292,14 +293,14 @@ defmodule AcaiWeb.TeamLive do
               <div :for={product <- @products}>
                 <%!-- team-view.PRODUCTS.3 --%>
                 <.link navigate={"/t/#{@team.name}/p/#{product}"} class="block group">
-                  <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer h-full">
+                  <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-secondary/40 transition-all duration-200 cursor-pointer h-full">
                     <div class="card-body p-5">
                       <div class="flex items-center gap-3">
-                        <div class="rounded-lg bg-base-300 p-2">
-                          <.icon name="hero-cube" class="size-5 text-primary" />
+                        <div class="rounded-lg bg-secondary/10 p-2">
+                          <.icon name="custom-boxes" class="size-5 text-secondary" />
                         </div>
                         <%!-- team-view.PRODUCTS.2 --%>
-                        <h3 class="font-semibold text-base group-hover:text-primary transition-colors">
+                        <h3 class="font-semibold text-base group-hover:text-secondary transition-colors">
                           {product}
                         </h3>
                       </div>

@@ -46,7 +46,7 @@ Please follow these templates. In some cases, you do not need to add any additio
 > The previous implementation did not pass review and could not be merged. Please proceed by resolving findings in the task file for task id: `{task_id}` (feature name: `{feature_name}`). Return when all items have been addressed.
 
 **review-task**
-> The developer has completed implementation. Please review the implementation. You can find the implementation at <path or commit or branch etc.>, record your findings into the task.md file, and report back. Task file is located at `<path>`
+> The developer has completed implementation. Please review the implementation, and ensure compliance with both the task file and any relevant spec(s) files. You can find the implementation at <path or commit or branch etc.>, record your findings into the task.md file, and report back. Task file is located at `<path>`. If during your review you stumble on important follow-up or ancillary work that is out of scope for the current task, you may choose to write additional task .md files to the .tasks directory, and let me know about them.
 
 ### Other constraints
 Don't get hands on, don't read task files, don't read code. Your job is just to coordinate with the other agents, and coordinate git commits and merges. This is how we keep your context window small to keep costs down.

@@ -90,7 +90,8 @@ defmodule Acai.ImplementationsTest do
       impl = implementation_fixture(product, %{name: "Production Server"})
       slug = Implementations.implementation_slug(impl)
 
-      assert slug =~ ~r/^production-server\+[a-f0-9]{32}$/
+      # feature-impl-view.ROUTING.1: Route uses impl_name-impl_id format
+      assert slug =~ ~r/^production-server-[a-f0-9]{32}$/
     end
   end
 
@@ -99,6 +100,7 @@ defmodule Acai.ImplementationsTest do
       impl = implementation_fixture(product, %{name: "Production"})
       slug = Implementations.implementation_slug(impl)
 
+      # feature-impl-view.ROUTING.3: impl_id is the UUID used for lookup
       assert Implementations.get_implementation_by_slug(slug).id == impl.id
     end
 
@@ -107,7 +109,8 @@ defmodule Acai.ImplementationsTest do
     end
 
     test "returns nil when not found" do
-      fake_slug = "test+" <> String.duplicate("a", 32)
+      # feature-impl-view.ROUTING.1: Route uses impl_name-impl_id format with dash separator
+      fake_slug = "test-" <> String.duplicate("a", 32)
       assert Implementations.get_implementation_by_slug(fake_slug) == nil
     end
   end

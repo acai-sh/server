@@ -24,6 +24,11 @@ defmodule Acai.Implementations do
   def get_implementation!(id), do: Repo.get!(Implementation, id)
 
   @doc """
+  Gets an implementation by ID, returns nil if not found.
+  """
+  def get_implementation(id), do: Repo.get(Implementation, id)
+
+  @doc """
   Creates an implementation for a product.
   """
   def create_implementation(_current_scope, %Product{} = product, attrs) do
@@ -57,18 +62,26 @@ defmodule Acai.Implementations do
   @doc """
   Builds a URL-safe slug for an implementation.
 
-  Format: {sanitized_name}+{uuid_without_dashes}
+  Format: {sanitized_name}-{uuid_without_dashes}
+
+  ACIDs:
+  - feature-impl-view.ROUTING.1: Route uses impl_name-impl_id format
+  - feature-impl-view.ROUTING.2: impl_name is sanitized and trimmed for URL safety
+  - feature-impl-view.ROUTING.3: impl_id is the UUID used for lookup
   """
   def implementation_slug(%Implementation{} = implementation) do
-    "#{sanitize_slug_part(implementation.name)}+#{uuid_without_dashes(implementation.id)}"
+    "#{sanitize_slug_part(implementation.name)}-#{uuid_without_dashes(implementation.id)}"
   end
 
   @doc """
-  Gets an implementation by parsing the slug pattern: {impl_name}+{uuid_without_dashes}.
+  Gets an implementation by parsing the slug pattern: {impl_name}-{uuid_without_dashes}.
   Returns nil if not found or invalid format.
+
+  ACIDs:
+  - feature-impl-view.ROUTING.3: impl_id is the UUID used for lookup
   """
   def get_implementation_by_slug(slug) when is_binary(slug) do
-    case Regex.run(~r/\+([0-9a-fA-F]{32})$/, slug, capture: :all_but_first) do
+    case Regex.run(~r/-([0-9a-fA-F]{32})$/, slug, capture: :all_but_first) do
       [uuid_part] ->
         case parse_uuid_without_dashes(uuid_part) do
           {:ok, uuid} -> Repo.get(Implementation, uuid)
@@ -444,12 +457,13 @@ defmodule Acai.Implementations do
   end
 
   @doc """
-  Gets aggregated refs for a feature_name and implementation, walking the parent chain
-  if no refs are found on the implementation's tracked branches.
+  Gets aggregated refs across all tracked branches for a feature_name and implementation.
+  Walks the parent implementation chain if no refs found on tracked branches.
 
-  Returns {aggregated_refs, is_inherited} where:
+  Returns {aggregated_refs, source_impl_id} where:
   - aggregated_refs: list of {branch, refs_map} tuples
-  - is_inherited: boolean indicating if refs came from parent implementation
+  - source_impl_id: nil if refs are from this implementation, or the ID of the parent
+    implementation where the refs were inherited from
 
   ACIDs:
   - data-model.INHERITANCE.8: Aggregate refs across tracked branches, walk parent chain
@@ -461,15 +475,25 @@ defmodule Acai.Implementations do
         implementation_id,
         visited \\ MapSet.new()
       ) do
+    get_aggregated_refs_with_inheritance_impl(feature_name, implementation_id, nil, visited)
+  end
+
+  # Internal implementation that tracks the original implementation ID for inheritance
+  defp get_aggregated_refs_with_inheritance_impl(
+         feature_name,
+         implementation_id,
+         original_impl_id,
+         visited
+       ) do
     # Prevent infinite loops in case of circular references
     if MapSet.member?(visited, implementation_id) do
-      {[], false}
+      {[], nil}
     else
       visited = MapSet.put(visited, implementation_id)
       implementation = Repo.get(Implementation, implementation_id)
 
       if is_nil(implementation) do
-        {[], false}
+        {[], nil}
       else
         # Get tracked branch IDs for this implementation
         branch_ids = get_tracked_branch_ids(implementation)
@@ -479,24 +503,30 @@ defmodule Acai.Implementations do
 
         if refs != [] do
           # Found refs on this implementation's branches
-          {refs, false}
+          # If we walked up the parent chain, return the current impl ID as source
+          source_impl_id = if original_impl_id, do: implementation_id, else: nil
+          {refs, source_impl_id}
         else
           # No refs found, check parent implementation
           if implementation.parent_implementation_id do
-            {parent_refs, _} =
-              get_aggregated_refs_with_inheritance(
+            # Track the original implementation ID on first call
+            orig_id = original_impl_id || implementation_id
+
+            {parent_refs, source_impl_id} =
+              get_aggregated_refs_with_inheritance_impl(
                 feature_name,
                 implementation.parent_implementation_id,
+                orig_id,
                 visited
               )
 
             if parent_refs != [] do
-              {parent_refs, true}
+              {parent_refs, source_impl_id}
             else
-              {[], false}
+              {[], nil}
             end
           else
-            {[], false}
+            {[], nil}
           end
         end
       end
@@ -506,13 +536,9 @@ defmodule Acai.Implementations do
   @doc """
   Counts total refs and tests for a feature_name and implementation.
   Returns %{total_refs: count, total_tests: count, is_inherited: boolean}.
-
-  ACIDs:
-  - feature-impl-view.MAIN.4: Refs column shows total refs across tracked branches
-  - feature-impl-view.MAIN.6-1: Indicates if refs are inherited
   """
   def count_refs_for_implementation(feature_name, implementation_id) do
-    {aggregated_refs, is_inherited} =
+    {aggregated_refs, source_impl_id} =
       get_aggregated_refs_with_inheritance(feature_name, implementation_id)
 
     {total_refs, total_tests} =
@@ -524,7 +550,7 @@ defmodule Acai.Implementations do
         end)
       end)
 
-    %{total_refs: total_refs, total_tests: total_tests, is_inherited: is_inherited}
+    %{total_refs: total_refs, total_tests: total_tests, is_inherited: source_impl_id != nil}
   end
 
   @doc """

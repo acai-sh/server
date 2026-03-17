@@ -61,11 +61,12 @@ defmodule AcaiWeb.Live.Components.NavLive do
 
         {product, nil}
 
-      # nav.PANEL.5-3: /t/:team_name/i/:impl_slug/f/:feature_name
+      # nav.PANEL.5-3: /t/:team_name/i/:impl_name-:impl_id/f/:feature_name
+      # feature-impl-view.ROUTING.1: Route uses impl_name-impl_id format
       # Check for specific implementation path first (more specific than feature path)
       String.starts_with?(path_without_team, "/i/") and String.contains?(path_without_team, "/f/") ->
-        # Parse impl_slug and feature from /i/:impl_slug/f/:feature_name
-        # After /i/ comes impl_slug, after /f/ comes feature_name
+        # Parse impl_name-impl_id and feature from /i/:impl_name-:impl_id/f/:feature_name
+        # After /i/ comes impl_name-impl_id, after /f/ comes feature_name
         parts = path_without_team |> String.trim_leading("/i/") |> String.split("/f/")
         feature = parts |> Enum.at(1) |> String.split("/") |> List.first()
 
@@ -263,24 +264,35 @@ defmodule AcaiWeb.Live.Components.NavLive do
   attr :myself, :any, required: true
 
   defp product_item(assigns) do
+    # product-view.MATRIX.2: Deduplicate specs by feature_name for nav display
+    # Multiple specs can exist for the same feature across different branches/versions
+    distinct_feature_names =
+      assigns.specs
+      |> Enum.map(& &1.feature_name)
+      |> Enum.uniq()
+      |> Enum.sort()
+
+    assigns = assign(assigns, :distinct_feature_names, distinct_feature_names)
+
     ~H"""
     <div>
       <%!-- nav.PANEL.3-2: Product display name --%>
       <div class="flex items-center group">
         <%!-- nav.PANEL.3-3, nav.PANEL.4-3: Product item links to overview --%>
+        <%!-- Product styling uses secondary color to align with Product visual language --%>
         <.link
           navigate={~p"/t/#{@team.name}/p/#{@product}"}
           class={
             [
               "flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors min-h-10 min-w-0",
-              # nav.PANEL.5-4: Active product highlighted
-              @active_product == @product && "bg-base-300 text-primary",
+              # nav.PANEL.5-4: Active product highlighted with secondary color
+              @active_product == @product && "bg-base-300 text-secondary",
               @active_product != @product &&
-                "text-base-content/70 hover:bg-base-200 hover:text-base-content"
+                "text-base-content/70 hover:bg-base-200 hover:text-secondary"
             ]
           }
         >
-          <.icon name="hero-circle-stack" class="size-4 flex-shrink-0" />
+          <.icon name="custom-boxes" class="size-4 flex-shrink-0" />
           <span class="truncate">{@product}</span>
         </.link>
 
@@ -288,8 +300,8 @@ defmodule AcaiWeb.Live.Components.NavLive do
         <button
           type="button"
           class={[
-            "px-2 py-2 rounded-lg transition-colors text-base-content/40 hover:text-base-content hover:bg-base-200 min-h-10",
-            @active_product == @product && "bg-base-300 text-primary/60 hover:text-primary"
+            "px-2 py-2 rounded-lg transition-colors text-base-content/40 hover:text-secondary hover:bg-base-200 min-h-10",
+            @active_product == @product && "bg-base-300 text-secondary/60 hover:text-secondary"
           ]}
           phx-click="toggle_product"
           phx-value-product={@product}
@@ -305,8 +317,8 @@ defmodule AcaiWeb.Live.Components.NavLive do
       <%!-- nav.PANEL.4-1: Feature names under each product --%>
       <div :if={@expanded} class="mt-1 ml-2 space-y-1">
         <.feature_item
-          :for={spec <- @specs}
-          spec={spec}
+          :for={feature_name <- @distinct_feature_names}
+          feature_name={feature_name}
           team={@team}
           active_feature={@active_feature}
         />
@@ -316,21 +328,25 @@ defmodule AcaiWeb.Live.Components.NavLive do
   end
 
   # nav.PANEL.4-1: Feature item component
+  attr :feature_name, :string, required: true
+  attr :team, :map, required: true
+  attr :active_feature, :string, default: nil
+
   defp feature_item(assigns) do
     ~H"""
     <.link
-      navigate={~p"/t/#{@team.name}/f/#{@spec.feature_name}"}
+      navigate={~p"/t/#{@team.name}/f/#{@feature_name}"}
       class={
         [
           "flex items-center gap-3 px-3 py-1.5 rounded-lg text-xs transition-colors",
-          # nav.PANEL.5-2: Active feature highlighted
-          @active_feature == @spec.feature_name && "bg-base-300 text-primary font-medium",
-          @active_feature != @spec.feature_name &&
+          # nav.PANEL.5-2: Active feature highlighted with primary color
+          @active_feature == @feature_name && "bg-base-300 text-primary font-medium",
+          @active_feature != @feature_name &&
             "text-base-content/60 hover:bg-base-200 hover:text-base-content"
         ]
       }
     >
-      <span>{@spec.feature_name}</span>
+      <span>{@feature_name}</span>
     </.link>
     """
   end

@@ -19,6 +19,10 @@
    The heroicons installation itself is managed by your mix.exs */
 @plugin "../vendor/heroicons";
 
+/* Custom icons plugin - processes SVG files from assets/icons/
+   Usage: <.icon name="custom-git-branch" class="size-5" /> */
+@plugin "../vendor/custom_icons";
+
 /* daisyUI Tailwind Plugin. */
 @plugin "../vendor/daisyui" {
     themes: false;
@@ -27,31 +31,31 @@
 @plugin "../vendor/daisyui-theme" {
     name: "dark";
     default: false;
-    prefersdark: true;
+    prefersdark: false;
     color-scheme: "dark";
-    --color-base-100: oklch(30.9% 0.023 320.1);
-    --color-base-200: oklch(28% 0.019 320.9);
-    --color-base-300: oklch(26.346% 0.018 320);
-    --color-base-content: oklch(82.901% 0.031 222.959);
-    --color-primary: oklch(0.52 0.23 327);
-    --color-primary-content: oklch(100% 0 0);
-    --color-secondary: oklch(70% 0.04 256.788);
-    --color-secondary-content: oklch(14.675% 0.033 35.353);
-    --color-accent: oklch(41% 0.146 27.6);
-    --color-accent-content: oklch(100% 0.026 122.5);
-    --color-neutral: oklch(24.731% 0.02 264.094);
-    --color-neutral-content: oklch(82.901% 0.031 222.959);
-    --color-info: oklch(44% 0.11 240.79);
-    --color-info-content: oklch(98% 0.003 247.858);
-    --color-success: oklch(59% 0.145 163.225);
-    --color-success-content: oklch(98% 0.003 247.858);
-    --color-warning: oklch(55% 0.135 66.442);
-    --color-warning-content: oklch(98% 0.003 247.858);
-    --color-error: oklch(39% 0.141 25.723);
-    --color-error-content: oklch(98% 0.003 247.858);
+    --color-base-100: oklch(28.822% 0.022 277.508);
+    --color-base-200: oklch(26.805% 0.02 277.508);
+    --color-base-300: oklch(24.787% 0.019 277.508);
+    --color-base-content: oklch(97.747% 0.007 106.545);
+    --color-primary: oklch(75.461% 0.183 346.812);
+    --color-primary-content: oklch(15.092% 0.036 346.812);
+    --color-secondary: oklch(74.202% 0.148 301.883);
+    --color-secondary-content: oklch(14.84% 0.029 301.883);
+    --color-accent: oklch(83.392% 0.124 66.558);
+    --color-accent-content: oklch(16.678% 0.024 66.558);
+    --color-neutral: oklch(39.445% 0.032 275.524);
+    --color-neutral-content: oklch(87.889% 0.006 275.524);
+    --color-info: oklch(88.263% 0.093 212.846);
+    --color-info-content: oklch(17.652% 0.018 212.846);
+    --color-success: oklch(87.099% 0.219 148.024);
+    --color-success-content: oklch(17.419% 0.043 148.024);
+    --color-warning: oklch(95.533% 0.134 112.757);
+    --color-warning-content: oklch(19.106% 0.026 112.757);
+    --color-error: oklch(68.22% 0.206 24.43);
+    --color-error-content: oklch(13.644% 0.041 24.43);
     --radius-selector: 1rem;
     --radius-field: 0.5rem;
-    --radius-box: 0.5rem;
+    --radius-box: 1rem;
     --size-selector: 0.25rem;
     --size-field: 0.25rem;
     --border: 1px;
@@ -64,24 +68,23 @@
     default: true;
     prefersdark: false;
     color-scheme: "light";
-    /* Acai.sh Light Theme */
     --color-base-100: oklch(99.5% 0.003 328.6);
     --color-base-200: oklch(97% 0.012 291.4);
-    --color-base-300: oklch(0.94 0.027 291.4);
+    --color-base-300: oklch(94% 0.027 291.4);
     --color-base-content: oklch(14.6% 0.011 328);
-    --color-primary: oklch(0.5 0.17 335);
+    --color-primary: oklch(50% 0.17 335);
     --color-primary-content: oklch(100% 0 0);
-    --color-secondary: oklch(7.28% 0.024 330.4); /* #1a0416 - Primary Dark */
+    --color-secondary: oklch(60% 0.118 184.704);
     --color-secondary-content: oklch(98% 0.002 247.839);
-    --color-accent: oklch(77.53% 0.186 331.4); /* #f765f7 - Primary Light */
-    --color-accent-content: oklch(10% 0.05 331.4);
-    --color-neutral: oklch(65% 0.005 328); /* #a39ea2 - Gray 400 */
+    --color-accent: oklch(12% 0.042 264.695);
+    --color-accent-content: oklch(98% 0.003 247.858);
+    --color-neutral: oklch(65% 0.005 328);
     --color-neutral-content: oklch(98% 0 0);
     --color-info: oklch(45% 0.13 260);
     --color-info-content: oklch(97% 0.014 254.604);
-    --color-success: oklch(70% 0.14 182.503);
+    --color-success: oklch(62% 0.194 149.214);
     --color-success-content: oklch(98% 0.014 180.72);
-    --color-warning: oklch(75% 0.15 75); /* warm gold - complements purple */
+    --color-warning: oklch(75% 0.15 75);
     --color-warning-content: oklch(20% 0.02 75);
     --color-error: oklch(58% 0.253 17.585);
     --color-error-content: oklch(96% 0.015 12.422);

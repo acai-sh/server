@@ -11,6 +11,8 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   """
   use AcaiWeb, :live_component
 
+  import AcaiWeb.Helpers.RepoFormatter
+
   alias Acai.Specs
 
   @impl true
@@ -31,8 +33,11 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
       # JSONB data from database uses string keys
       requirement_data = Map.get(requirements, acid)
 
-      # data-model.FEATURE_IMPL_STATES: Get status from feature_impl_states JSONB
-      spec_impl_state = Specs.get_spec_impl_state(spec, implementation)
+      # feature-impl-view.INHERITANCE.2: Get status with inheritance walking
+      # feature-impl-view.DRAWER.3: Shows status and comment from inherited states
+      {spec_impl_state, _state_source_impl_id} =
+        Specs.get_feature_impl_state_with_inheritance(spec.feature_name, implementation.id)
+
       state_data = get_in(spec_impl_state && spec_impl_state.states, [acid])
 
       # feature-impl-view.DRAWER.4: Get refs for this ACID from aggregated branch refs
@@ -152,7 +157,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
         class={[
           "fixed right-0 top-0 h-full w-full max-w-md lg:max-w-2xl bg-base-100 shadow-xl",
           "transform transition-transform duration-300 ease-in-out",
-          "flex flex-col",
+          "flex flex-col overflow-hidden",
           @visible && "translate-x-0",
           !@visible && "translate-x-full"
         ]}
@@ -162,7 +167,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
       >
         <%= if @requirement do %>
           <%!-- Drawer header --%>
-          <div class="flex items-center justify-between p-4 border-b border-base-300">
+          <div class="flex items-center justify-between p-4 border-b border-base-300 flex-shrink-0">
             <%!-- requirement-details.DRAWER.1: Renders the requirement ACID as the drawer title --%>
             <h2 id={"#{@id}-title"} class="text-lg font-semibold text-base-content">
               {@requirement.acid}
@@ -179,127 +184,153 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
             </button>
           </div>
 
-          <%!-- Drawer content --%>
-          <div class="flex-1 overflow-y-auto p-4 space-y-6">
-            <%!-- requirement-details.DRAWER.2: Renders the full requirement definition text --%>
-            <div class="space-y-2">
-              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
-                Definition
-              </h3>
-              <p class="text-base-content leading-relaxed">
-                {@requirement.definition}
-              </p>
-            </div>
+          <%!-- Drawer content - use relative positioning to allow tooltips to escape --%>
+          <div class="flex-1 relative">
+            <%!-- Inner scroll container --%>
+            <div class="absolute inset-0 overflow-y-auto p-4 space-y-6">
+              <%!-- requirement-details.DRAWER.2: Renders the full requirement definition text --%>
+              <div class="space-y-2">
+                <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
+                  Definition
+                </h3>
+                <p class="text-base-content leading-relaxed">
+                  {@requirement.definition}
+                </p>
+              </div>
 
-            <%!-- requirement-details.DRAWER.3: Renders the requirement note if one exists --%>
-            <div :if={@requirement.note} class="space-y-2">
-              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
-                Note
-              </h3>
-              <p class="text-base-content/80 text-sm">
-                {@requirement.note}
-              </p>
-            </div>
+              <%!-- requirement-details.DRAWER.3: Renders the requirement note if one exists --%>
+              <div :if={@requirement.note} class="space-y-2">
+                <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
+                  Note
+                </h3>
+                <p class="text-base-content/80 text-sm">
+                  {@requirement.note}
+                </p>
+              </div>
 
-            <%!-- requirement-details.DRAWER.4: Status section --%>
-            <div class="space-y-2">
-              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
-                Status
-              </h3>
-              <div class="flex items-center gap-3">
-                <%!-- requirement-details.DRAWER.4-1: If no status exists, renders a clear 'no status' indicator --%>
-                <%= if @requirement_status && @requirement_status.status do %>
-                  <%!-- requirement-details.DRAWER.4: Show status value if exists --%>
-                  <span class={[
-                    "badge",
-                    status_badge_color(@requirement_status.status)
-                  ]}>
-                    {@requirement_status.status}
-                  </span>
+              <%!-- requirement-details.DRAWER.4: Status section --%>
+              <div class="space-y-2">
+                <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
+                  Status
+                </h3>
+                <div class="flex flex-wrap items-center gap-2">
+                  <%!-- requirement-details.DRAWER.4-1: If no status exists, renders a clear 'no status' indicator --%>
+                  <%= if @requirement_status && @requirement_status.status do %>
+                    <%!-- requirement-details.DRAWER.4: Show status value if exists --%>
+                    <span class={[
+                      "inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium",
+                      status_chip_color(@requirement_status.status)
+                    ]}>
+                      <.icon name="hero-check-circle" class="size-3.5" />
+                      {@requirement_status.status}
+                    </span>
+                  <% else %>
+                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-base-200/70 text-xs text-base-content/50">
+                      <.icon name="hero-minus-circle" class="size-3.5" /> No status
+                    </span>
+                  <% end %>
+
+                  <%!-- requirement-details.DRAWER.4-2: Implementation context chip --%>
+                  <div class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary/10 text-xs text-secondary font-medium">
+                    <.icon name="hero-tag" class="size-3.5" />
+                    <span>{@implementation.name}</span>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- requirement-details.DRAWER.7: Comment section from status note --%>
+              <div
+                :if={@requirement_status && @requirement_status.note}
+                class="space-y-2 bg-base-200/50 p-4 rounded-lg border border-base-300"
+              >
+                <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
+                  Status Comment
+                </h3>
+                <p class="text-sm text-base-content/80 italic leading-relaxed">
+                  "{@requirement_status.note}"
+                </p>
+              </div>
+
+              <%!-- requirement-details.DRAWER.5: References section --%>
+              <div class="space-y-3">
+                <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
+                  References
+                </h3>
+
+                <%= if map_size(@refs_by_branch) == 0 do %>
+                  <p class="text-sm text-base-content/50">
+                    No code references found for this requirement in the tracked branches.
+                  </p>
                 <% else %>
-                  <span class="badge badge-ghost text-base-content/50">
-                    No status
-                  </span>
-                <% end %>
+                  <%!-- feature-impl-view.DRAWER.4-note: Each ref is sourced from a specific branch --%>
+                  <%!-- requirement-details.DRAWER.5-2: References are grouped by their tracked branch --%>
+                  <div :for={{branch, refs} <- @refs_by_branch} class="space-y-2">
+                    <%!-- Group header with icon chips for repo and branch --%>
+                    <% repo_popover_id = "requirement-drawer-repo-popover-#{branch.id}" %>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <%!-- feature-impl-view.DRAWER.4-1: References section reuses repo display rules --%>
+                      <button
+                        type="button"
+                        class="badge badge-md badge-soft cursor-pointer transition-colors hover:bg-base-200"
+                        popovertarget={repo_popover_id}
+                        style={"anchor-name:--requirement-drawer-repo-anchor-#{branch.id}"}
+                      >
+                        <.icon name="hero-code-bracket-square" class="size-3.5" />
+                        <span>{format_repo_name(branch.repo_uri)}</span>
+                      </button>
+                      <div
+                        popover
+                        id={repo_popover_id}
+                        class="dropdown rounded-box bg-base-100 shadow-sm border border-base-300 p-3 w-80 space-y-2"
+                        style={"position-anchor:--requirement-drawer-repo-anchor-#{branch.id}"}
+                      >
+                        <p class="text-xs uppercase tracking-wider text-base-content/50">
+                          Repository URI
+                        </p>
+                        <a
+                          href={repo_http_url(branch.repo_uri)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="link link-primary text-sm break-all"
+                        >
+                          {branch.repo_uri}
+                        </a>
+                      </div>
+                      <div class="badge">
+                        <.icon name="custom-git-branch" class="size-3.5" />
+                        <span>{branch.branch_name}</span>
+                      </div>
+                    </div>
 
-                <%!-- requirement-details.DRAWER.4-2: Renders the implementation name as context label --%>
-                <span class="text-sm text-base-content/50 truncate">
-                  in {@implementation.name}
-                </span>
+                    <%!-- References list --%>
+                    <ul class="space-y-1">
+                      <li :for={ref <- refs} class="flex items-center gap-2">
+                        <%!-- requirement-details.DRAWER.5-3: Each reference shows file path and line number --%>
+                        <%!-- requirement-details.DRAWER.5-4: Clickable link format --%>
+                        <.link
+                          href={build_reference_url(branch, ref)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class={[
+                            "text-sm hover:underline break-all",
+                            ref["is_test"] && "text-info",
+                            !ref["is_test"] && "text-base-content/80 hover:text-primary"
+                          ]}
+                        >
+                          {format_path(ref["path"])}
+                        </.link>
+
+                        <%!-- Test badge for test references --%>
+                        <%= if ref["is_test"] do %>
+                          <span class="badge badge-info badge-xs">Test</span>
+                        <% end %>
+                      </li>
+                    </ul>
+                  </div>
+                <% end %>
               </div>
             </div>
-
-            <%!-- requirement-details.DRAWER.7: Comment section from status note --%>
-            <div
-              :if={@requirement_status && @requirement_status.note}
-              class="space-y-2 bg-base-200/50 p-4 rounded-lg border border-base-300"
-            >
-              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
-                Status Comment
-              </h3>
-              <p class="text-sm text-base-content/80 italic leading-relaxed">
-                "{@requirement_status.note}"
-              </p>
-            </div>
-
-            <%!-- requirement-details.DRAWER.5: References section --%>
-            <div class="space-y-3">
-              <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
-                References
-              </h3>
-
-              <%= if map_size(@refs_by_branch) == 0 do %>
-                <p class="text-sm text-base-content/50">
-                  No code references found for this requirement in the tracked branches.
-                </p>
-              <% else %>
-                <%!-- feature-impl-view.DRAWER.4-note: Each ref is sourced from a specific branch --%>
-                <%!-- requirement-details.DRAWER.5-2: References are grouped by their tracked branch --%>
-                <div :for={{branch, refs} <- @refs_by_branch} class="space-y-2">
-                  <%!-- Group header shows repo_uri and branch_name from actual branch data --%>
-                  <div class="flex items-center gap-2 text-sm font-medium text-base-content/80 min-w-0">
-                    <span class="truncate">{branch.repo_uri}</span>
-                    <span class="text-base-content/40 flex-shrink-0">/</span>
-                    <span class="text-primary flex-shrink-0">{branch.branch_name}</span>
-                  </div>
-
-                  <%!-- References list --%>
-                  <ul class="space-y-1">
-                    <li :for={ref <- refs} class="flex items-center gap-2">
-                      <%!-- requirement-details.DRAWER.5-5: Test references visually distinguished --%>
-                      <%= if ref["is_test"] do %>
-                        <.icon name="hero-beaker" class="size-4 text-info flex-shrink-0" />
-                      <% else %>
-                        <.icon
-                          name="hero-code-bracket"
-                          class="size-4 text-base-content/50 flex-shrink-0"
-                        />
-                      <% end %>
-
-                      <%!-- requirement-details.DRAWER.5-3: Each reference shows file path and line number --%>
-                      <%!-- requirement-details.DRAWER.5-4: Clickable link format --%>
-                      <.link
-                        href={build_reference_url(branch, ref)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class={[
-                          "text-sm hover:underline break-all",
-                          ref["is_test"] && "text-info",
-                          !ref["is_test"] && "text-base-content/80 hover:text-primary"
-                        ]}
-                      >
-                        {format_path(ref["path"])}
-                      </.link>
-
-                      <%!-- Test badge for test references --%>
-                      <%= if ref["is_test"] do %>
-                        <span class="badge badge-info badge-xs">Test</span>
-                      <% end %>
-                    </li>
-                  </ul>
-                </div>
-              <% end %>
-            </div>
+            <%!-- Close relative wrapper and inner scroll container --%>
           </div>
         <% else %>
           <%!-- Empty drawer when no requirement selected --%>
@@ -326,15 +357,22 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
     """
   end
 
-  # requirement-details.DRAWER.5-4: Build the clickable link
-  # Format: https://<repo_uri>/blob/<branch_name>/<path>
+  # feature-impl-view.DRAWER.5: Build the clickable link to source file at specific line
+  # Format: https://<repo_uri>/blob/<branch_name>/<path>#L<line>
   # Uses actual branch data from the database
   defp build_reference_url(branch, ref) do
-    # Extract just the file path (without line number) for the URL
-    {file_path, _line} = parse_path_and_line(ref["path"])
+    # feature-impl-view.DRAWER.5: Include line number when available
+    {file_path, line} = parse_path_and_line(ref["path"])
 
     # Use the branch_name from the actual branch record
-    "https://#{branch.repo_uri}/blob/#{branch.branch_name}/#{file_path}"
+    base_url = "https://#{branch.repo_uri}/blob/#{branch.branch_name}/#{file_path}"
+
+    # Append line number anchor if present
+    if line do
+      "#{base_url}#L#{line}"
+    else
+      base_url
+    end
   end
 
   # Parse path like "lib/my_app/foo.ex:42" into {"lib/my_app/foo.ex", "42"}
@@ -351,18 +389,15 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   defp format_path(path) when is_binary(path), do: path
   defp format_path(_), do: ""
 
-  # Badge colors for different statuses
-  # data-model.FEATURE_IMPL_STATES.4-3: Valid status values are null, assigned, blocked, completed, accepted, rejected
-  # Color coding: null (gray), assigned (gold), blocked (red), completed (blue), accepted (green), rejected (red)
-  defp status_badge_color(status) do
+  # Chip background colors for status (used in icon chip badges)
+  defp status_chip_color(status) do
     case status do
-      nil -> "badge-ghost"
-      "accepted" -> "badge-success"
-      "completed" -> "badge-info"
-      "assigned" -> "badge-warning"
-      "blocked" -> "badge-error"
-      "rejected" -> "badge-error"
-      _ -> "badge-ghost"
+      "accepted" -> "bg-success/10 text-success"
+      "completed" -> "bg-info/10 text-info"
+      "assigned" -> "bg-warning/10 text-warning"
+      "blocked" -> "bg-error/10 text-error"
+      "rejected" -> "bg-error/10 text-error"
+      _ -> "bg-base-200/70 text-base-content/70"
     end
   end
 end

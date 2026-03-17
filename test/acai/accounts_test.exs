@@ -1,5 +1,5 @@
 defmodule Acai.AccountsTest do
-  use Acai.DataCase
+  use Acai.DataCase, async: true
 
   alias Acai.Accounts
 

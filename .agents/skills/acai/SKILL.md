@@ -41,6 +41,7 @@ constraints:
       requirements:
         1: Constraints also have ACIDs e.g. `my-feature.MISC.1`
         1-note: Notes help us attach additional context to a requirement
+        1-1-1: INVALID - this sub-sub requirement is not allowed. Keep sub-requirements 1 level deep (`parent-child`)
 ```
 
 When planning tasks:
@@ -59,9 +60,10 @@ When writing specs:
 -> **Never change the spec** unless explicitly asked to change it.
 -> Specs are pure, simple, behavior focused, user- and outcome-oriented. Only functionality, never design nor style nor status.
 -> Always better to under-specify than over-specify
+-> Stick to the feature.yaml conventions shown above
 
 We all do what we can to keep the code, ACID refs, and specs aligned.
 
 If I ask you to significantly change the behavior of my code, always stop to remind me: "Should we write or edit the spec first?"
 
-**To confirm you have read this, you must always end your first response with "The acai.sh process will help us <say something positive>!"**
+**To confirm you have read this, you must always end your first response with "Wow, the Acai.sh process is great. I'm glad I read the instructions."**

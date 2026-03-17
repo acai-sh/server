@@ -556,4 +556,651 @@ defmodule Acai.SpecsTest do
       assert {:ok, _} = Specs.upsert_spec_impl_ref(spec, impl, attrs)
     end
   end
+
+  # --- Canonical Spec Resolution with Inheritance ---
+
+  describe "resolve_canonical_spec/2" do
+    test "returns spec on implementation's tracked branch as local", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+      impl = implementation_fixture(product)
+
+      # Create tracked branch
+      tracked_branch =
+        tracked_branch_fixture(impl, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      branch = Acai.Repo.preload(tracked_branch, :branch).branch
+
+      # Create spec on the tracked branch - use branch: branch to pass the branch struct
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          branch: branch,
+          repo_uri: "github.com/org/repo"
+        })
+
+      assert {resolved_spec, source_info} = Specs.resolve_canonical_spec("test-feature", impl.id)
+      assert resolved_spec.id == spec.id
+      assert source_info.is_inherited == false
+      assert source_info.source_implementation_id == nil
+      assert source_info.source_branch.id == branch.id
+    end
+
+    # feature-impl-view.INHERITANCE.1
+    test "returns spec from parent when not on tracked branches", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create parent implementation with tracked branch and spec
+      parent_impl = implementation_fixture(product, %{name: "parent"})
+
+      parent_tracked =
+        tracked_branch_fixture(parent_impl, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      parent_branch = Acai.Repo.preload(parent_tracked, :branch).branch
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          branch: parent_branch,
+          repo_uri: "github.com/org/repo"
+        })
+
+      # Create child implementation without tracked branch
+      child_impl =
+        implementation_fixture(product, %{
+          name: "child",
+          parent_implementation_id: parent_impl.id
+        })
+
+      assert {resolved_spec, source_info} =
+               Specs.resolve_canonical_spec("test-feature", child_impl.id)
+
+      assert resolved_spec.id == spec.id
+      assert source_info.is_inherited == true
+      assert source_info.source_implementation_id == parent_impl.id
+    end
+
+    # feature-impl-view.ROUTING.4: feature_name scoped to implementation tracked branches
+    test "returns nil when no spec on tracked branches or parent chain", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+      impl = implementation_fixture(product)
+      # No tracked branches, no parent, no spec
+
+      assert {nil, nil} = Specs.resolve_canonical_spec("nonexistent-feature", impl.id)
+    end
+
+    test "walks multiple levels of parent chain", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create grandparent with spec
+      grandparent = implementation_fixture(product, %{name: "grandparent"})
+
+      grandparent_tracked =
+        tracked_branch_fixture(grandparent, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      grandparent_branch = Acai.Repo.preload(grandparent_tracked, :branch).branch
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          branch: grandparent_branch,
+          repo_uri: "github.com/org/repo"
+        })
+
+      # Create parent without spec
+      parent =
+        implementation_fixture(product, %{
+          name: "parent",
+          parent_implementation_id: grandparent.id
+        })
+
+      # Create child without spec
+      child =
+        implementation_fixture(product, %{
+          name: "child",
+          parent_implementation_id: parent.id
+        })
+
+      assert {resolved_spec, source_info} = Specs.resolve_canonical_spec("test-feature", child.id)
+      assert resolved_spec.id == spec.id
+      assert source_info.is_inherited == true
+      assert source_info.source_implementation_id == grandparent.id
+    end
+
+    test "prevents infinite loops with circular references", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create two implementations that reference each other
+      impl1 = implementation_fixture(product, %{name: "impl1"})
+
+      impl2 =
+        implementation_fixture(product, %{
+          name: "impl2",
+          parent_implementation_id: impl1.id
+        })
+
+      # Create circular reference
+      Acai.Repo.update!(Ecto.Changeset.change(impl1, parent_implementation_id: impl2.id))
+
+      # Should not hang, should return nil
+      assert {nil, nil} = Specs.resolve_canonical_spec("test-feature", impl1.id)
+    end
+
+    # feature-impl-view.ROUTING.4: Same-name specs on untracked branches are ignored
+    test "ignores same-name spec on untracked branch", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+      impl = implementation_fixture(product)
+
+      # Create a branch but don't track it for this implementation
+      untracked_branch =
+        branch_fixture(team, %{
+          repo_uri: "github.com/org/untracked",
+          branch_name: "untracked-branch"
+        })
+
+      # Create spec on the untracked branch
+      spec_fixture(product, %{
+        feature_name: "test-feature",
+        branch: untracked_branch,
+        repo_uri: "github.com/org/untracked",
+        requirements: %{
+          "test-feature.COMP.1" => %{
+            "definition" => "Untracked req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # Should not find the spec since it's not on a tracked branch
+      assert {nil, nil} = Specs.resolve_canonical_spec("test-feature", impl.id)
+    end
+
+    # feature-impl-view.ROUTING.4: feature_name matching scoped to tracked branches only
+    test "only considers specs on implementation's tracked branches", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create two implementations
+      impl_with_spec = implementation_fixture(product, %{name: "with-spec"})
+      impl_without_spec = implementation_fixture(product, %{name: "without-spec"})
+
+      # Create tracked branch only for impl_with_spec
+      tracked =
+        tracked_branch_fixture(impl_with_spec,
+          repo_uri: "github.com/org/repo",
+          branch_name: "main"
+        )
+
+      tracked_branch = Acai.Repo.preload(tracked, :branch).branch
+
+      # Create spec on the tracked branch
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          branch: tracked_branch,
+          repo_uri: "github.com/org/repo",
+          requirements: %{
+            "test-feature.COMP.1" => %{
+              "definition" => "Tracked req",
+              "is_deprecated" => false,
+              "replaced_by" => []
+            }
+          }
+        })
+
+      # impl_with_spec should find the spec
+      assert {resolved_spec, source_info} =
+               Specs.resolve_canonical_spec("test-feature", impl_with_spec.id)
+
+      assert resolved_spec.id == spec.id
+      assert source_info.is_inherited == false
+
+      # impl_without_spec should not find the spec (different tracked branches)
+      assert {nil, nil} = Specs.resolve_canonical_spec("test-feature", impl_without_spec.id)
+    end
+
+    # feature-impl-view.ROUTING.4: Same-name specs on untracked branches are ignored
+    test "ignores spec on untracked branch even if product matches", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+      impl = implementation_fixture(product)
+
+      # Create a branch but don't track it for this implementation
+      untracked_branch =
+        branch_fixture(team, %{
+          repo_uri: "github.com/org/untracked",
+          branch_name: "untracked-branch"
+        })
+
+      # Create spec on the untracked branch for the product
+      spec_fixture(product, %{
+        feature_name: "test-feature",
+        branch: untracked_branch,
+        repo_uri: "github.com/org/untracked",
+        requirements: %{
+          "test-feature.COMP.1" => %{
+            "definition" => "Untracked req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # Should not find the spec since it's not on a tracked branch
+      assert {nil, nil} = Specs.resolve_canonical_spec("test-feature", impl.id)
+    end
+
+    # feature-impl-view.ROUTING.4: spec must belong to the same product as the implementation
+    test "does not resolve spec from another product on shared tracked branch", %{} do
+      team = team_fixture()
+      product_a = product_fixture(team, %{name: "product-a"})
+      product_b = product_fixture(team, %{name: "product-b"})
+
+      # Create implementations for different products
+      impl_a = implementation_fixture(product_a, %{name: "impl-a"})
+      impl_b = implementation_fixture(product_b, %{name: "impl-b"})
+
+      # Create a shared branch that both implementations track
+      shared_branch =
+        branch_fixture(team, %{
+          repo_uri: "github.com/org/shared",
+          branch_name: "main"
+        })
+
+      # Both implementations track the same branch
+      tracked_branch_fixture(impl_a, branch: shared_branch, repo_uri: shared_branch.repo_uri)
+      tracked_branch_fixture(impl_b, branch: shared_branch, repo_uri: shared_branch.repo_uri)
+
+      # Create a spec for product_a on the shared branch
+      spec_fixture(product_a, %{
+        feature_name: "shared-feature",
+        branch: shared_branch,
+        repo_uri: "github.com/org/shared",
+        requirements: %{
+          "shared-feature.COMP.1" => %{
+            "definition" => "Product A req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # impl_a should find the spec (same product)
+      assert {resolved_spec, source_info} =
+               Specs.resolve_canonical_spec("shared-feature", impl_a.id)
+
+      assert resolved_spec.product_id == product_a.id
+      assert source_info.is_inherited == false
+
+      # impl_b should NOT find the spec (different product, despite tracking same branch)
+      assert {nil, nil} = Specs.resolve_canonical_spec("shared-feature", impl_b.id)
+    end
+
+    # feature-impl-view.ROUTING.4: inherited specs must also match product
+    test "does not inherit spec from parent if parent has different product", %{} do
+      team = team_fixture()
+      product_a = product_fixture(team, %{name: "product-a"})
+      product_b = product_fixture(team, %{name: "product-b"})
+
+      # Create parent implementation in product_a with tracked branch and spec
+      parent_impl = implementation_fixture(product_a, %{name: "parent"})
+
+      parent_tracked =
+        tracked_branch_fixture(parent_impl,
+          repo_uri: "github.com/org/repo",
+          branch_name: "main"
+        )
+
+      parent_branch = Acai.Repo.preload(parent_tracked, :branch).branch
+
+      spec_fixture(product_a, %{
+        feature_name: "inherited-feature",
+        branch: parent_branch,
+        repo_uri: "github.com/org/repo",
+        requirements: %{
+          "inherited-feature.COMP.1" => %{
+            "definition" => "Product A req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # Create child implementation in product_b with parent in product_a
+      # This is an edge case that shouldn't normally happen, but we should handle it
+      child_impl =
+        implementation_fixture(product_b, %{
+          name: "child",
+          parent_implementation_id: parent_impl.id
+        })
+
+      # Child should NOT inherit the spec because it's from a different product
+      assert {nil, nil} = Specs.resolve_canonical_spec("inherited-feature", child_impl.id)
+    end
+  end
+
+  describe "list_features_for_implementation/2" do
+    test "returns features from specs on tracked branches for the product", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+      impl = implementation_fixture(product)
+
+      # Create tracked branch with spec
+      tracked = tracked_branch_fixture(impl, repo_uri: "github.com/org/repo", branch_name: "main")
+      branch = Acai.Repo.preload(tracked, :branch).branch
+
+      spec_fixture(product, %{
+        feature_name: "test-feature",
+        branch: branch,
+        repo_uri: "github.com/org/repo"
+      })
+
+      features = Specs.list_features_for_implementation(impl, product)
+      assert {"test-feature", "test-feature"} in features
+    end
+
+    # feature-impl-view.INHERITANCE.1
+    test "includes features inherited from parent implementation", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create parent with spec on tracked branch
+      parent = implementation_fixture(product, %{name: "parent"})
+
+      parent_tracked =
+        tracked_branch_fixture(parent, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      parent_branch = Acai.Repo.preload(parent_tracked, :branch).branch
+
+      spec_fixture(product, %{
+        feature_name: "inherited-feature",
+        branch: parent_branch,
+        repo_uri: "github.com/org/repo"
+      })
+
+      # Create child without tracked branches
+      child =
+        implementation_fixture(product, %{name: "child", parent_implementation_id: parent.id})
+
+      # Child should see inherited feature
+      features = Specs.list_features_for_implementation(child, product)
+      assert {"inherited-feature", "inherited-feature"} in features
+    end
+
+    # feature-impl-view.ROUTING.4
+    test "excludes features from other products on shared branch", %{} do
+      team = team_fixture()
+      product_a = product_fixture(team, %{name: "product-a"})
+      product_b = product_fixture(team, %{name: "product-b"})
+
+      impl_a = implementation_fixture(product_a)
+
+      # Create shared branch
+      shared_branch =
+        branch_fixture(team, %{repo_uri: "github.com/org/shared", branch_name: "main"})
+
+      tracked_branch_fixture(impl_a, branch: shared_branch, repo_uri: shared_branch.repo_uri)
+
+      # Create specs for different products on same branch
+      spec_fixture(product_a, %{
+        feature_name: "feature-a",
+        branch: shared_branch,
+        repo_uri: "github.com/org/shared"
+      })
+
+      spec_fixture(product_b, %{
+        feature_name: "feature-b",
+        branch: shared_branch,
+        repo_uri: "github.com/org/shared"
+      })
+
+      # Product A's implementation should only see feature-a
+      features = Specs.list_features_for_implementation(impl_a, product_a)
+      assert {"feature-a", "feature-a"} in features
+      refute {"feature-b", "feature-b"} in features
+    end
+
+    test "returns empty list when no specs accessible", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+      impl = implementation_fixture(product)
+
+      # No tracked branches, no specs
+      assert Specs.list_features_for_implementation(impl, product) == []
+    end
+
+    test "returns empty list when specs are for different product", %{} do
+      team = team_fixture()
+      product_a = product_fixture(team, %{name: "product-a"})
+      product_b = product_fixture(team, %{name: "product-b"})
+      impl_a = implementation_fixture(product_a)
+
+      # Create spec for product_b
+      branch = branch_fixture(team)
+      tracked_branch_fixture(impl_a, branch: branch, repo_uri: branch.repo_uri)
+
+      spec_fixture(product_b, %{
+        feature_name: "other-product-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri
+      })
+
+      # impl_a (product_a) should not see product_b's feature
+      assert Specs.list_features_for_implementation(impl_a, product_a) == []
+    end
+  end
+
+  describe "list_implementations_for_feature/2" do
+    test "returns implementations with spec on tracked branch", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      impl_with_spec = implementation_fixture(product, %{name: "with-spec"})
+      _impl_without_spec = implementation_fixture(product, %{name: "without-spec"})
+
+      # Create tracked branch and spec for one implementation
+      tracked =
+        tracked_branch_fixture(impl_with_spec,
+          repo_uri: "github.com/org/repo",
+          branch_name: "main"
+        )
+
+      branch = Acai.Repo.preload(tracked, :branch).branch
+
+      spec_fixture(product, %{
+        feature_name: "test-feature",
+        branch: branch,
+        repo_uri: "github.com/org/repo"
+      })
+
+      implementations = Specs.list_implementations_for_feature("test-feature", product)
+      impl_names = Enum.map(implementations, & &1.name)
+
+      assert "with-spec" in impl_names
+      refute "without-spec" in impl_names
+    end
+
+    # feature-impl-view.INHERITANCE.1
+    test "includes implementations that inherit feature from parent", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create parent with spec
+      parent = implementation_fixture(product, %{name: "parent"})
+
+      parent_tracked =
+        tracked_branch_fixture(parent, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      parent_branch = Acai.Repo.preload(parent_tracked, :branch).branch
+
+      spec_fixture(product, %{
+        feature_name: "inherited-feature",
+        branch: parent_branch,
+        repo_uri: "github.com/org/repo"
+      })
+
+      # Create child that inherits
+      _child =
+        implementation_fixture(product, %{name: "child", parent_implementation_id: parent.id})
+
+      implementations = Specs.list_implementations_for_feature("inherited-feature", product)
+      impl_names = Enum.map(implementations, & &1.name)
+
+      assert "parent" in impl_names
+      assert "child" in impl_names
+    end
+
+    test "excludes implementations from other products", %{} do
+      team = team_fixture()
+      product_a = product_fixture(team, %{name: "product-a"})
+      product_b = product_fixture(team, %{name: "product-b"})
+
+      impl_a = implementation_fixture(product_a, %{name: "impl-a"})
+      _impl_b = implementation_fixture(product_b, %{name: "impl-b"})
+
+      # Create spec for product_a
+      branch = branch_fixture(team)
+      tracked_branch_fixture(impl_a, branch: branch, repo_uri: branch.repo_uri)
+
+      spec_fixture(product_a, %{
+        feature_name: "test-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri
+      })
+
+      # Query for product_a - should only see impl_a
+      implementations = Specs.list_implementations_for_feature("test-feature", product_a)
+      impl_names = Enum.map(implementations, & &1.name)
+
+      assert "impl-a" in impl_names
+      refute "impl-b" in impl_names
+    end
+
+    test "returns empty list when no implementations have the feature", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+      _impl = implementation_fixture(product)
+
+      assert Specs.list_implementations_for_feature("nonexistent-feature", product) == []
+    end
+
+    # feature-impl-view.ROUTING.4: list_implementations_for_feature/2 should exclude cross-product specs
+    test "excludes implementation when matching spec is from another product", %{} do
+      team = team_fixture()
+      product_a = product_fixture(team, %{name: "product-a"})
+      product_b = product_fixture(team, %{name: "product-b"})
+
+      # Create implementations for each product
+      impl_a = implementation_fixture(product_a, %{name: "impl-a"})
+      impl_b = implementation_fixture(product_b, %{name: "impl-b"})
+
+      # Create a shared branch that both implementations track
+      shared_branch =
+        branch_fixture(team, %{
+          repo_uri: "github.com/org/shared",
+          branch_name: "main"
+        })
+
+      # Both implementations track the same branch
+      tracked_branch_fixture(impl_a, branch: shared_branch, repo_uri: shared_branch.repo_uri)
+      tracked_branch_fixture(impl_b, branch: shared_branch, repo_uri: shared_branch.repo_uri)
+
+      # Create a spec for product_a on the shared branch
+      spec_fixture(product_a, %{
+        feature_name: "shared-feature",
+        branch: shared_branch,
+        repo_uri: "github.com/org/shared",
+        requirements: %{
+          "shared-feature.COMP.1" => %{
+            "definition" => "Product A req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # Query for product_a - should include impl_a
+      implementations_a = Specs.list_implementations_for_feature("shared-feature", product_a)
+      impl_names_a = Enum.map(implementations_a, & &1.name)
+
+      assert "impl-a" in impl_names_a
+
+      # Query for product_b - should NOT include impl_b (no matching spec for product_b)
+      implementations_b = Specs.list_implementations_for_feature("shared-feature", product_b)
+      impl_names_b = Enum.map(implementations_b, & &1.name)
+
+      refute "impl-b" in impl_names_b
+    end
+  end
+
+  describe "resolve_canonical_spec/2 continued" do
+    # feature-impl-view.INHERITANCE.1: Nearest ancestor resolution
+    test "prefers nearest ancestor over distant ancestor", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create grandparent with spec
+      grandparent = implementation_fixture(product, %{name: "grandparent"})
+
+      grandparent_tracked =
+        tracked_branch_fixture(grandparent, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      grandparent_branch = Acai.Repo.preload(grandparent_tracked, :branch).branch
+
+      spec_fixture(product, %{
+        feature_name: "test-feature",
+        branch: grandparent_branch,
+        repo_uri: "github.com/org/repo",
+        requirements: %{
+          "test-feature.COMP.1" => %{
+            "definition" => "Grandparent req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # Create parent with its own spec
+      parent =
+        implementation_fixture(product, %{
+          name: "parent",
+          parent_implementation_id: grandparent.id
+        })
+
+      parent_tracked =
+        tracked_branch_fixture(parent, repo_uri: "github.com/org/repo2", branch_name: "develop")
+
+      parent_branch = Acai.Repo.preload(parent_tracked, :branch).branch
+
+      parent_spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          branch: parent_branch,
+          repo_uri: "github.com/org/repo2",
+          requirements: %{
+            "test-feature.COMP.1" => %{
+              "definition" => "Parent req",
+              "is_deprecated" => false,
+              "replaced_by" => []
+            }
+          }
+        })
+
+      # Create child without spec
+      child =
+        implementation_fixture(product, %{name: "child", parent_implementation_id: parent.id})
+
+      # Should find parent's spec (nearest ancestor), not grandparent's
+      assert {resolved_spec, source_info} = Specs.resolve_canonical_spec("test-feature", child.id)
+      assert resolved_spec.id == parent_spec.id
+      assert source_info.is_inherited == true
+      assert source_info.source_implementation_id == parent.id
+    end
+  end
 end

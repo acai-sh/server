@@ -9,6 +9,12 @@ defmodule AcaiWeb.FeatureLive do
   def mount(%{"team_name" => team_name, "feature_name" => feature_name}, _session, socket) do
     team = Teams.get_team_by_name!(team_name)
 
+    # Load product for the feature selector
+    product = get_product_for_feature(team, feature_name)
+
+    # Load all features for this product for the dropdown
+    available_features = if product, do: Specs.list_features_for_product(product), else: []
+
     # feature-view.ROUTING.1: Case-insensitive feature name matching
     case Specs.get_specs_by_feature_name(team, feature_name) do
       nil ->
@@ -21,93 +27,166 @@ defmodule AcaiWeb.FeatureLive do
         {:ok, socket}
 
       {actual_feature_name, specs} ->
-        # Get the first spec for display info (they share the same feature_name)
-        first_spec = List.first(specs) |> Acai.Repo.preload(:product)
-
-        # data-model.SPECS.11: Requirements are now JSONB on each spec
-        # Count requirements by getting map_size of the requirements JSONB
-        spec_requirement_counts =
-          Map.new(specs, fn spec -> {spec.id, map_size(spec.requirements)} end)
-
-        # data-model.IMPLS: Implementations now belong to products, not specs
-        # Get all active implementations for the product
-        implementations = Implementations.list_active_implementations_for_specs(specs)
-
-        # feature-view.PERF.1: Preload product association for each implementation
-        implementations = Acai.Repo.preload(implementations, :product)
-
-        # data-model.FEATURE_IMPL_STATES: Get status counts from feature_impl_states JSONB
-        # For each implementation, aggregate status counts for only the relevant specs
-        status_counts_by_impl =
-          Implementations.batch_get_spec_impl_state_counts(implementations, specs)
-
-        # Total requirements across all specs for this feature
-        total_requirements =
-          specs
-          |> Enum.map(fn spec -> Map.get(spec_requirement_counts, spec.id, 0) end)
-          |> Enum.sum()
-
-        # Build implementation cards with pre-fetched data
-        implementation_cards =
-          implementations
-          |> Enum.map(fn impl ->
-            # feature-view.MAIN.3: Get status counts from feature_impl_states
-            impl_counts = Map.get(status_counts_by_impl, impl.id, %{})
-
-            # Calculate status percentages for progress bar
-            status_percentages =
-              if total_requirements > 0 do
-                %{
-                  nil => Map.get(impl_counts, nil, 0) / total_requirements * 100,
-                  "assigned" => Map.get(impl_counts, "assigned", 0) / total_requirements * 100,
-                  "blocked" => Map.get(impl_counts, "blocked", 0) / total_requirements * 100,
-                  "completed" => Map.get(impl_counts, "completed", 0) / total_requirements * 100,
-                  "accepted" => Map.get(impl_counts, "accepted", 0) / total_requirements * 100,
-                  "rejected" => Map.get(impl_counts, "rejected", 0) / total_requirements * 100
-                }
-              else
-                %{
-                  nil => 0,
-                  "assigned" => 0,
-                  "blocked" => 0,
-                  "completed" => 0,
-                  "accepted" => 0,
-                  "rejected" => 0
-                }
-              end
-
-            # Build the slug for navigation (impl_name+uuid_without_dashes)
-            # feature-view.MAIN.4
-            slug = Implementations.implementation_slug(impl)
-
-            %{
-              id: "impl-#{impl.id}",
-              implementation: impl,
-              slug: slug,
-              product_name: impl.product.name,
-              total_requirements: total_requirements,
-              status_percentages: status_percentages
-            }
-          end)
-          |> Enum.sort_by(& &1.implementation.name)
-
         socket =
-          socket
-          |> assign(:team, team)
-          # feature-view.MAIN.1
-          |> assign(:feature_name, actual_feature_name)
-          # feature-view.MAIN.1
-          |> assign(:feature_description, first_spec.feature_description)
-          # data-model.SPECS.12: Get product name from preloaded association
-          |> assign(:product_name, first_spec.product.name)
-          |> assign(:implementations_empty?, implementation_cards == [])
-          # feature-view.MAIN.2
-          |> stream(:implementations, implementation_cards)
-          # nav.AUTH.1: Pass current_path for navigation
-          |> assign(:current_path, "/t/#{team.name}/f/#{feature_name}")
+          load_feature_data(socket, team, actual_feature_name, specs, product, available_features)
 
         {:ok, socket}
     end
+  end
+
+  # Helper to get product for a feature
+  defp get_product_for_feature(team, feature_name) do
+    case Specs.get_specs_by_feature_name(team, feature_name) do
+      nil ->
+        nil
+
+      {_actual_feature_name, specs} ->
+        first_spec = List.first(specs) |> Acai.Repo.preload(:product)
+        first_spec.product
+    end
+  end
+
+  # Load all feature data
+  defp load_feature_data(socket, team, actual_feature_name, specs, product, available_features) do
+    # Get the first spec for display info (they share the same feature_name)
+    first_spec = List.first(specs) |> Acai.Repo.preload(:product)
+
+    # data-model.SPECS.11: Requirements are now JSONB on each spec
+    # Count requirements by getting map_size of the requirements JSONB
+    spec_requirement_counts =
+      Map.new(specs, fn spec -> {spec.id, map_size(spec.requirements)} end)
+
+    # data-model.IMPLS: Implementations now belong to products, not specs
+    # Get all active implementations for the product
+    implementations = Implementations.list_active_implementations_for_specs(specs)
+
+    # feature-view.PERF.1: Preload product association for each implementation
+    implementations = Acai.Repo.preload(implementations, :product)
+
+    # data-model.FEATURE_IMPL_STATES: Get status counts from feature_impl_states JSONB
+    # For each implementation, aggregate status counts for only the relevant specs
+    status_counts_by_impl =
+      Implementations.batch_get_spec_impl_state_counts(implementations, specs)
+
+    # Total requirements across all specs for this feature
+    total_requirements =
+      specs
+      |> Enum.map(fn spec -> Map.get(spec_requirement_counts, spec.id, 0) end)
+      |> Enum.sum()
+
+    # Build implementation cards with pre-fetched data
+    implementation_cards =
+      implementations
+      |> Enum.map(fn impl ->
+        # feature-view.MAIN.3: Get status counts from feature_impl_states
+        impl_counts = Map.get(status_counts_by_impl, impl.id, %{})
+
+        # Calculate status percentages for progress bar
+        status_percentages =
+          if total_requirements > 0 do
+            %{
+              nil => Map.get(impl_counts, nil, 0) / total_requirements * 100,
+              "assigned" => Map.get(impl_counts, "assigned", 0) / total_requirements * 100,
+              "blocked" => Map.get(impl_counts, "blocked", 0) / total_requirements * 100,
+              "completed" => Map.get(impl_counts, "completed", 0) / total_requirements * 100,
+              "accepted" => Map.get(impl_counts, "accepted", 0) / total_requirements * 100,
+              "rejected" => Map.get(impl_counts, "rejected", 0) / total_requirements * 100
+            }
+          else
+            %{
+              nil => 0,
+              "assigned" => 0,
+              "blocked" => 0,
+              "completed" => 0,
+              "accepted" => 0,
+              "rejected" => 0
+            }
+          end
+
+        # Build the slug for navigation (impl_name-uuid_without_dashes)
+        # feature-view.MAIN.4
+        # feature-impl-view.ROUTING.1: Route uses impl_name-impl_id format
+        slug = Implementations.implementation_slug(impl)
+
+        %{
+          id: "impl-#{impl.id}",
+          implementation: impl,
+          slug: slug,
+          product_name: impl.product.name,
+          total_requirements: total_requirements,
+          status_percentages: status_percentages
+        }
+      end)
+      |> Enum.sort_by(& &1.implementation.name)
+
+    socket
+    |> assign(:team, team)
+    # feature-view.MAIN.1
+    |> assign(:feature_name, actual_feature_name)
+    # feature-view.MAIN.1
+    |> assign(:feature_description, first_spec.feature_description)
+    # data-model.SPECS.12: Get product name from preloaded association
+    |> assign(:product_name, first_spec.product.name)
+    |> assign(:product, product)
+    |> assign(:implementations_empty?, implementation_cards == [])
+    # feature-view.MAIN.2
+    |> stream(:implementations, implementation_cards)
+    # feature-view.MAIN.1: Available features for dropdown
+    |> assign(:available_features, available_features)
+    # nav.AUTH.1: Pass current_path for navigation
+    |> assign(:current_path, "/t/#{team.name}/f/#{actual_feature_name}")
+  end
+
+  # Handle params for URL changes (patch navigation)
+  # feature-view.MAIN.1: Reload page data when URL is patched via dropdown changes
+  @impl true
+  def handle_params(%{"team_name" => team_name, "feature_name" => feature_name}, uri, socket) do
+    # Update current_path for navigation highlighting
+    socket = assign(socket, :current_path, URI.parse(uri).path)
+
+    # Only reload data if feature has actually changed (not on initial mount)
+    current_feature = socket.assigns[:feature_name]
+
+    should_reload = is_nil(current_feature) || current_feature != feature_name
+
+    if should_reload do
+      reload_feature_data(socket, team_name, feature_name)
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Reload feature data after URL patch (shared logic with mount)
+  defp reload_feature_data(socket, team_name, feature_name) do
+    team = Teams.get_team_by_name!(team_name)
+
+    case Specs.get_specs_by_feature_name(team, feature_name) do
+      nil ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Feature not found")
+         |> push_navigate(to: ~p"/t/#{team.name}")}
+
+      {actual_feature_name, specs} ->
+        # Reload product and available features
+        product = get_product_for_feature(team, feature_name)
+        available_features = if product, do: Specs.list_features_for_product(product), else: []
+
+        # Reload all data for the new feature
+        socket =
+          load_feature_data(socket, team, actual_feature_name, specs, product, available_features)
+
+        {:noreply, socket}
+    end
+  end
+
+  # feature-view.MAIN.1: Handle feature dropdown change with patch navigation
+  @impl true
+  def handle_event("select_feature", %{"feature_name" => new_feature_name}, socket) do
+    %{team: team} = socket.assigns
+
+    # Patch to the new URL without full page reload
+    {:noreply, push_patch(socket, to: ~p"/t/#{team.name}/f/#{new_feature_name}")}
   end
 
   @impl true
@@ -120,21 +199,65 @@ defmodule AcaiWeb.FeatureLive do
       current_path={@current_path}
     >
       <div class="space-y-8">
-        <%!-- feature-view.MAIN.1: Page header --%>
-        <.content_header
-          page_title="Feature Overview"
-          resource_name={@feature_name}
-          resource_icon="hero-cube"
-          resource_description={@feature_description}
-          breadcrumb_items={[
-            %{label: "Overview", navigate: ~p"/t/#{@team.name}", icon: "hero-home"},
-            %{label: @product_name, navigate: ~p"/t/#{@team.name}/p/#{@product_name}"},
-            %{label: @feature_name}
-          ]}
-        />
+        <%!-- feature-view.MAIN.1: Page header with breadcrumb --%>
+        <nav class="flex items-center gap-2 text-sm text-base-content/70">
+          <.link navigate={~p"/t/#{@team.name}"} class="hover:text-primary flex items-center gap-1">
+            <.icon name="hero-home" class="size-4" />
+          </.link>
+          <span class="text-base-content/40">/</span>
+          <.link navigate={~p"/t/#{@team.name}/p/#{@product_name}"} class="hover:text-primary">
+            {@product_name}
+          </.link>
+          <span class="text-base-content/40">/</span>
+          <span class="text-base-content font-medium">{@feature_name}</span>
+        </nav>
 
-        <%!-- feature-view.MAIN.2: Section header --%>
-        <h2 class="text-lg font-semibold mb-4">Feature Implementations</h2>
+        <%!-- feature-view.MAIN.2: Page title with dropdown --%>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+          <span class="text-2xl font-bold">Overview of the</span>
+
+          <%!-- Feature dropdown with popover API --%>
+          <div class="flex-shrink-0">
+            <button
+              class="btn btn-outline btn-xl flex items-center gap-2 justify-start font-bold lg:text-2xl px-2 border-primary border-dashed"
+              popovertarget="feature-popover"
+              style="anchor-name:--anchor-feature"
+            >
+              <.icon name="hero-cube" class="size-4 text-primary" />
+              <span class="truncate">{@feature_name}</span>
+              <.icon name="hero-chevron-down" class="size-4 ml-auto text-base-content/50" />
+            </button>
+            <ul
+              class="dropdown menu w-52 rounded-box bg-base-100 shadow-sm"
+              popover
+              id="feature-popover"
+              style="position-anchor:--anchor-feature"
+            >
+              <li :for={{name, _value} <- @available_features}>
+                <a
+                  href="#"
+                  phx-click="select_feature"
+                  phx-value-feature_name={name}
+                  class={[
+                    "flex items-center gap-2",
+                    name == @feature_name && "active"
+                  ]}
+                >
+                  <.icon name="hero-cube" class="size-4 text-primary" />
+                  <span class="truncate">{name}</span>
+                  <%= if name == @feature_name do %>
+                    <.icon name="hero-check" class="size-4 ml-auto text-success" />
+                  <% end %>
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <span class="text-2xl font-bold">feature</span>
+        </div>
+
+        <%!-- feature-view.MAIN.3: Section header --%>
+        <h2 class="text-lg font-semibold mb-4">Implementations of this feature</h2>
 
         <%!-- feature-view.MAIN.5 --%>
         <%= if @implementations_empty? do %>

@@ -53,8 +53,8 @@ components:
     IMPL_STATES:
         description: Trying to simulate real journeys. For example, a complete feature, a new feature, a fix of an existing feature, etc.
         requirements:
-            1: api / core / Production - all ACIDs have `accepted` state
-            2: api / core / Staging - no states (all inherited)
+            1: api / Production - all ACIDs have `accepted` state
+            2: api / Staging - no states (all inherited)
             3: site / map-editor / production - all ACIDs have `accepted` state
             3-note: site / map-editor does not have states on staging nor feat/ai-chat nor fix-map-settings impls
             4: site / form-editor / production - all ACIDs have `accepted` state
