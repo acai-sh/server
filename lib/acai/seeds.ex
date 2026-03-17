@@ -167,7 +167,8 @@ defmodule Acai.Seeds do
   # ============================================================================
 
   @impl_states [
-    # seed-data.IMPL_STATES.1: api / core / Production — all ACIDs have `accepted` state
+    # seed-data.IMPL_STATES.1: api / Production - all ACIDs for all features have `accepted` state
+    # Core feature states
     %{
       product_name: "api",
       impl_name: "Production",
@@ -185,8 +186,36 @@ defmodule Acai.Seeds do
         "core.VERSION.1" => %{status: "accepted"}
       }
     },
-    # seed-data.IMPL_STATES.2: api / core / Staging — no states (all inherited)
-    # Intentionally omitted to test inheritance
+    # MCP feature states
+    %{
+      product_name: "api",
+      impl_name: "Production",
+      feature_name: "mcp",
+      states: %{
+        "mcp.MAP.1" => %{status: "accepted"},
+        "mcp.MAP.2" => %{status: "accepted"},
+        "mcp.MAP.3" => %{status: "accepted"},
+        "mcp.MAP.4" => %{status: "accepted"},
+        "mcp.MAP.5" => %{status: "accepted"},
+        "mcp.FORM.1" => %{status: "accepted"},
+        "mcp.FORM.2" => %{status: "accepted"},
+        "mcp.FORM.3" => %{status: "accepted"},
+        "mcp.FORM.4" => %{status: "accepted"},
+        "mcp.FORM.5" => %{status: "accepted"},
+        "mcp.SYNC.1" => %{status: "accepted"},
+        "mcp.SYNC.2" => %{status: "accepted"},
+        "mcp.SYNC.3" => %{status: "accepted"},
+        "mcp.PERF.1" => %{status: "accepted"},
+        "mcp.PERF.2" => %{status: "accepted"},
+        "mcp.AUTH.1" => %{status: "accepted"},
+        "mcp.AUTH.2" => %{status: "accepted"},
+        "mcp.CACHE.1" => %{status: "accepted"},
+        "mcp.CACHE.2" => %{status: "accepted"},
+        "mcp.EXPORT.1" => %{status: "accepted"}
+      }
+    },
+    # seed-data.IMPL_STATES.2: api / Staging - no states for any feature (all inherited)
+    # Intentionally omitted for both core and mcp features to test inheritance
 
     # seed-data.IMPL_STATES.3: site / map-editor / Production — all ACIDs have `accepted` state
     %{
