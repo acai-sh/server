@@ -469,7 +469,8 @@ defmodule Acai.SeedsTest do
       assert length(tracked_branches) == 1
 
       [tb] = tracked_branches
-      assert tb.repo_uri == "github.com/mapperoni/api-backend"
+      # API implementations use the shared backend repo (same as API specs/refs)
+      assert tb.repo_uri == "github.com/mapperoni/backend"
     end
 
     # seed-data.IMPLS.2-1: API tracks main and dev respectively
@@ -497,6 +498,44 @@ defmodule Acai.SeedsTest do
         )
 
       assert tb.branch.branch_name == "dev"
+    end
+
+    # Regression: API implementations must be able to resolve their feature specs
+    test "seed-data.IMPLS.2-1: api Production can resolve core feature spec" do
+      team = Repo.get_by!(Team, name: "mapperoni")
+      product = Repo.get_by!(Product, team_id: team.id, name: "api")
+      impl = Repo.get_by!(Implementation, product_id: product.id, name: "Production")
+
+      # Verify API Production can resolve the core feature through canonical resolution
+      assert {spec, source_info} = Acai.Specs.resolve_canonical_spec("core", impl.id)
+      assert spec.feature_name == "core"
+      assert spec.product_id == product.id
+      assert source_info.is_inherited == false
+    end
+
+    test "seed-data.IMPLS.2-1: api Staging inherits and resolves core feature spec" do
+      team = Repo.get_by!(Team, name: "mapperoni")
+      product = Repo.get_by!(Product, team_id: team.id, name: "api")
+      impl = Repo.get_by!(Implementation, product_id: product.id, name: "Staging")
+
+      # Verify API Staging can resolve the core feature (inherited from Production)
+      assert {spec, source_info} = Acai.Specs.resolve_canonical_spec("core", impl.id)
+      assert spec.feature_name == "core"
+      assert spec.product_id == product.id
+      # Since Staging tracks backend/dev and specs are on backend/main,
+      # the spec is found via inheritance from Production
+      assert source_info.is_inherited == true
+    end
+
+    test "seed-data.IMPLS.2-1: api Production can resolve mcp feature spec" do
+      team = Repo.get_by!(Team, name: "mapperoni")
+      product = Repo.get_by!(Product, team_id: team.id, name: "api")
+      impl = Repo.get_by!(Implementation, product_id: product.id, name: "Production")
+
+      assert {spec, source_info} = Acai.Specs.resolve_canonical_spec("mcp", impl.id)
+      assert spec.feature_name == "mcp"
+      assert spec.product_id == product.id
+      assert source_info.is_inherited == false
     end
   end
 
@@ -544,6 +583,76 @@ defmodule Acai.SeedsTest do
       Acai.Seeds.run(silent: true)
       branch_count_after = Repo.aggregate(TrackedBranch, :count)
       assert branch_count_before == branch_count_after
+    end
+
+    # seed-data.ENVIRONMENT.2: Convergence test for legacy api-backend tracked branches
+    test "seed-data.ENVIRONMENT.2: converges legacy api-backend tracked branches to backend" do
+      team = Repo.get_by!(Team, name: "mapperoni")
+      product = Repo.get_by!(Product, team_id: team.id, name: "api")
+      impl = Repo.get_by!(Implementation, product_id: product.id, name: "Production")
+
+      # Simulate legacy state: create an api-backend tracked branch
+      legacy_branch =
+        Acai.Implementations.get_branch_by_identity(
+          team.id,
+          "github.com/mapperoni/api-backend",
+          "main"
+        ) ||
+          Acai.Repo.insert!(%Acai.Implementations.Branch{
+            team_id: team.id,
+            repo_uri: "github.com/mapperoni/api-backend",
+            branch_name: "main",
+            last_seen_commit: "legacy123"
+          })
+
+      # Create a legacy tracked branch
+      {:ok, _legacy_tb} =
+        Acai.Repo.insert(%Acai.Implementations.TrackedBranch{
+          implementation_id: impl.id,
+          branch_id: legacy_branch.id,
+          repo_uri: "github.com/mapperoni/api-backend"
+        })
+
+      # Verify legacy tracked branch exists
+      legacy_count_before =
+        Acai.Repo.aggregate(
+          from(tb in Acai.Implementations.TrackedBranch,
+            where:
+              tb.implementation_id == ^impl.id and
+                tb.repo_uri == "github.com/mapperoni/api-backend"
+          ),
+          :count
+        )
+
+      assert legacy_count_before == 1
+
+      # Re-run seeds to trigger convergence
+      Acai.Seeds.run(silent: true)
+
+      # Verify legacy tracked branch is removed
+      legacy_count_after =
+        Acai.Repo.aggregate(
+          from(tb in Acai.Implementations.TrackedBranch,
+            where:
+              tb.implementation_id == ^impl.id and
+                tb.repo_uri == "github.com/mapperoni/api-backend"
+          ),
+          :count
+        )
+
+      assert legacy_count_after == 0
+
+      # Verify canonical tracked branch exists
+      canonical_count =
+        Acai.Repo.aggregate(
+          from(tb in Acai.Implementations.TrackedBranch,
+            where:
+              tb.implementation_id == ^impl.id and tb.repo_uri == "github.com/mapperoni/backend"
+          ),
+          :count
+        )
+
+      assert canonical_count == 1
     end
   end
 

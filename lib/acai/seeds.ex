@@ -1264,7 +1264,7 @@ defmodule Acai.Seeds do
   # ---------------------------------------------------------------------------
 
   # seed-data.IMPLS.2-1: Each api implementation tracks 1 github repo: backend
-  defp seed_api_production(team, product, _branches, silent) do
+  defp seed_api_production(team, product, branches, silent) do
     impl =
       seed_implementation(
         team,
@@ -1274,25 +1274,18 @@ defmodule Acai.Seeds do
         silent
       )
 
-    # API Production: backend/main
-    # We'll create a branch for the API product specifically
-    branch =
-      get_or_create_branch(
-        team,
-        "github.com/mapperoni/api-backend",
-        "main",
-        "g3h4i5j6k7l8",
-        silent
-      )
+    # API Production: backend/main (same branch as API specs/refs)
+    seed_tracked_branch(impl, branches.api_backend_main, silent)
 
-    seed_tracked_branch(impl, branch, silent)
+    # Clean up legacy api-backend tracked branch for convergence
+    cleanup_legacy_api_tracked_branch(impl, silent)
 
     impl
   end
 
   # seed-data.IMPLS.2-1: API Staging tracks backend/dev
   # seed-data.IMPLS.2-2: api Staging inherits from api Production
-  defp seed_api_staging(team, product, parent_impl, _branches, silent) do
+  defp seed_api_staging(team, product, parent_impl, branches, silent) do
     impl =
       seed_implementation(
         team,
@@ -1302,19 +1295,37 @@ defmodule Acai.Seeds do
         silent
       )
 
-    # API Staging: backend/dev
-    branch =
-      get_or_create_branch(
-        team,
-        "github.com/mapperoni/api-backend",
-        "dev",
-        "h4i5j6k7l8m9",
-        silent
-      )
+    # API Staging: backend/dev (same branch as API specs/refs)
+    seed_tracked_branch(impl, branches.api_backend_dev, silent)
 
-    seed_tracked_branch(impl, branch, silent)
+    # Clean up legacy api-backend tracked branch for convergence
+    cleanup_legacy_api_tracked_branch(impl, silent)
 
     impl
+  end
+
+  # ---------------------------------------------------------------------------
+  # Legacy API Tracked Branch Cleanup
+  # ---------------------------------------------------------------------------
+
+  # Removes legacy api-backend tracked branches for convergence
+  # seed-data.ENVIRONMENT.2: Re-running seeds repairs previously seeded data
+  defp cleanup_legacy_api_tracked_branch(impl, silent) do
+    legacy_repo_uri = "github.com/mapperoni/api-backend"
+
+    legacy_tracked_branches =
+      Repo.all(
+        from tb in TrackedBranch,
+          where: tb.implementation_id == ^impl.id and tb.repo_uri == ^legacy_repo_uri
+      )
+
+    Enum.each(legacy_tracked_branches, fn legacy_tb ->
+      Repo.delete!(legacy_tb)
+
+      unless silent do
+        IO.puts("Removed legacy tracked branch: #{legacy_repo_uri} for #{impl.name}")
+      end
+    end)
   end
 
   # ---------------------------------------------------------------------------

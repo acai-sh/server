@@ -198,6 +198,120 @@ defmodule AcaiWeb.FeatureLiveTest do
     end
   end
 
+  describe "seeded data navigation regression" do
+    setup :register_and_log_in_user
+
+    # Regression test: API feature card links must lead to working feature-impl pages
+    # Bug was: seed data inconsistency caused "Feature not found for this implementation" flash
+    test "api feature card navigates to working feature-impl page", %{conn: conn, user: user} do
+      # Run seeds first to create the mapperoni team and all seeded data
+      Acai.Seeds.run(silent: true)
+
+      # Get the mapperoni team (created by seeds)
+      team = Acai.Repo.get_by!(Acai.Teams.Team, name: "mapperoni")
+      _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+      api_product = Acai.Repo.get_by!(Acai.Products.Product, team_id: team.id, name: "api")
+
+      impl =
+        Acai.Repo.get_by!(Acai.Implementations.Implementation,
+          product_id: api_product.id,
+          name: "Production"
+        )
+
+      slug = Acai.Implementations.implementation_slug(impl)
+
+      # Navigate to API core feature page
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/core")
+
+      # The card should have a link to the core feature-impl page for Production
+      assert has_element?(view, "a[href='/t/#{team.name}/i/#{slug}/f/core']")
+
+      # Actually navigate to the feature-impl page (regression: verify it mounts without error flash)
+      {:ok, _impl_view, html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/core")
+
+      # Should not show the "Feature not found for this implementation" flash
+      refute html =~ "Feature not found for this implementation"
+
+      # Should show the feature name
+      assert html =~ "core"
+    end
+
+    test "api staging feature card navigates to working inherited feature-impl page", %{
+      conn: conn,
+      user: user
+    } do
+      # Run seeds first to create the mapperoni team and all seeded data
+      Acai.Seeds.run(silent: true)
+
+      # Get the mapperoni team (created by seeds)
+      team = Acai.Repo.get_by!(Acai.Teams.Team, name: "mapperoni")
+      _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+      api_product = Acai.Repo.get_by!(Acai.Products.Product, team_id: team.id, name: "api")
+
+      impl =
+        Acai.Repo.get_by!(Acai.Implementations.Implementation,
+          product_id: api_product.id,
+          name: "Staging"
+        )
+
+      slug = Acai.Implementations.implementation_slug(impl)
+
+      # Navigate to API mcp feature page
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/mcp")
+
+      # The card should have a link to the mcp feature-impl page for Staging
+      assert has_element?(view, "a[href='/t/#{team.name}/i/#{slug}/f/mcp']")
+
+      # Actually navigate to the feature-impl page (regression: verify inherited spec resolution works)
+      {:ok, _impl_view, html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/mcp")
+
+      # Should not show the "Feature not found for this implementation" flash
+      refute html =~ "Feature not found for this implementation"
+
+      # Should show the feature name
+      assert html =~ "mcp"
+    end
+
+    test "site feature card continues to work (shared branch product scoping)", %{
+      conn: conn,
+      user: user
+    } do
+      # Run seeds first to create the mapperoni team and all seeded data
+      Acai.Seeds.run(silent: true)
+
+      # Get the mapperoni team (created by seeds)
+      team = Acai.Repo.get_by!(Acai.Teams.Team, name: "mapperoni")
+      _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+      site_product = Acai.Repo.get_by!(Acai.Products.Product, team_id: team.id, name: "site")
+
+      impl =
+        Acai.Repo.get_by!(Acai.Implementations.Implementation,
+          product_id: site_product.id,
+          name: "Production"
+        )
+
+      slug = Acai.Implementations.implementation_slug(impl)
+
+      # Navigate to site map-editor feature page
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/map-editor")
+
+      # The card should have a link to the map-editor feature-impl page
+      assert has_element?(view, "a[href='/t/#{team.name}/i/#{slug}/f/map-editor']")
+
+      # Actually navigate to the feature-impl page
+      {:ok, _impl_view, html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/map-editor")
+
+      # Should not show the "Feature not found for this implementation" flash
+      refute html =~ "Feature not found for this implementation"
+
+      # Should show the feature name
+      assert html =~ "map-editor"
+    end
+  end
+
   describe "implementation card" do
     setup :register_and_log_in_user
 

@@ -37,3 +37,6 @@ For example if we had `Prod` and `Staging` and `Feature` as ancestors, but we ha
 [feature-view][spec] In the feature overview, we should simply not render implementation cards if those implementations don't have or inherit a spec for that feature.
 
 [feature-view][bug] In the feature overview for some features, like `api / core`  I can't click Production card to go to `http://localhost:4000/t/mapperoni/i/production-019cf4d025b87e7f8de49371993e01be/f/core`. It renders a flash saying Feature not found for this implementation. It's clear to me that this is a test gap - tests should not be passing if this bug exists. I doubt that it is a seed data issue, because I had specified that we want `main` to have specs. For `site`, this is similar except it is only the implementations with 0% progress
+
+# In progress
+[product-view][bug] I am not able to navigate from the product overview or the feature overview to any of the api implementations - neither core nore mcp features, nor production or staging implementations.

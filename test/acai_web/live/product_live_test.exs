@@ -286,6 +286,89 @@ defmodule AcaiWeb.ProductLiveTest do
     end
   end
 
+  describe "seeded data navigation regression" do
+    setup :register_and_log_in_user
+
+    # Regression test: API product matrix links must lead to working feature-impl pages
+    # Bug was: seed data inconsistency caused "Feature not found for this implementation" flash
+    test "api product matrix cell navigates to working feature-impl page", %{
+      conn: conn,
+      user: user
+    } do
+      # Run seeds first to create the mapperoni team and all seeded data
+      Acai.Seeds.run(silent: true)
+
+      # Get the mapperoni team (created by seeds)
+      team = Acai.Repo.get_by!(Acai.Teams.Team, name: "mapperoni")
+      _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+      # Run seeds to ensure data exists
+      Acai.Seeds.run(silent: true)
+
+      api_product = Acai.Repo.get_by!(Acai.Products.Product, team_id: team.id, name: "api")
+
+      impl =
+        Acai.Repo.get_by!(Acai.Implementations.Implementation,
+          product_id: api_product.id,
+          name: "Production"
+        )
+
+      slug = Acai.Implementations.implementation_slug(impl)
+
+      # Navigate to API product page
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/api")
+
+      # The matrix should have a link to the core feature-impl page
+      assert has_element?(view, "a[href='/t/#{team.name}/i/#{slug}/f/core']")
+
+      # Actually navigate to the feature-impl page (regression: verify it mounts without error flash)
+      {:ok, _impl_view, html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/core")
+
+      # Should not show the "Feature not found for this implementation" flash
+      refute html =~ "Feature not found for this implementation"
+
+      # Should show the feature name instead
+      assert html =~ "core"
+    end
+
+    test "site product matrix cell continues to work (shared branch product scoping)", %{
+      conn: conn,
+      user: user
+    } do
+      # Run seeds first to create the mapperoni team and all seeded data
+      Acai.Seeds.run(silent: true)
+
+      # Get the mapperoni team (created by seeds)
+      team = Acai.Repo.get_by!(Acai.Teams.Team, name: "mapperoni")
+      _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+      site_product = Acai.Repo.get_by!(Acai.Products.Product, team_id: team.id, name: "site")
+
+      impl =
+        Acai.Repo.get_by!(Acai.Implementations.Implementation,
+          product_id: site_product.id,
+          name: "Production"
+        )
+
+      slug = Acai.Implementations.implementation_slug(impl)
+
+      # Navigate to site product page
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/site")
+
+      # The matrix should have a link to the map-editor feature-impl page
+      assert has_element?(view, "a[href='/t/#{team.name}/i/#{slug}/f/map-editor']")
+
+      # Actually navigate to the feature-impl page
+      {:ok, _impl_view, html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/map-editor")
+
+      # Should not show the "Feature not found for this implementation" flash
+      refute html =~ "Feature not found for this implementation"
+
+      # Should show the feature name
+      assert html =~ "map-editor"
+    end
+  end
+
   describe "page header" do
     setup :register_and_log_in_user
 
