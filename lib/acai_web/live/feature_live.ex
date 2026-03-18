@@ -32,6 +32,12 @@ defmodule AcaiWeb.FeatureLive do
   defp build_feature_page_assigns(socket, team, feature_data, opts \\ []) do
     reset_stream? = Keyword.get(opts, :reset, false)
 
+    # Build a map of spec_id => requirement_count for quick lookup
+    spec_req_counts =
+      Map.new(feature_data.specs, fn spec ->
+        {spec.id, map_size(spec.requirements)}
+      end)
+
     # Build implementation cards with pre-fetched data
     implementation_cards =
       feature_data.implementations
@@ -39,7 +45,17 @@ defmodule AcaiWeb.FeatureLive do
         # feature-view.MAIN.3: Get status counts from feature_impl_states
         impl_counts = Map.get(feature_data.status_counts_by_impl, impl.id, %{})
 
-        total_reqs = feature_data.total_requirements
+        # feature-view.MAIN.3: Get requirement count from the spec this implementation uses
+        # (considering inheritance - may use parent's spec)
+        {canonical_spec, _source_info} =
+          Specs.resolve_canonical_spec(feature_data.feature_name, impl.id)
+
+        total_reqs =
+          if canonical_spec do
+            Map.get(spec_req_counts, canonical_spec.id, 0)
+          else
+            0
+          end
 
         # Calculate status percentages for progress bar
         status_percentages =

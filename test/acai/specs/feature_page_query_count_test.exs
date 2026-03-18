@@ -289,30 +289,34 @@ defmodule Acai.Specs.FeaturePageQueryCountTest do
     impls
   end
 
-  # Print query statistics for debugging
+  # Print query statistics for debugging (hidden behind DEBUG_QUERY_COUNTS env var)
   defp print_stats(label, stats) do
-    IO.puts("\n===== FEATURE PAGE QUERY COUNT: #{label} =====")
-    IO.puts("Total queries: #{stats.total}")
-    IO.puts("  - SELECT: #{stats.select}")
-    IO.puts("  - INSERT: #{stats.insert}")
-    IO.puts("  - UPDATE: #{stats.update}")
-    IO.puts("  - DELETE: #{stats.delete}")
-    IO.puts("==============================================\n")
+    if System.get_env("DEBUG_QUERY_COUNTS") do
+      IO.puts("\n===== FEATURE PAGE QUERY COUNT: #{label} =====")
+      IO.puts("Total queries: #{stats.total}")
+      IO.puts("  - SELECT: #{stats.select}")
+      IO.puts("  - INSERT: #{stats.insert}")
+      IO.puts("  - UPDATE: #{stats.update}")
+      IO.puts("  - DELETE: #{stats.delete}")
+      IO.puts("==============================================\n")
+    end
   end
 
-  # Print growth comparison between two test runs
+  # Print growth comparison between two test runs (hidden behind DEBUG_QUERY_COUNTS env var)
   defp print_growth(label, smaller, larger) do
-    IO.puts("\n===== FEATURE PAGE QUERY GROWTH: #{label} =====")
+    if System.get_env("DEBUG_QUERY_COUNTS") do
+      IO.puts("\n===== FEATURE PAGE QUERY GROWTH: #{label} =====")
 
-    IO.puts(
-      "Small payload total: #{smaller.total} (SELECT #{smaller.select}, INSERT #{smaller.insert})"
-    )
+      IO.puts(
+        "Small payload total: #{smaller.total} (SELECT #{smaller.select}, INSERT #{smaller.insert})"
+      )
 
-    IO.puts(
-      "Large payload total: #{larger.total} (SELECT #{larger.select}, INSERT #{larger.insert})"
-    )
+      IO.puts(
+        "Large payload total: #{larger.total} (SELECT #{larger.select}, INSERT #{larger.insert})"
+      )
 
-    IO.puts("Growth delta: #{larger.total - smaller.total}")
-    IO.puts("===============================================\n")
+      IO.puts("Growth delta: #{larger.total - smaller.total}")
+      IO.puts("===============================================\n")
+    end
   end
 end

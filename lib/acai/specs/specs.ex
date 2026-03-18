@@ -968,11 +968,13 @@ defmodule Acai.Specs do
             specs
           )
 
-        # Step 7: Calculate total requirements
+        # Step 7: Calculate total requirements (unique across all specs)
+        # ACIDs should be consistent across specs for the same feature
         total_requirements =
           specs
-          |> Enum.map(fn spec -> map_size(spec.requirements) end)
-          |> Enum.sum()
+          |> Enum.flat_map(fn spec -> Map.keys(spec.requirements) end)
+          |> Enum.uniq()
+          |> length()
 
         {:ok,
          %{

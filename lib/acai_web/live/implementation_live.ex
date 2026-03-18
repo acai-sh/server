@@ -438,6 +438,13 @@ defmodule AcaiWeb.ImplementationLive do
           available_features={@available_features}
         />
 
+        <%!-- feature-impl-view.MAIN.2: Feature description subtitle --%>
+        <%= if @spec.feature_description do %>
+          <p id="feature-description" class="text-base text-base-content/70 mt-2">
+            {@spec.feature_description}
+          </p>
+        <% end %>
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <%!-- feature-impl-view.CARDS.2: Target spec card with labeled fields and inheritance badge --%>
           <.target_spec_card
@@ -751,21 +758,6 @@ defmodule AcaiWeb.ImplementationLive do
             </div>
             <span class="text-sm">{@spec.path}</span>
           </div>
-
-          <%!-- feature-impl-view.CARDS.4: Feature description from target spec --%>
-          <%= if @spec.feature_description do %>
-            <div class="mt-4 pt-4 border-t border-base-200">
-              <div class="flex items-start gap-2">
-                <div class="w-20 flex-shrink-0 flex items-center gap-1.5 text-xs text-base-content/50">
-                  <.icon name="hero-information-circle" class="size-3.5" />
-                  <span>Description</span>
-                </div>
-                <p id="feature-description" class="text-sm text-base-content/80 flex-1">
-                  {@spec.feature_description}
-                </p>
-              </div>
-            </div>
-          <% end %>
         </div>
       </div>
     </div>
