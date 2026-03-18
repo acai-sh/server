@@ -402,35 +402,48 @@ defmodule Acai.Services.PushQueryCountTest do
   end
 
   defp print_stats(label, stats) do
-    IO.puts("\n===== PUSH QUERY COUNT TEST: #{label} =====")
-    IO.puts("Total queries: #{stats.total}")
-    IO.puts("  - SELECT: #{stats.select}")
-    IO.puts("  - INSERT: #{stats.insert}")
-    IO.puts("  - UPDATE: #{stats.update}")
-    IO.puts("  - DELETE: #{stats.delete}")
-    IO.puts("===========================================\n")
+    if System.get_env("VERBOSE_TESTS") do
+      IO.puts("\n===== PUSH QUERY STATS: #{label} =====")
+      IO.puts("Total queries: #{stats.total}")
+      IO.puts("  - SELECT: #{stats.select}")
+      IO.puts("  - INSERT: #{stats.insert}")
+      IO.puts("  - UPDATE: #{stats.update}")
+      IO.puts("  - DELETE: #{stats.delete}")
+      IO.puts("===========================================\n")
+    end
   end
 
   defp print_growth(label, smaller, larger) do
-    IO.puts("\n===== PUSH QUERY GROWTH TEST: #{label} =====")
+    if System.get_env("VERBOSE_TESTS") do
+      IO.puts("\n===== PUSH QUERY GROWTH TEST: #{label} =====")
 
-    IO.puts(
-      "Small payload total: #{smaller.total} (SELECT #{smaller.select}, INSERT #{smaller.insert})"
-    )
+      IO.puts(
+        "Small payload total: #{smaller.total} (SELECT #{smaller.select}, INSERT #{smaller.insert})"
+      )
 
-    IO.puts(
-      "Large payload total: #{larger.total} (SELECT #{larger.select}, INSERT #{larger.insert})"
-    )
+      IO.puts(
+        "Large payload total: #{larger.total} (SELECT #{larger.select}, INSERT #{larger.insert})"
+      )
 
-    IO.puts("Growth delta: #{larger.total - smaller.total}")
-    IO.puts("============================================\n")
+      IO.puts("Growth delta: #{larger.total - smaller.total}")
+      IO.puts("============================================\n")
+    end
   end
 
   defp print_comparison(label, colder, warmer) do
-    IO.puts("\n===== PUSH QUERY COMPARISON: #{label} =====")
-    IO.puts("Cold path total: #{colder.total} (SELECT #{colder.select}, INSERT #{colder.insert})")
-    IO.puts("Warm path total: #{warmer.total} (SELECT #{warmer.select}, INSERT #{warmer.insert})")
-    IO.puts("Savings: #{colder.total - warmer.total}")
-    IO.puts("===========================================\n")
+    if System.get_env("VERBOSE_TESTS") do
+      IO.puts("\n===== PUSH QUERY COMPARISON: #{label} =====")
+
+      IO.puts(
+        "Cold path total: #{colder.total} (SELECT #{colder.select}, INSERT #{colder.insert})"
+      )
+
+      IO.puts(
+        "Warm path total: #{warmer.total} (SELECT #{warmer.select}, INSERT #{warmer.insert})"
+      )
+
+      IO.puts("Savings: #{colder.total - warmer.total}")
+      IO.puts("===========================================\n")
+    end
   end
 end
