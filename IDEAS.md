@@ -7,3 +7,5 @@ inheritance visualization for impls in the product overview
 An unpush / delete pushed spec button
 
 write a blog post on Specs Maxxing (a play on Looks Maxxing)
+
+create an endpoint for agents to provide thumbs ups, smily faces, or feedback
