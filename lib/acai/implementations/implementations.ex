@@ -19,6 +19,95 @@ defmodule Acai.Implementations do
   end
 
   @doc """
+  Lists active implementations for a product, ordered by inheritance tree.
+
+  Returns implementations in tree order:
+  - Parentless implementations (roots) appear first
+  - Descendants appear depth-first under their parents
+  - Siblings are ordered by name for determinism
+
+  ACIDs:
+  - product-view.MATRIX.1: Columns are active implementations sorted by inheritance order
+  - product-view.MATRIX.1-1: Parentless implementations first, then descendants in tree order
+  - product-view.MATRIX.1-2: Sorting respects language direction (LTR/RTL)
+  """
+  def list_active_implementations(%Product{} = product, opts \\ []) do
+    direction = Keyword.get(opts, :direction, :ltr)
+
+    implementations =
+      Repo.all(
+        from i in Implementation,
+          where: i.product_id == ^product.id and i.is_active == true
+      )
+
+    order_implementations_by_tree(implementations, direction)
+  end
+
+  @doc """
+  Orders implementations by inheritance tree structure.
+
+  ## Options
+
+    * `:direction` - `:ltr` (default) or `:rtl` for sibling ordering
+
+  ## Examples
+
+      iex> order_implementations_by_tree(implementations, :ltr)
+      [%{name: "Root"}, %{name: "Child1"}, %{name: "GrandChild"}, %{name: "Child2"}]
+
+      iex> order_implementations_by_tree(implementations, :rtl)
+      [%{name: "Root"}, %{name: "Child2"}, %{name: "GrandChild"}, %{name: "Child1"}]
+  """
+  def order_implementations_by_tree(implementations, direction \\ :ltr) do
+    # Build parent_id -> children map from the provided implementations
+    children_by_parent =
+      implementations
+      |> Enum.group_by(& &1.parent_implementation_id)
+
+    # Build a set of all implementation IDs in the input set
+    implementation_ids = MapSet.new(implementations, & &1.id)
+
+    # Identify root nodes: either no parent OR parent not in the active set
+    # This ensures active implementations with inactive parents are still included
+    roots =
+      implementations
+      |> Enum.filter(fn impl ->
+        impl.parent_implementation_id == nil ||
+          not MapSet.member?(implementation_ids, impl.parent_implementation_id)
+      end)
+
+    # Sort roots by name (respecting direction)
+    sorted_roots = sort_siblings(roots, direction)
+
+    # Depth-first traversal to build ordered list
+    Enum.flat_map(sorted_roots, fn root ->
+      build_tree_order(root, children_by_parent, direction)
+    end)
+  end
+
+  # Sort siblings by name, respecting direction
+  defp sort_siblings(implementations, :rtl) do
+    # RTL: reverse alphabetical order
+    Enum.sort_by(implementations, & &1.name, :desc)
+  end
+
+  defp sort_siblings(implementations, _) do
+    # LTR (default): alphabetical order
+    Enum.sort_by(implementations, & &1.name)
+  end
+
+  # Build tree order for a node and its descendants (depth-first)
+  defp build_tree_order(implementation, children_by_parent, direction) do
+    children = Map.get(children_by_parent, implementation.id, [])
+    sorted_children = sort_siblings(children, direction)
+
+    [
+      implementation
+      | Enum.flat_map(sorted_children, &build_tree_order(&1, children_by_parent, direction))
+    ]
+  end
+
+  @doc """
   Gets an implementation by ID.
   """
   def get_implementation!(id), do: Repo.get!(Implementation, id)
@@ -397,6 +486,164 @@ defmodule Acai.Implementations do
   # Deprecated: Use batch_get_feature_impl_state_counts/2 instead
   def batch_get_spec_impl_state_counts(implementations, specs \\ nil) do
     batch_get_feature_impl_state_counts(implementations, specs)
+  end
+
+  @doc """
+  Batch gets feature_impl_state counts for multiple implementations with inheritance.
+  Returns a map of implementation_id => %{nil => count, assigned: count, blocked: count, completed: count, accepted: count, rejected: count}
+
+  For each implementation, if no local states exist for the given feature_names,
+  walks the parent_implementation_id chain to find inherited states.
+
+  ACIDs:
+  - feature-view.ENG.2: Respects inheritance semantics for state counts
+  - feature-impl-view.INHERITANCE.1: Recurse up parent chain if states not found locally
+  """
+  def batch_get_feature_impl_state_counts_with_inheritance(implementations, specs \\ nil)
+      when is_list(implementations) do
+    if implementations == [] do
+      %{}
+    else
+      feature_names = if specs, do: Enum.map(specs, & &1.feature_name) |> Enum.uniq(), else: nil
+
+      # Get product_id from first implementation (all should be from same product)
+      product_id = List.first(implementations).product_id
+
+      # Build ancestor chains for all implementations
+      ancestor_chains = build_ancestor_chains(implementations, product_id)
+
+      # Collect all ancestor IDs (including self) to fetch states in one query
+      all_impl_ids =
+        ancestor_chains
+        |> Map.values()
+        |> List.flatten()
+        |> Enum.uniq()
+
+      # Fetch all states for all implementations and feature_names in one query
+      # Group by implementation_id for efficient lookup
+      raw_states =
+        if feature_names do
+          Repo.all(
+            from fis in FeatureImplState,
+              where:
+                fis.implementation_id in ^all_impl_ids and fis.feature_name in ^feature_names,
+              select: {fis.implementation_id, fis.states}
+          )
+        else
+          Repo.all(
+            from fis in FeatureImplState,
+              where: fis.implementation_id in ^all_impl_ids,
+              select: {fis.implementation_id, fis.states}
+          )
+        end
+
+      states_by_impl =
+        raw_states
+        |> Enum.group_by(fn {impl_id, _} -> impl_id end, fn {_, states} -> states end)
+        |> Map.new(fn {impl_id, states_list} ->
+          # Merge all states for this implementation across feature_names
+          merged_states = Enum.reduce(states_list, %{}, &Map.merge(&2, &1))
+          {impl_id, merged_states}
+        end)
+
+      # For each implementation, find states (local or inherited) and aggregate counts
+      result =
+        Enum.map(implementations, fn impl ->
+          # Get the ancestor chain for this implementation (self first, then parents)
+          chain = Map.get(ancestor_chains, impl.id, [impl.id])
+
+          # Find states for this implementation (checking self first, then ancestors)
+          states = find_inherited_states(chain, states_by_impl)
+
+          # Aggregate counts from the states
+          counts = aggregate_state_counts(states)
+
+          {impl.id, counts}
+        end)
+        |> Map.new()
+
+      result
+    end
+  end
+
+  # Build ancestor chains for all implementations in one batch query
+  # Returns a map of impl_id => [impl_id, parent_id, grandparent_id, ...]
+  defp build_ancestor_chains(implementations, product_id) do
+    _impl_ids = Enum.map(implementations, & &1.id)
+
+    # Get all implementations in this product to build parent chains
+    all_product_impls =
+      Repo.all(
+        from i in Implementation,
+          where: i.product_id == ^product_id,
+          select: {i.id, i.parent_implementation_id}
+      )
+      |> Map.new()
+
+    # Build ancestor chain for each implementation
+    Map.new(implementations, fn impl ->
+      chain = build_ancestor_chain(impl.id, all_product_impls)
+      {impl.id, chain}
+    end)
+  end
+
+  # Build ancestor chain for a single implementation (self + all parents)
+  # Returns list in order: [self_id, parent_id, grandparent_id, ...]
+  defp build_ancestor_chain(impl_id, all_impls_map, visited \\ MapSet.new()) do
+    do_build_ancestor_chain_ordered(impl_id, all_impls_map, visited, [])
+  end
+
+  # Helper that builds chain in correct order (self first, then ancestors)
+  defp do_build_ancestor_chain_ordered(nil, _all_impls_map, _visited, acc), do: acc
+
+  defp do_build_ancestor_chain_ordered(impl_id, all_impls_map, visited, acc) do
+    if MapSet.member?(visited, impl_id) do
+      # Circular reference detected
+      acc
+    else
+      visited = MapSet.put(visited, impl_id)
+      parent_id = Map.get(all_impls_map, impl_id)
+      # Add current impl to front of chain, then continue with parent
+      do_build_ancestor_chain_ordered(parent_id, all_impls_map, visited, acc ++ [impl_id])
+    end
+  end
+
+  # Find states for an implementation, checking self first then ancestors
+  # Returns a merged map of acid => attrs from the FIRST implementation in chain that has states
+  defp find_inherited_states(chain, states_by_impl) do
+    # For each implementation in the chain (starting from self), check if it has states
+    Enum.reduce_while(chain, %{}, fn impl_id, _acc ->
+      case Map.get(states_by_impl, impl_id) do
+        nil ->
+          # No states at this level, continue to next ancestor
+          {:cont, %{}}
+
+        states when map_size(states) > 0 ->
+          # Found states at this level, use them and stop searching
+          {:halt, states}
+
+        _ ->
+          # Empty states map, continue to next ancestor
+          {:cont, %{}}
+      end
+    end)
+  end
+
+  # Aggregate state counts from a states map
+  defp aggregate_state_counts(states) do
+    counts = %{
+      nil => 0,
+      "assigned" => 0,
+      "blocked" => 0,
+      "completed" => 0,
+      "accepted" => 0,
+      "rejected" => 0
+    }
+
+    Enum.reduce(states, counts, fn {_acid, attrs}, acc ->
+      status = attrs["status"]
+      Map.update(acc, status, 1, &(&1 + 1))
+    end)
   end
 
   # --- Active Implementations for Specs ---

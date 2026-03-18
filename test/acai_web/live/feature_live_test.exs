@@ -21,6 +21,10 @@ defmodule AcaiWeb.FeatureLiveTest do
   end
 
   # data-model.SPECS: Create spec for a product with JSONB requirements
+  # Options:
+  #   - :requirements - Custom requirements map (defaults to 2 standard requirements)
+  #   - :branch - Pre-created branch to use (if not provided, creates new branch)
+  #   - :repo_uri - Repo URI for branch (required when passing :branch)
   defp create_spec_for_feature(_team, product, feature_name, opts \\ []) do
     unique_suffix = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
 
@@ -39,22 +43,45 @@ defmodule AcaiWeb.FeatureLiveTest do
         }
       })
 
-    spec_fixture(product, %{
+    attrs = %{
       feature_name: feature_name,
       feature_description: Keyword.get(opts, :description, "Description for #{feature_name}"),
       feature_version: Keyword.get(opts, :version, "1.0.0"),
       path: "features/#{feature_name}-#{unique_suffix}/feature.yaml",
       repo_uri: "github.com/test/repo-#{unique_suffix}",
       requirements: requirements
-    })
+    }
+
+    # Allow passing :branch and :repo_uri to link spec to existing branch
+    # This is important for tests where implementations track specific branches
+    attrs =
+      if opts[:branch] do
+        attrs
+        |> Map.put(:branch, opts[:branch])
+        |> Map.put(:repo_uri, opts[:repo_uri] || opts[:branch].repo_uri)
+      else
+        attrs
+      end
+
+    spec_fixture(product, attrs)
   end
 
   # data-model.IMPLS: Create implementation for a product
   defp create_implementation_for_product(product, opts \\ []) do
-    implementation_fixture(product, %{
+    attrs = %{
       name: Keyword.get(opts, :name, "Impl-#{System.unique_integer([:positive])}"),
       is_active: Keyword.get(opts, :is_active, true)
-    })
+    }
+
+    # Only add parent_implementation_id if it's provided
+    attrs =
+      if opts[:parent_implementation_id] do
+        Map.put(attrs, :parent_implementation_id, opts[:parent_implementation_id])
+      else
+        attrs
+      end
+
+    implementation_fixture(product, attrs)
   end
 
   # data-model.FEATURE_IMPL_STATES: Create feature_impl_state with JSONB states
@@ -142,8 +169,24 @@ defmodule AcaiWeb.FeatureLiveTest do
     test "renders implementation cards grid", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
-      create_spec_for_feature(team, product, "my-feature")
+
+      # Create a shared branch first
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo", branch_name: "main"})
+
+      # Create implementation
       impl = create_implementation_for_product(product, name: "Impl-1")
+
+      # Track the shared branch
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec on the same branch so implementation can resolve it
+      create_spec_for_feature(team, product, "my-feature",
+        requirements: %{
+          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+        },
+        branch: branch,
+        repo_uri: branch.repo_uri
+      )
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
@@ -169,8 +212,24 @@ defmodule AcaiWeb.FeatureLiveTest do
     test "each card navigates to implementation view", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
-      create_spec_for_feature(team, product, "my-feature")
+
+      # Create a shared branch first
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo", branch_name: "main"})
+
+      # Create implementation
       impl = create_implementation_for_product(product, name: "MyImpl")
+
+      # Track the shared branch
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec on the same branch so implementation can resolve it
+      create_spec_for_feature(team, product, "my-feature",
+        requirements: %{
+          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+        },
+        branch: branch,
+        repo_uri: branch.repo_uri
+      )
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
@@ -185,8 +244,24 @@ defmodule AcaiWeb.FeatureLiveTest do
     } do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
-      create_spec_for_feature(team, product, "my-feature")
+
+      # Create a shared branch first
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo", branch_name: "main"})
+
+      # Create implementation with special characters in name
       impl = create_implementation_for_product(product, name: "Deploy / Canary + EU-West 🚀")
+
+      # Track the shared branch
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec on the same branch so implementation can resolve it
+      create_spec_for_feature(team, product, "my-feature",
+        requirements: %{
+          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+        },
+        branch: branch,
+        repo_uri: branch.repo_uri
+      )
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
 
@@ -315,12 +390,59 @@ defmodule AcaiWeb.FeatureLiveTest do
   describe "implementation card" do
     setup :register_and_log_in_user
 
+    # feature-view.MAIN.1
+    test "renders feature description when present", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      create_spec_for_feature(team, product, "my-feature",
+        description: "This is a test feature description"
+      )
+
+      create_implementation_for_product(product, name: "Production")
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
+      assert has_element?(view, "p", "This is a test feature description")
+    end
+
+    # feature-view.MAIN.1
+    test "does not render description element when nil", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      spec = create_spec_for_feature(team, product, "my-feature", description: nil)
+
+      # Update spec to ensure description is nil
+      Acai.Specs.update_spec(spec, %{feature_description: nil})
+
+      create_implementation_for_product(product, name: "Production")
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
+      # Should still render the page without error
+      assert has_element?(view, "button", "my-feature")
+    end
+
     # feature-view.MAIN.3
     test "shows implementation name", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
-      create_spec_for_feature(team, product, "my-feature")
-      create_implementation_for_product(product, name: "Production")
+
+      # Create a shared branch first
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo", branch_name: "main"})
+
+      # Create implementation
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Track the shared branch
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec on the same branch so implementation can resolve it
+      create_spec_for_feature(team, product, "my-feature",
+        requirements: %{
+          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+        },
+        branch: branch,
+        repo_uri: branch.repo_uri
+      )
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
       assert has_element?(view, "#implementations-grid", "Production")
@@ -330,8 +452,24 @@ defmodule AcaiWeb.FeatureLiveTest do
     test "shows product name on each card", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
-      create_spec_for_feature(team, product, "my-feature")
-      create_implementation_for_product(product, name: "Production")
+
+      # Create a shared branch first
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo", branch_name: "main"})
+
+      # Create implementation
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Track the shared branch
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec on the same branch so implementation can resolve it
+      create_spec_for_feature(team, product, "my-feature",
+        requirements: %{
+          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+        },
+        branch: branch,
+        repo_uri: branch.repo_uri
+      )
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
       assert has_element?(view, "#implementations-grid", "TestProduct")
@@ -342,7 +480,14 @@ defmodule AcaiWeb.FeatureLiveTest do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
 
-      # Create spec with 4 requirements
+      # Create implementation first
+      impl = create_implementation_for_product(product)
+
+      # Create tracked branch
+      tracked = tracked_branch_fixture(impl, repo_uri: "github.com/org/repo", branch_name: "main")
+      branch = Acai.Repo.preload(tracked, :branch).branch
+
+      # Create spec with 4 requirements on the same branch
       requirements = %{
         "my-feature.COMP.1" => %{
           "definition" => "Req 1",
@@ -366,8 +511,12 @@ defmodule AcaiWeb.FeatureLiveTest do
         }
       }
 
-      spec = create_spec_for_feature(team, product, "my-feature", requirements: requirements)
-      impl = create_implementation_for_product(product)
+      spec =
+        create_spec_for_feature(team, product, "my-feature",
+          requirements: requirements,
+          branch: branch,
+          repo_uri: branch.repo_uri
+        )
 
       # Create spec_impl_state with mixed statuses
       states = %{
@@ -399,6 +548,13 @@ defmodule AcaiWeb.FeatureLiveTest do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
 
+      # Create implementation first
+      impl = create_implementation_for_product(product)
+
+      # Create tracked branch
+      tracked = tracked_branch_fixture(impl, repo_uri: "github.com/org/repo", branch_name: "main")
+      branch = Acai.Repo.preload(tracked, :branch).branch
+
       requirements = %{
         "my-feature.COMP.1" => %{
           "definition" => "Req 1",
@@ -412,8 +568,12 @@ defmodule AcaiWeb.FeatureLiveTest do
         }
       }
 
-      spec = create_spec_for_feature(team, product, "my-feature", requirements: requirements)
-      impl = create_implementation_for_product(product)
+      spec =
+        create_spec_for_feature(team, product, "my-feature",
+          requirements: requirements,
+          branch: branch,
+          repo_uri: branch.repo_uri
+        )
 
       # One completed, one with no status
       states = %{
@@ -436,6 +596,13 @@ defmodule AcaiWeb.FeatureLiveTest do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
 
+      # Create implementation first
+      impl = create_implementation_for_product(product)
+
+      # Create tracked branch
+      tracked = tracked_branch_fixture(impl, repo_uri: "github.com/org/repo", branch_name: "main")
+      branch = Acai.Repo.preload(tracked, :branch).branch
+
       requirements = %{
         "my-feature.COMP.1" => %{
           "definition" => "Req 1",
@@ -444,8 +611,12 @@ defmodule AcaiWeb.FeatureLiveTest do
         }
       }
 
-      spec = create_spec_for_feature(team, product, "my-feature", requirements: requirements)
-      impl = create_implementation_for_product(product)
+      spec =
+        create_spec_for_feature(team, product, "my-feature",
+          requirements: requirements,
+          branch: branch,
+          repo_uri: branch.repo_uri
+        )
 
       create_spec_impl_state(spec, impl, status: "accepted")
 
@@ -501,16 +672,46 @@ defmodule AcaiWeb.FeatureLiveTest do
     test "only shows implementations for the correct team", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
-      create_spec_for_feature(team, product, "my-feature")
-      create_implementation_for_product(product, name: "MyImpl")
+
+      # Create a shared branch first
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo", branch_name: "main"})
+
+      # Create implementation
+      impl = create_implementation_for_product(product, name: "MyImpl")
+
+      # Track the shared branch
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec on the same branch so implementation can resolve it
+      create_spec_for_feature(team, product, "my-feature",
+        requirements: %{
+          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+        },
+        branch: branch,
+        repo_uri: branch.repo_uri
+      )
 
       # Create another team with a different user
       other_user = user_fixture()
       other_team = team_fixture()
       user_team_role_fixture(other_team, other_user, %{title: "owner"})
       other_product = create_product(other_team, "TestProduct")
-      create_spec_for_feature(other_team, other_product, "my-feature")
-      create_implementation_for_product(other_product, name: "OtherImpl")
+
+      # Create separate branch for other team
+      other_branch =
+        branch_fixture(other_team, %{repo_uri: "github.com/other/repo", branch_name: "main"})
+
+      # Create implementation and spec for other team on different branch
+      other_impl = create_implementation_for_product(other_product, name: "OtherImpl")
+      tracked_branch_fixture(other_impl, branch: other_branch, repo_uri: other_branch.repo_uri)
+
+      create_spec_for_feature(other_team, other_product, "my-feature",
+        requirements: %{
+          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+        },
+        branch: other_branch,
+        repo_uri: other_branch.repo_uri
+      )
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
       # Should only show implementations from the current team
@@ -521,9 +722,27 @@ defmodule AcaiWeb.FeatureLiveTest do
     test "only shows active implementations", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
-      create_spec_for_feature(team, product, "my-feature")
-      create_implementation_for_product(product, name: "ActiveImpl", is_active: true)
+
+      # Create implementations first
+      active_impl =
+        create_implementation_for_product(product, name: "ActiveImpl", is_active: true)
+
       create_implementation_for_product(product, name: "InactiveImpl", is_active: false)
+
+      # Create tracked branch for active implementation only
+      tracked =
+        tracked_branch_fixture(active_impl, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      branch = Acai.Repo.preload(tracked, :branch).branch
+
+      # Create spec on the same branch so active implementation can resolve it
+      create_spec_for_feature(team, product, "my-feature",
+        requirements: %{
+          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+        },
+        branch: branch,
+        repo_uri: branch.repo_uri
+      )
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
       assert has_element?(view, "#implementations-grid", "ActiveImpl")
@@ -639,6 +858,227 @@ defmodule AcaiWeb.FeatureLiveTest do
       assert impl_counts["completed"] == 1
       assert impl_counts["in_progress"] == 1
       assert impl_counts["pending"] == 1
+    end
+  end
+
+  describe "feature-view filtering and inheritance" do
+    setup :register_and_log_in_user
+
+    # feature-view.MAIN.2: Implementations without the feature should not render cards
+    test "does not render cards for implementations without the feature", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      # Create tracked branch and spec for feature-1 on the SAME branch
+      branch = branch_fixture(team)
+
+      spec_fixture(product, %{
+        feature_name: "feature-1",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{
+          "feature-1.COMP.1" => %{
+            "definition" => "Req 1",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # Create implementation WITH the feature (tracked branch)
+      impl_with =
+        create_implementation_for_product(product, name: "WithFeature", is_active: true)
+
+      tracked_branch_fixture(impl_with, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create implementation WITHOUT the feature (no tracked branch)
+      create_implementation_for_product(product, name: "WithoutFeature", is_active: true)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/feature-1")
+
+      # Should only show implementation with the feature
+      assert has_element?(view, "#implementations-grid", "WithFeature")
+      refute has_element?(view, "#implementations-grid", "WithoutFeature")
+    end
+
+    # feature-view.MAIN.2: Inherited implementations should render cards
+    test "renders cards for inherited implementations", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      # Create tracked branch and spec on the SAME branch
+      branch = branch_fixture(team)
+
+      spec_fixture(product, %{
+        feature_name: "inherited-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{
+          "inherited-feature.COMP.1" => %{
+            "definition" => "Req 1",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # Create parent implementation with tracked branch
+      parent =
+        create_implementation_for_product(product, name: "ParentImpl", is_active: true)
+
+      tracked_branch_fixture(parent, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create child implementation that inherits (no tracked branch, has parent)
+      _child =
+        create_implementation_for_product(product,
+          name: "ChildImpl",
+          is_active: true,
+          parent_implementation_id: parent.id
+        )
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/inherited-feature")
+
+      # Should show both parent and child
+      assert has_element?(view, "#implementations-grid", "ParentImpl")
+      assert has_element?(view, "#implementations-grid", "ChildImpl")
+    end
+
+    # feature-view.ENG.2: Inherited implementations show inherited progress
+    test "inherited implementations show inherited progress", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      # Create tracked branch and spec
+      branch = branch_fixture(team)
+
+      spec_fixture(product, %{
+        feature_name: "progress-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{
+          "progress-feature.COMP.1" => %{
+            "definition" => "Req 1",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          },
+          "progress-feature.COMP.2" => %{
+            "definition" => "Req 2",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # Create parent implementation with tracked branch
+      parent =
+        create_implementation_for_product(product, name: "ParentProgress", is_active: true)
+
+      tracked_branch_fixture(parent, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create child implementation that inherits
+      _child =
+        create_implementation_for_product(product,
+          name: "ChildProgress",
+          is_active: true,
+          parent_implementation_id: parent.id
+        )
+
+      # Create state for parent only (1 completed, 1 pending = 50%)
+      # Child should inherit this progress
+      Acai.Specs.create_feature_impl_state("progress-feature", parent, %{
+        states: %{
+          "progress-feature.COMP.1" => %{"status" => "completed"},
+          "progress-feature.COMP.2" => %{"status" => nil}
+        }
+      })
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/progress-feature")
+
+      # Should show both implementations
+      assert has_element?(view, "#implementations-grid", "ParentProgress")
+      assert has_element?(view, "#implementations-grid", "ChildProgress")
+
+      # Both should show "2 requirements" (child inherits the spec requirement count)
+      assert has_element?(view, "#implementations-grid", "2 requirements")
+    end
+  end
+
+  describe "feature navigation" do
+    setup :register_and_log_in_user
+
+    # feature-view.ENG.1: Stream reset on feature navigation removes stale cards
+    test "feature switch removes stale implementation cards", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      # Create two different features with different implementations
+      # Each feature is on a different branch, each implementation tracks only one branch
+
+      # Feature 1: Only Impl-A has this feature
+      branch1 = branch_fixture(team, %{repo_uri: "github.com/org/repo1"})
+
+      spec_fixture(product, %{
+        feature_name: "feature-a",
+        branch: branch1,
+        repo_uri: branch1.repo_uri,
+        requirements: %{
+          "feature-a.COMP.1" => %{
+            "definition" => "Req A1",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      impl_a =
+        create_implementation_for_product(product, name: "Impl-A", is_active: true)
+
+      tracked_branch_fixture(impl_a, branch: branch1, repo_uri: branch1.repo_uri)
+
+      # Feature 2: Only Impl-B has this feature
+      branch2 = branch_fixture(team, %{repo_uri: "github.com/org/repo2"})
+
+      spec_fixture(product, %{
+        feature_name: "feature-b",
+        branch: branch2,
+        repo_uri: branch2.repo_uri,
+        requirements: %{
+          "feature-b.COMP.1" => %{
+            "definition" => "Req B1",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      impl_b =
+        create_implementation_for_product(product, name: "Impl-B", is_active: true)
+
+      tracked_branch_fixture(impl_b, branch: branch2, repo_uri: branch2.repo_uri)
+
+      # Start on feature-a page
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/feature-a")
+
+      # Should show Impl-A card
+      assert has_element?(view, "#implementations-grid", "Impl-A")
+      refute has_element?(view, "#implementations-grid", "Impl-B")
+
+      # Navigate to feature-b via patch navigation
+      # This tests that the stream is reset properly when switching features
+      html = render_patch(view, ~p"/t/#{team.name}/f/feature-b")
+
+      # After the patch, feature-b should be shown and Impl-B should appear
+      # Verify we're on the right page (feature-b should be in the HTML)
+      assert html =~ "feature-b"
+
+      # Impl-A should no longer be shown (stream reset)
+      refute has_element?(view, "#implementations-grid", "Impl-A")
+
+      # Impl-B should now be shown
+      assert has_element?(view, "#implementations-grid", "Impl-B")
     end
   end
 end

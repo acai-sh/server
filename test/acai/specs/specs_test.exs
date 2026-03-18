@@ -1203,4 +1203,938 @@ defmodule Acai.SpecsTest do
       assert source_info.source_implementation_id == parent.id
     end
   end
+
+  describe "batch_get_spec_impl_completion/2 inheritance" do
+    # product-view.MATRIX.3-1: Child with no local row inherits parent completion
+    test "child with no local row inherits parent completion", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create parent with spec
+      parent = implementation_fixture(product, %{name: "parent"})
+
+      parent_tracked =
+        tracked_branch_fixture(parent, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      parent_branch = Acai.Repo.preload(parent_tracked, :branch).branch
+
+      parent_spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          branch: parent_branch,
+          repo_uri: "github.com/org/repo",
+          requirements: %{
+            "test-feature.COMP.1" => %{"definition" => "Req 1"},
+            "test-feature.COMP.2" => %{"definition" => "Req 2"}
+          }
+        })
+
+      # Create child without spec (inherits from parent)
+      child =
+        implementation_fixture(product, %{name: "child", parent_implementation_id: parent.id})
+
+      # Create feature_impl_state for parent only (2 requirements, 1 completed)
+      Acai.Specs.create_feature_impl_state("test-feature", parent, %{
+        states: %{
+          "test-feature.COMP.1" => %{"status" => "completed"},
+          "test-feature.COMP.2" => %{"status" => "assigned"}
+        }
+      })
+
+      # Child has no local feature_impl_state row
+
+      # Call batch_get_spec_impl_completion
+      result = Specs.batch_get_spec_impl_completion([parent_spec], [parent, child])
+
+      # Parent should have 1/2 completed (50%)
+      assert result[{parent_spec.id, parent.id}] == %{completed: 1, total: 2}
+
+      # Child should inherit from parent: 1/2 completed (50%)
+      assert result[{parent_spec.id, child.id}] == %{completed: 1, total: 2}
+    end
+
+    # product-view.MATRIX.3-1: Multi-level ancestry inherits recursively from grandparent
+    test "multi-level ancestry inherits recursively from grandparent when needed", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create grandparent with spec
+      grandparent = implementation_fixture(product, %{name: "grandparent"})
+
+      grandparent_tracked =
+        tracked_branch_fixture(grandparent, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      grandparent_branch = Acai.Repo.preload(grandparent_tracked, :branch).branch
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          branch: grandparent_branch,
+          repo_uri: "github.com/org/repo",
+          requirements: %{
+            "test-feature.COMP.1" => %{"definition" => "Req 1"},
+            "test-feature.COMP.2" => %{"definition" => "Req 2"},
+            "test-feature.COMP.3" => %{"definition" => "Req 3"}
+          }
+        })
+
+      # Create parent with no local state (will inherit from grandparent)
+      parent =
+        implementation_fixture(product, %{
+          name: "parent",
+          parent_implementation_id: grandparent.id
+        })
+
+      # Create grandchild with no local state (will inherit from grandparent via parent)
+      grandchild =
+        implementation_fixture(product, %{
+          name: "grandchild",
+          parent_implementation_id: parent.id
+        })
+
+      # Create feature_impl_state for grandparent only (3 requirements, 2 completed)
+      Acai.Specs.create_feature_impl_state("test-feature", grandparent, %{
+        states: %{
+          "test-feature.COMP.1" => %{"status" => "completed"},
+          "test-feature.COMP.2" => %{"status" => "completed"},
+          "test-feature.COMP.3" => %{"status" => "assigned"}
+        }
+      })
+
+      # Call batch_get_spec_impl_completion
+      result = Specs.batch_get_spec_impl_completion([spec], [grandparent, parent, grandchild])
+
+      # All should inherit from grandparent: 2/3 completed
+      assert result[{spec.id, grandparent.id}] == %{completed: 2, total: 3}
+      assert result[{spec.id, parent.id}] == %{completed: 2, total: 3}
+      assert result[{spec.id, grandchild.id}] == %{completed: 2, total: 3}
+    end
+
+    # product-view.MATRIX.3-1: Local child row overrides inherited progress
+    test "local child row overrides inherited progress", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create parent with spec
+      parent = implementation_fixture(product, %{name: "parent"})
+
+      parent_tracked =
+        tracked_branch_fixture(parent, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      parent_branch = Acai.Repo.preload(parent_tracked, :branch).branch
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          branch: parent_branch,
+          repo_uri: "github.com/org/repo",
+          requirements: %{
+            "test-feature.COMP.1" => %{"definition" => "Req 1"},
+            "test-feature.COMP.2" => %{"definition" => "Req 2"}
+          }
+        })
+
+      # Create child with parent
+      child =
+        implementation_fixture(product, %{name: "child", parent_implementation_id: parent.id})
+
+      # Create feature_impl_state for parent (2 requirements, 1 completed = 50%)
+      Acai.Specs.create_feature_impl_state("test-feature", parent, %{
+        states: %{
+          "test-feature.COMP.1" => %{"status" => "completed"},
+          "test-feature.COMP.2" => %{"status" => "assigned"}
+        }
+      })
+
+      # Create feature_impl_state for child (2 requirements, 2 completed = 100%)
+      Acai.Specs.create_feature_impl_state("test-feature", child, %{
+        states: %{
+          "test-feature.COMP.1" => %{"status" => "completed"},
+          "test-feature.COMP.2" => %{"status" => "completed"}
+        }
+      })
+
+      # Call batch_get_spec_impl_completion
+      result = Specs.batch_get_spec_impl_completion([spec], [parent, child])
+
+      # Parent should have 1/2 completed (50%)
+      assert result[{spec.id, parent.id}] == %{completed: 1, total: 2}
+
+      # Child should use its own local row: 2/2 completed (100%)
+      assert result[{spec.id, child.id}] == %{completed: 2, total: 2}
+    end
+
+    # product-view.MATRIX.3-1: Local empty row stays 0% and does not inherit
+    test "local empty %{} row stays 0% and does not inherit", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create parent with spec
+      parent = implementation_fixture(product, %{name: "parent"})
+
+      parent_tracked =
+        tracked_branch_fixture(parent, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      parent_branch = Acai.Repo.preload(parent_tracked, :branch).branch
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          branch: parent_branch,
+          repo_uri: "github.com/org/repo",
+          requirements: %{
+            "test-feature.COMP.1" => %{"definition" => "Req 1"},
+            "test-feature.COMP.2" => %{"definition" => "Req 2"}
+          }
+        })
+
+      # Create child with parent
+      child =
+        implementation_fixture(product, %{name: "child", parent_implementation_id: parent.id})
+
+      # Create feature_impl_state for parent (2 requirements, 2 completed = 100%)
+      Acai.Specs.create_feature_impl_state("test-feature", parent, %{
+        states: %{
+          "test-feature.COMP.1" => %{"status" => "completed"},
+          "test-feature.COMP.2" => %{"status" => "completed"}
+        }
+      })
+
+      # Create feature_impl_state for child with EMPTY states map (not nil, but empty)
+      # This represents a local row that exists but has no state data
+      Acai.Specs.create_feature_impl_state("test-feature", child, %{
+        states: %{}
+      })
+
+      # Call batch_get_spec_impl_completion
+      result = Specs.batch_get_spec_impl_completion([spec], [parent, child])
+
+      # Parent should have 2/2 completed (100%)
+      assert result[{spec.id, parent.id}] == %{completed: 2, total: 2}
+
+      # Child should use its empty local row: 0/2 completed (0%)
+      # NOT inherit from parent
+      assert result[{spec.id, child.id}] == %{completed: 0, total: 2}
+    end
+
+    # product-view.MATRIX.3-1: Nearest ancestor with row is used
+    test "inherits from nearest ancestor that has a row", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create grandparent with spec
+      grandparent = implementation_fixture(product, %{name: "grandparent"})
+
+      grandparent_tracked =
+        tracked_branch_fixture(grandparent, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      grandparent_branch = Acai.Repo.preload(grandparent_tracked, :branch).branch
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          branch: grandparent_branch,
+          repo_uri: "github.com/org/repo",
+          requirements: %{
+            "test-feature.COMP.1" => %{"definition" => "Req 1"},
+            "test-feature.COMP.2" => %{"definition" => "Req 2"}
+          }
+        })
+
+      # Create parent with row (1/2 completed)
+      parent =
+        implementation_fixture(product, %{
+          name: "parent",
+          parent_implementation_id: grandparent.id
+        })
+
+      # Create child with no row (should inherit from parent, not grandparent)
+      child =
+        implementation_fixture(product, %{
+          name: "child",
+          parent_implementation_id: parent.id
+        })
+
+      # Create feature_impl_state for grandparent (2/2 completed = 100%)
+      Acai.Specs.create_feature_impl_state("test-feature", grandparent, %{
+        states: %{
+          "test-feature.COMP.1" => %{"status" => "completed"},
+          "test-feature.COMP.2" => %{"status" => "completed"}
+        }
+      })
+
+      # Create feature_impl_state for parent (1/2 completed = 50%)
+      Acai.Specs.create_feature_impl_state("test-feature", parent, %{
+        states: %{
+          "test-feature.COMP.1" => %{"status" => "completed"},
+          "test-feature.COMP.2" => %{"status" => "assigned"}
+        }
+      })
+
+      # Child has no local row
+
+      # Call batch_get_spec_impl_completion
+      result = Specs.batch_get_spec_impl_completion([spec], [grandparent, parent, child])
+
+      # Grandparent: 2/2 (100%)
+      assert result[{spec.id, grandparent.id}] == %{completed: 2, total: 2}
+
+      # Parent: 1/2 (50%)
+      assert result[{spec.id, parent.id}] == %{completed: 1, total: 2}
+
+      # Child should inherit from nearest ancestor (parent): 1/2 (50%)
+      assert result[{spec.id, child.id}] == %{completed: 1, total: 2}
+    end
+
+    # product-view.ROUTING.2: Returns empty map for empty inputs
+    test "returns empty map when specs is empty", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+      impl = implementation_fixture(product)
+
+      result = Specs.batch_get_spec_impl_completion([], [impl])
+      assert result == %{}
+    end
+
+    # product-view.ROUTING.2: Returns empty map for empty implementations
+    test "returns empty map when implementations is empty", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      branch = branch_fixture(team)
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          branch: branch,
+          repo_uri: branch.repo_uri,
+          requirements: %{
+            "test-feature.COMP.1" => %{"definition" => "Req 1"}
+          }
+        })
+
+      result = Specs.batch_get_spec_impl_completion([spec], [])
+      assert result == %{}
+    end
+  end
+
+  # --- Feature Page Consolidated Loader Tests ---
+
+  describe "load_feature_page_data/2" do
+    # feature-view.ENG.1: Single query fetches all specs, implementations, and state counts
+    test "returns all feature page data in single call", %{} do
+      team = team_fixture()
+      product = product_fixture(team, %{name: "test-product"})
+
+      # Create tracked branch and spec
+      branch = branch_fixture(team)
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          feature_description: "Test feature description",
+          branch: branch,
+          repo_uri: branch.repo_uri,
+          requirements: %{
+            "test-feature.COMP.1" => %{
+              "definition" => "Req 1",
+              "is_deprecated" => false,
+              "replaced_by" => []
+            },
+            "test-feature.COMP.2" => %{
+              "definition" => "Req 2",
+              "is_deprecated" => false,
+              "replaced_by" => []
+            }
+          }
+        })
+
+      # Create implementation with tracked branch
+      impl =
+        implementation_fixture(product, %{
+          name: "test-impl",
+          is_active: true
+        })
+
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create feature impl state
+      Acai.Specs.create_feature_impl_state("test-feature", impl, %{
+        states: %{
+          "test-feature.COMP.1" => %{"status" => "completed"},
+          "test-feature.COMP.2" => %{"status" => "assigned"}
+        }
+      })
+
+      # Load all feature page data
+      assert {:ok, data} = Specs.load_feature_page_data(team, "test-feature")
+
+      # Verify all data is present
+      assert data.feature_name == "test-feature"
+      assert data.feature_description == "Test feature description"
+      assert data.product.id == product.id
+      assert length(data.specs) == 1
+      assert hd(data.specs).id == spec.id
+      assert data.total_requirements == 2
+      assert length(data.implementations) == 1
+      assert hd(data.implementations).id == impl.id
+
+      # Verify available features for dropdown
+      assert {"test-feature", "test-feature"} in data.available_features
+
+      # Verify status counts
+      impl_counts = Map.get(data.status_counts_by_impl, impl.id, %{})
+      assert impl_counts["completed"] == 1
+      assert impl_counts["assigned"] == 1
+    end
+
+    # feature-view.ENG.1: Returns error when feature not found
+    test "returns error when feature not found", %{} do
+      team = team_fixture()
+
+      assert {:error, :feature_not_found} = Specs.load_feature_page_data(team, "nonexistent")
+    end
+
+    # feature-view.MAIN.2: Only active implementations that can resolve the feature
+    test "only includes active implementations with the feature", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create tracked branch and spec
+      branch = branch_fixture(team)
+
+      spec_fixture(product, %{
+        feature_name: "test-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{
+          "test-feature.COMP.1" => %{"definition" => "Req 1"}
+        }
+      })
+
+      # Create active implementation with tracked branch (has feature)
+      active_with_feature =
+        implementation_fixture(product, %{
+          name: "active-with-feature",
+          is_active: true
+        })
+
+      tracked_branch_fixture(active_with_feature, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create active implementation without tracked branch (no feature)
+      _active_no_feature =
+        implementation_fixture(product, %{
+          name: "active-no-feature",
+          is_active: true
+        })
+
+      # Create inactive implementation with tracked branch (has feature but inactive)
+      inactive_with_feature =
+        implementation_fixture(product, %{
+          name: "inactive-with-feature",
+          is_active: false
+        })
+
+      tracked_branch_fixture(inactive_with_feature, branch: branch, repo_uri: branch.repo_uri)
+
+      # Load feature page data
+      assert {:ok, data} = Specs.load_feature_page_data(team, "test-feature")
+
+      # Should only include the active implementation with the feature
+      impl_names = Enum.map(data.implementations, & &1.name)
+      assert "active-with-feature" in impl_names
+      refute "active-no-feature" in impl_names
+      refute "inactive-with-feature" in impl_names
+    end
+
+    # feature-view.ENG.2: Respects inheritance semantics
+    test "includes implementations that inherit the feature from parent", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create parent with spec
+      parent =
+        implementation_fixture(product, %{
+          name: "parent",
+          is_active: true
+        })
+
+      branch = branch_fixture(team)
+
+      spec_fixture(product, %{
+        feature_name: "test-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{
+          "test-feature.COMP.1" => %{"definition" => "Req 1"}
+        }
+      })
+
+      tracked_branch_fixture(parent, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create child that inherits (no tracked branch, has parent)
+      _child =
+        implementation_fixture(product, %{
+          name: "child",
+          is_active: true,
+          parent_implementation_id: parent.id
+        })
+
+      # Load feature page data
+      assert {:ok, data} = Specs.load_feature_page_data(team, "test-feature")
+
+      # Should include both parent and child
+      impl_names = Enum.map(data.implementations, & &1.name)
+      assert "parent" in impl_names
+      assert "child" in impl_names
+    end
+
+    # feature-view.ENG.2: Inherited state counts for child implementations
+    test "includes inherited state counts for child implementations", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create parent with spec
+      parent =
+        implementation_fixture(product, %{
+          name: "parent",
+          is_active: true
+        })
+
+      branch = branch_fixture(team)
+
+      spec_fixture(product, %{
+        feature_name: "test-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{
+          "test-feature.COMP.1" => %{"definition" => "Req 1"},
+          "test-feature.COMP.2" => %{"definition" => "Req 2"}
+        }
+      })
+
+      tracked_branch_fixture(parent, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create child that inherits
+      child =
+        implementation_fixture(product, %{
+          name: "child",
+          is_active: true,
+          parent_implementation_id: parent.id
+        })
+
+      # Create state for parent only (child should inherit)
+      Acai.Specs.create_feature_impl_state("test-feature", parent, %{
+        states: %{
+          "test-feature.COMP.1" => %{"status" => "completed"},
+          "test-feature.COMP.2" => %{"status" => "assigned"}
+        }
+      })
+
+      # Load feature page data
+      assert {:ok, data} = Specs.load_feature_page_data(team, "test-feature")
+
+      # Parent should have its own state
+      parent_counts = Map.get(data.status_counts_by_impl, parent.id, %{})
+
+      assert parent_counts["completed"] == 1
+      assert parent_counts["assigned"] == 1
+
+      # Child should inherit parent's state
+      child_counts = Map.get(data.status_counts_by_impl, child.id, %{})
+
+      assert child_counts["completed"] == 1
+      assert child_counts["assigned"] == 1
+    end
+
+    # feature-impl-view.ROUTING.4: Same-product scoping for shared branches
+    test "excludes specs from other products on shared branch", %{} do
+      team = team_fixture()
+      product_a = product_fixture(team, %{name: "product-a"})
+      product_b = product_fixture(team, %{name: "product-b"})
+
+      # Create shared branch
+      shared_branch =
+        branch_fixture(team, %{
+          repo_uri: "github.com/org/shared",
+          branch_name: "main"
+        })
+
+      # Create implementations for each product tracking the same branch
+      impl_a =
+        implementation_fixture(product_a, %{
+          name: "impl-a",
+          is_active: true
+        })
+
+      impl_b =
+        implementation_fixture(product_b, %{
+          name: "impl-b",
+          is_active: true
+        })
+
+      tracked_branch_fixture(impl_a, branch: shared_branch, repo_uri: shared_branch.repo_uri)
+      tracked_branch_fixture(impl_b, branch: shared_branch, repo_uri: shared_branch.repo_uri)
+
+      # Create spec for product_a only on the shared branch
+      spec_fixture(product_a, %{
+        feature_name: "shared-feature",
+        branch: shared_branch,
+        repo_uri: "github.com/org/shared",
+        requirements: %{
+          "shared-feature.COMP.1" => %{
+            "definition" => "Product A req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # Load feature page data for product_a
+      assert {:ok, data} = Specs.load_feature_page_data(team, "shared-feature")
+
+      # Should include impl_a (same product as spec)
+      impl_names = Enum.map(data.implementations, & &1.name)
+      assert "impl-a" in impl_names
+
+      # Should NOT include impl_b (different product, no matching spec)
+      refute "impl-b" in impl_names
+    end
+  end
+
+  describe "list_implementations_for_feature_batched/2" do
+    # feature-view.ENG.1: Batched query approach
+    test "returns only active implementations with the feature", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create tracked branch and spec
+      branch = branch_fixture(team)
+
+      spec_fixture(product, %{
+        feature_name: "test-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{
+          "test-feature.COMP.1" => %{"definition" => "Req 1"}
+        }
+      })
+
+      # Create implementations
+      active_with =
+        implementation_fixture(product, %{
+          name: "active-with",
+          is_active: true
+        })
+
+      _active_without =
+        implementation_fixture(product, %{
+          name: "active-without",
+          is_active: true
+        })
+
+      inactive_with =
+        implementation_fixture(product, %{
+          name: "inactive-with",
+          is_active: false
+        })
+
+      tracked_branch_fixture(active_with, branch: branch, repo_uri: branch.repo_uri)
+      tracked_branch_fixture(inactive_with, branch: branch, repo_uri: branch.repo_uri)
+
+      # Get implementations using batched loader
+      implementations =
+        Specs.list_implementations_for_feature_batched("test-feature", product)
+
+      impl_names = Enum.map(implementations, & &1.name)
+      assert "active-with" in impl_names
+      refute "active-without" in impl_names
+      refute "inactive-with" in impl_names
+    end
+
+    # feature-view.ENG.2: Respects inheritance
+    test "includes implementations that inherit the feature", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create parent with spec
+      parent =
+        implementation_fixture(product, %{
+          name: "parent",
+          is_active: true
+        })
+
+      branch = branch_fixture(team)
+
+      spec_fixture(product, %{
+        feature_name: "test-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{
+          "test-feature.COMP.1" => %{"definition" => "Req 1"}
+        }
+      })
+
+      tracked_branch_fixture(parent, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create child that inherits
+      _child =
+        implementation_fixture(product, %{
+          name: "child",
+          is_active: true,
+          parent_implementation_id: parent.id
+        })
+
+      # Get implementations
+      implementations =
+        Specs.list_implementations_for_feature_batched("test-feature", product)
+
+      impl_names = Enum.map(implementations, & &1.name)
+      assert "parent" in impl_names
+      assert "child" in impl_names
+    end
+
+    # feature-view.MAIN.5: Empty state
+    test "returns empty list when no implementations have the feature", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create implementation without the feature
+      _impl =
+        implementation_fixture(product, %{
+          name: "no-feature",
+          is_active: true
+        })
+
+      # Get implementations
+      implementations =
+        Specs.list_implementations_for_feature_batched("nonexistent-feature", product)
+
+      assert implementations == []
+    end
+  end
+
+  describe "batch_check_feature_availability/2" do
+    # product-view.MATRIX.7-1
+    test "returns true when feature is available on tracked branch", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+      impl = implementation_fixture(product)
+
+      # Create tracked branch with spec
+      tracked = tracked_branch_fixture(impl, repo_uri: "github.com/org/repo", branch_name: "main")
+      branch = Acai.Repo.preload(tracked, :branch).branch
+
+      spec_fixture(product, %{
+        feature_name: "available-feature",
+        branch: branch,
+        repo_uri: "github.com/org/repo"
+      })
+
+      result = Specs.batch_check_feature_availability(["available-feature"], [impl])
+
+      assert result[{"available-feature", impl.id}] == true
+    end
+
+    # product-view.MATRIX.7-1
+    test "returns true when feature is inherited from parent", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create parent with spec
+      parent = implementation_fixture(product, %{name: "parent"})
+
+      parent_tracked =
+        tracked_branch_fixture(parent, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      parent_branch = Acai.Repo.preload(parent_tracked, :branch).branch
+
+      spec_fixture(product, %{
+        feature_name: "inherited-feature",
+        branch: parent_branch,
+        repo_uri: "github.com/org/repo"
+      })
+
+      # Create child without tracked branch
+      child =
+        implementation_fixture(product, %{
+          name: "child",
+          parent_implementation_id: parent.id
+        })
+
+      result = Specs.batch_check_feature_availability(["inherited-feature"], [child])
+
+      assert result[{"inherited-feature", child.id}] == true
+    end
+
+    # product-view.MATRIX.8
+    test "returns false when feature is not available for implementation", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create implementation without any tracked branches
+      impl = implementation_fixture(product)
+
+      # Create a spec but on a different branch that's not tracked
+      other_branch = branch_fixture(team)
+
+      spec_fixture(product, %{
+        feature_name: "unavailable-feature",
+        branch: other_branch,
+        repo_uri: "github.com/org/other"
+      })
+
+      result = Specs.batch_check_feature_availability(["unavailable-feature"], [impl])
+
+      assert result[{"unavailable-feature", impl.id}] == false
+    end
+
+    # product-view.MATRIX.8
+    test "returns false when feature not found anywhere in ancestor chain", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create parent without any spec
+      parent = implementation_fixture(product, %{name: "parent"})
+
+      # Create child
+      child =
+        implementation_fixture(product, %{
+          name: "child",
+          parent_implementation_id: parent.id
+        })
+
+      result = Specs.batch_check_feature_availability(["nonexistent-feature"], [child])
+
+      assert result[{"nonexistent-feature", child.id}] == false
+    end
+
+    test "handles multiple features and implementations", %{} do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      impl1 = implementation_fixture(product, %{name: "impl1"})
+      impl2 = implementation_fixture(product, %{name: "impl2"})
+
+      # Track a branch for impl1 only
+      tracked =
+        tracked_branch_fixture(impl1, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      branch = Acai.Repo.preload(tracked, :branch).branch
+
+      spec_fixture(product, %{
+        feature_name: "feature-a",
+        branch: branch,
+        repo_uri: "github.com/org/repo"
+      })
+
+      result =
+        Specs.batch_check_feature_availability(["feature-a", "feature-b"], [impl1, impl2])
+
+      # impl1 has feature-a
+      assert result[{"feature-a", impl1.id}] == true
+      # impl1 doesn't have feature-b
+      assert result[{"feature-b", impl1.id}] == false
+      # impl2 doesn't have anything (no tracked branches)
+      assert result[{"feature-a", impl2.id}] == false
+      assert result[{"feature-b", impl2.id}] == false
+    end
+
+    test "returns empty map for empty inputs" do
+      assert Specs.batch_check_feature_availability([], []) == %{}
+      assert Specs.batch_check_feature_availability(["feature"], []) == %{}
+      assert Specs.batch_check_feature_availability([], [%{id: 1}]) == %{}
+    end
+
+    # product-view.MATRIX.8: Unavailable cells stay unavailable when same-name spec
+    # exists only on a shared tracked branch for another product
+    test "returns false when matching spec belongs to a different product on shared branch",
+         %{} do
+      team = team_fixture()
+      product_a = product_fixture(team, %{name: "product-a"})
+      product_b = product_fixture(team, %{name: "product-b"})
+
+      # Create implementations for each product
+      impl_a = implementation_fixture(product_a, %{name: "impl-a"})
+      impl_b = implementation_fixture(product_b, %{name: "impl-b"})
+
+      # Create a shared branch that both implementations track
+      shared_branch =
+        branch_fixture(team, %{
+          repo_uri: "github.com/org/shared",
+          branch_name: "main"
+        })
+
+      # Both implementations track the same branch
+      tracked_branch_fixture(impl_a, branch: shared_branch, repo_uri: shared_branch.repo_uri)
+      tracked_branch_fixture(impl_b, branch: shared_branch, repo_uri: shared_branch.repo_uri)
+
+      # Create a spec for product_a on the shared branch
+      spec_fixture(product_a, %{
+        feature_name: "shared-feature",
+        branch: shared_branch,
+        repo_uri: "github.com/org/shared",
+        requirements: %{
+          "shared-feature.COMP.1" => %{
+            "definition" => "Product A req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # batch_check_feature_availability should only see specs for the same product
+      # When checking impl_a (product_a), the feature should be available
+      result_a = Specs.batch_check_feature_availability(["shared-feature"], [impl_a])
+      assert result_a[{"shared-feature", impl_a.id}] == true
+
+      # When checking impl_b (product_b), the feature should NOT be available
+      # because the spec is for product_a, not product_b
+      result_b = Specs.batch_check_feature_availability(["shared-feature"], [impl_b])
+      assert result_b[{"shared-feature", impl_b.id}] == false
+    end
+
+    # product-view.MATRIX.7-1: Inheritance respects product boundaries
+    test "returns false when inherited spec would come from different product", %{} do
+      team = team_fixture()
+      product_a = product_fixture(team, %{name: "product-a"})
+      product_b = product_fixture(team, %{name: "product-b"})
+
+      # Create parent in product_a with tracked branch and spec
+      parent_impl = implementation_fixture(product_a, %{name: "parent"})
+
+      parent_tracked =
+        tracked_branch_fixture(parent_impl,
+          repo_uri: "github.com/org/repo",
+          branch_name: "main"
+        )
+
+      parent_branch = Acai.Repo.preload(parent_tracked, :branch).branch
+
+      spec_fixture(product_a, %{
+        feature_name: "inherited-feature",
+        branch: parent_branch,
+        repo_uri: "github.com/org/repo",
+        requirements: %{
+          "inherited-feature.COMP.1" => %{
+            "definition" => "Product A req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # Create child in product_b with parent in product_a
+      child_impl =
+        implementation_fixture(product_b, %{
+          name: "child",
+          parent_implementation_id: parent_impl.id
+        })
+
+      # Child should NOT see the feature as available because
+      # the inherited spec is from a different product
+      result = Specs.batch_check_feature_availability(["inherited-feature"], [child_impl])
+      assert result[{"inherited-feature", child_impl.id}] == false
+    end
+  end
 end

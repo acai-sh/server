@@ -9,15 +9,9 @@ defmodule AcaiWeb.FeatureLive do
   def mount(%{"team_name" => team_name, "feature_name" => feature_name}, _session, socket) do
     team = Teams.get_team_by_name!(team_name)
 
-    # Load product for the feature selector
-    product = get_product_for_feature(team, feature_name)
-
-    # Load all features for this product for the dropdown
-    available_features = if product, do: Specs.list_features_for_product(product), else: []
-
-    # feature-view.ROUTING.1: Case-insensitive feature name matching
-    case Specs.get_specs_by_feature_name(team, feature_name) do
-      nil ->
+    # feature-view.ENG.1: Single consolidated query loads all feature page data
+    case Specs.load_feature_page_data(team, feature_name) do
+      {:error, :feature_not_found} ->
         # feature-view.ROUTING.2: Redirect if feature not found
         socket =
           socket
@@ -26,71 +20,37 @@ defmodule AcaiWeb.FeatureLive do
 
         {:ok, socket}
 
-      {actual_feature_name, specs} ->
-        socket =
-          load_feature_data(socket, team, actual_feature_name, specs, product, available_features)
-
+      {:ok, feature_data} ->
+        socket = build_feature_page_assigns(socket, team, feature_data)
         {:ok, socket}
     end
   end
 
-  # Helper to get product for a feature
-  defp get_product_for_feature(team, feature_name) do
-    case Specs.get_specs_by_feature_name(team, feature_name) do
-      nil ->
-        nil
-
-      {_actual_feature_name, specs} ->
-        first_spec = List.first(specs) |> Acai.Repo.preload(:product)
-        first_spec.product
-    end
-  end
-
-  # Load all feature data
-  defp load_feature_data(socket, team, actual_feature_name, specs, product, available_features) do
-    # Get the first spec for display info (they share the same feature_name)
-    first_spec = List.first(specs) |> Acai.Repo.preload(:product)
-
-    # data-model.SPECS.11: Requirements are now JSONB on each spec
-    # Count requirements by getting map_size of the requirements JSONB
-    spec_requirement_counts =
-      Map.new(specs, fn spec -> {spec.id, map_size(spec.requirements)} end)
-
-    # data-model.IMPLS: Implementations now belong to products, not specs
-    # Get all active implementations for the product
-    implementations = Implementations.list_active_implementations_for_specs(specs)
-
-    # feature-view.PERF.1: Preload product association for each implementation
-    implementations = Acai.Repo.preload(implementations, :product)
-
-    # data-model.FEATURE_IMPL_STATES: Get status counts from feature_impl_states JSONB
-    # For each implementation, aggregate status counts for only the relevant specs
-    status_counts_by_impl =
-      Implementations.batch_get_spec_impl_state_counts(implementations, specs)
-
-    # Total requirements across all specs for this feature
-    total_requirements =
-      specs
-      |> Enum.map(fn spec -> Map.get(spec_requirement_counts, spec.id, 0) end)
-      |> Enum.sum()
+  # Build all assigns for the feature page from consolidated data
+  # feature-view.ENG.1: All data comes from single load_feature_page_data/2 call
+  # Pass reset: true when called from reload_feature_data to ensure stream reset
+  defp build_feature_page_assigns(socket, team, feature_data, opts \\ []) do
+    reset_stream? = Keyword.get(opts, :reset, false)
 
     # Build implementation cards with pre-fetched data
     implementation_cards =
-      implementations
+      feature_data.implementations
       |> Enum.map(fn impl ->
         # feature-view.MAIN.3: Get status counts from feature_impl_states
-        impl_counts = Map.get(status_counts_by_impl, impl.id, %{})
+        impl_counts = Map.get(feature_data.status_counts_by_impl, impl.id, %{})
+
+        total_reqs = feature_data.total_requirements
 
         # Calculate status percentages for progress bar
         status_percentages =
-          if total_requirements > 0 do
+          if total_reqs > 0 do
             %{
-              nil => Map.get(impl_counts, nil, 0) / total_requirements * 100,
-              "assigned" => Map.get(impl_counts, "assigned", 0) / total_requirements * 100,
-              "blocked" => Map.get(impl_counts, "blocked", 0) / total_requirements * 100,
-              "completed" => Map.get(impl_counts, "completed", 0) / total_requirements * 100,
-              "accepted" => Map.get(impl_counts, "accepted", 0) / total_requirements * 100,
-              "rejected" => Map.get(impl_counts, "rejected", 0) / total_requirements * 100
+              nil => Map.get(impl_counts, nil, 0) / total_reqs * 100,
+              "assigned" => Map.get(impl_counts, "assigned", 0) / total_reqs * 100,
+              "blocked" => Map.get(impl_counts, "blocked", 0) / total_reqs * 100,
+              "completed" => Map.get(impl_counts, "completed", 0) / total_reqs * 100,
+              "accepted" => Map.get(impl_counts, "accepted", 0) / total_reqs * 100,
+              "rejected" => Map.get(impl_counts, "rejected", 0) / total_reqs * 100
             }
           else
             %{
@@ -113,7 +73,7 @@ defmodule AcaiWeb.FeatureLive do
           implementation: impl,
           slug: slug,
           product_name: impl.product.name,
-          total_requirements: total_requirements,
+          total_requirements: total_reqs,
           status_percentages: status_percentages
         }
       end)
@@ -122,19 +82,20 @@ defmodule AcaiWeb.FeatureLive do
     socket
     |> assign(:team, team)
     # feature-view.MAIN.1
-    |> assign(:feature_name, actual_feature_name)
+    |> assign(:feature_name, feature_data.feature_name)
     # feature-view.MAIN.1
-    |> assign(:feature_description, first_spec.feature_description)
+    |> assign(:feature_description, feature_data.feature_description)
     # data-model.SPECS.12: Get product name from preloaded association
-    |> assign(:product_name, first_spec.product.name)
-    |> assign(:product, product)
+    |> assign(:product_name, feature_data.product.name)
+    |> assign(:product, feature_data.product)
     |> assign(:implementations_empty?, implementation_cards == [])
     # feature-view.MAIN.2
-    |> stream(:implementations, implementation_cards)
+    # Reset stream when switching features to remove stale cards from DOM
+    |> stream(:implementations, implementation_cards, reset: reset_stream?)
     # feature-view.MAIN.1: Available features for dropdown
-    |> assign(:available_features, available_features)
+    |> assign(:available_features, feature_data.available_features)
     # nav.AUTH.1: Pass current_path for navigation
-    |> assign(:current_path, "/t/#{team.name}/f/#{actual_feature_name}")
+    |> assign(:current_path, "/t/#{team.name}/f/#{feature_data.feature_name}")
   end
 
   # Handle params for URL changes (patch navigation)
@@ -157,25 +118,20 @@ defmodule AcaiWeb.FeatureLive do
   end
 
   # Reload feature data after URL patch (shared logic with mount)
+  # feature-view.ENG.1: Uses single consolidated query path
   defp reload_feature_data(socket, team_name, feature_name) do
     team = Teams.get_team_by_name!(team_name)
 
-    case Specs.get_specs_by_feature_name(team, feature_name) do
-      nil ->
+    case Specs.load_feature_page_data(team, feature_name) do
+      {:error, :feature_not_found} ->
         {:noreply,
          socket
          |> put_flash(:error, "Feature not found")
          |> push_navigate(to: ~p"/t/#{team.name}")}
 
-      {actual_feature_name, specs} ->
-        # Reload product and available features
-        product = get_product_for_feature(team, feature_name)
-        available_features = if product, do: Specs.list_features_for_product(product), else: []
-
-        # Reload all data for the new feature
-        socket =
-          load_feature_data(socket, team, actual_feature_name, specs, product, available_features)
-
+      {:ok, feature_data} ->
+        # Pass reset: true to clear stale stream entries when switching features
+        socket = build_feature_page_assigns(socket, team, feature_data, reset: true)
         {:noreply, socket}
     end
   end
@@ -255,6 +211,11 @@ defmodule AcaiWeb.FeatureLive do
 
           <span class="text-2xl font-bold">feature</span>
         </div>
+
+        <%!-- feature-view.MAIN.1: Feature description --%>
+        <%= if @feature_description do %>
+          <p class="text-base-content/70 text-lg">{@feature_description}</p>
+        <% end %>
 
         <%!-- feature-view.MAIN.3: Section header --%>
         <h2 class="text-lg font-semibold mb-4">Implementations of this feature</h2>

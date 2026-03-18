@@ -16,6 +16,7 @@ components:
             1: Columns are active implementations in the product.
             2: Rows are distinct feature_names from specs attached to this product.
             3: Cells display completion percentage (completed requirements / total requirements).
+            3-1: Progress inherits from parent implementations when local feature_impl_states do not exist.
             4: Cell text color uses ease-in gradient where 0-50% is uncolored, 100% is saturated green.
             5: Clicking a row navigates to the feature view.
             6: Empty state shown if product has no features or implementations.

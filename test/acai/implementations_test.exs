@@ -313,4 +313,196 @@ defmodule Acai.ImplementationsTest do
       assert impl2.id in impl_ids
     end
   end
+
+  describe "list_active_implementations/2" do
+    # product-view.MATRIX.1
+    test "returns only active implementations for product", %{product: product} do
+      impl1 = implementation_fixture(product, %{name: "active-impl", is_active: true})
+      _impl2 = implementation_fixture(product, %{name: "inactive-impl", is_active: false})
+
+      result = Implementations.list_active_implementations(product)
+
+      assert length(result) == 1
+      assert hd(result).id == impl1.id
+    end
+
+    # product-view.MATRIX.1-1: Parentless implementations first
+    test "orders parentless implementations before descendants", %{product: product} do
+      # Create parent (root) implementation
+      parent = implementation_fixture(product, %{name: "Parent-Root", is_active: true})
+
+      # Create child implementation
+      child =
+        implementation_fixture(product, %{
+          name: "Child-Node",
+          is_active: true,
+          parent_implementation_id: parent.id
+        })
+
+      result = Implementations.list_active_implementations(product)
+      result_ids = Enum.map(result, & &1.id)
+
+      # Parent should come before child
+      parent_idx = Enum.find_index(result_ids, &(&1 == parent.id))
+      child_idx = Enum.find_index(result_ids, &(&1 == child.id))
+
+      assert parent_idx < child_idx
+    end
+
+    # product-view.MATRIX.1-1: Tree order for multiple levels
+    test "orders descendants in depth-first tree order", %{product: product} do
+      # Create tree: Root -> Child1 -> GrandChild, Root -> Child2
+      root = implementation_fixture(product, %{name: "Root", is_active: true})
+
+      child1 =
+        implementation_fixture(product, %{
+          name: "Child1",
+          is_active: true,
+          parent_implementation_id: root.id
+        })
+
+      grandchild =
+        implementation_fixture(product, %{
+          name: "GrandChild",
+          is_active: true,
+          parent_implementation_id: child1.id
+        })
+
+      child2 =
+        implementation_fixture(product, %{
+          name: "Child2",
+          is_active: true,
+          parent_implementation_id: root.id
+        })
+
+      result = Implementations.list_active_implementations(product)
+      result_ids = Enum.map(result, & &1.id)
+
+      # Expected order: Root, Child1, GrandChild, Child2
+      root_idx = Enum.find_index(result_ids, &(&1 == root.id))
+      child1_idx = Enum.find_index(result_ids, &(&1 == child1.id))
+      grandchild_idx = Enum.find_index(result_ids, &(&1 == grandchild.id))
+      child2_idx = Enum.find_index(result_ids, &(&1 == child2.id))
+
+      assert root_idx == 0
+      assert child1_idx == 1
+      assert grandchild_idx == 2
+      assert child2_idx == 3
+    end
+
+    # product-view.MATRIX.1-2: LTR direction (default)
+    test "sorts siblings alphabetically in LTR mode", %{product: product} do
+      root = implementation_fixture(product, %{name: "Root", is_active: true})
+
+      child_b =
+        implementation_fixture(product, %{
+          name: "Child-B",
+          is_active: true,
+          parent_implementation_id: root.id
+        })
+
+      child_a =
+        implementation_fixture(product, %{
+          name: "Child-A",
+          is_active: true,
+          parent_implementation_id: root.id
+        })
+
+      # LTR (default) - alphabetical order
+      result = Implementations.list_active_implementations(product, direction: :ltr)
+      result_ids = Enum.map(result, & &1.id)
+
+      root_idx = Enum.find_index(result_ids, &(&1 == root.id))
+      child_a_idx = Enum.find_index(result_ids, &(&1 == child_a.id))
+      child_b_idx = Enum.find_index(result_ids, &(&1 == child_b.id))
+
+      # Root first, then A, then B
+      assert root_idx == 0
+      assert child_a_idx == 1
+      assert child_b_idx == 2
+    end
+
+    # product-view.MATRIX.1-2: RTL direction
+    test "sorts siblings reverse alphabetically in RTL mode", %{product: product} do
+      root = implementation_fixture(product, %{name: "Root", is_active: true})
+
+      child_b =
+        implementation_fixture(product, %{
+          name: "Child-B",
+          is_active: true,
+          parent_implementation_id: root.id
+        })
+
+      child_a =
+        implementation_fixture(product, %{
+          name: "Child-A",
+          is_active: true,
+          parent_implementation_id: root.id
+        })
+
+      # RTL - reverse alphabetical order
+      result = Implementations.list_active_implementations(product, direction: :rtl)
+      result_ids = Enum.map(result, & &1.id)
+
+      root_idx = Enum.find_index(result_ids, &(&1 == root.id))
+      child_a_idx = Enum.find_index(result_ids, &(&1 == child_a.id))
+      child_b_idx = Enum.find_index(result_ids, &(&1 == child_b.id))
+
+      # Root first, then B, then A
+      assert root_idx == 0
+      assert child_b_idx == 1
+      assert child_a_idx == 2
+    end
+
+    test "returns empty list when no active implementations", %{product: product} do
+      implementation_fixture(product, %{name: "inactive", is_active: false})
+
+      result = Implementations.list_active_implementations(product)
+      assert result == []
+    end
+
+    # product-view.MATRIX.1: Active implementations with inactive parents must still appear
+    test "includes active implementations even when parent is inactive", %{product: product} do
+      # Create inactive parent
+      parent = implementation_fixture(product, %{name: "inactive-parent", is_active: false})
+
+      # Create active child with inactive parent
+      child =
+        implementation_fixture(product, %{
+          name: "active-child",
+          is_active: true,
+          parent_implementation_id: parent.id
+        })
+
+      result = Implementations.list_active_implementations(product)
+      result_ids = Enum.map(result, & &1.id)
+
+      # Child should be included even though parent is inactive
+      assert child.id in result_ids
+      # Parent should not be included (it's inactive)
+      refute parent.id in result_ids
+    end
+  end
+
+  describe "order_implementations_by_tree/2" do
+    test "handles empty list" do
+      assert Implementations.order_implementations_by_tree([]) == []
+    end
+
+    test "handles single implementation" do
+      impls = [%{id: 1, name: "Single", parent_implementation_id: nil}]
+      assert Implementations.order_implementations_by_tree(impls) == impls
+    end
+
+    test "handles multiple root implementations" do
+      impls = [
+        %{id: 2, name: "Beta", parent_implementation_id: nil},
+        %{id: 1, name: "Alpha", parent_implementation_id: nil}
+      ]
+
+      result = Implementations.order_implementations_by_tree(impls)
+      # LTR: Alpha, Beta
+      assert Enum.map(result, & &1.name) == ["Alpha", "Beta"]
+    end
+  end
 end
