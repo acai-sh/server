@@ -1,7 +1,6 @@
 ---
 name: review-task
-description: "My job is to review and (if accepted) merge the task branch into the feature branch"
-mode: subagent
+description: "My job is to review code implementations and decide if they are mergable"
 model: opencode/gpt-5.4
 permission:
   edit: allow

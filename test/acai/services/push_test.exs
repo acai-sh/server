@@ -86,6 +86,279 @@ defmodule Acai.Services.PushTest do
       assert spec.feature_name == "test-feature"
     end
 
+    # push.INSERT_SPEC.1 - Batch optimization: multi-spec push with all new specs
+    test "batch insert: handles multiple new specs in a single push", %{token: token} do
+      multi_spec_params = %{
+        repo_uri: "github.com/test-org/test-repo",
+        branch_name: "main",
+        commit_hash: "abc123",
+        specs: [
+          %{
+            feature: %{
+              name: "feature-one",
+              product: "test-product",
+              description: "First feature",
+              version: "1.0.0"
+            },
+            requirements: %{
+              "feature-one.REQ.1" => %{requirement: "First requirement"}
+            },
+            meta: %{
+              path: "features/one.feature.yaml",
+              last_seen_commit: "abc123"
+            }
+          },
+          %{
+            feature: %{
+              name: "feature-two",
+              product: "test-product",
+              description: "Second feature",
+              version: "1.0.0"
+            },
+            requirements: %{
+              "feature-two.REQ.1" => %{requirement: "Second requirement"}
+            },
+            meta: %{
+              path: "features/two.feature.yaml",
+              last_seen_commit: "abc123"
+            }
+          },
+          %{
+            feature: %{
+              name: "feature-three",
+              product: "test-product",
+              description: "Third feature",
+              version: "1.0.0"
+            },
+            requirements: %{
+              "feature-three.REQ.1" => %{requirement: "Third requirement"}
+            },
+            meta: %{
+              path: "features/three.feature.yaml",
+              last_seen_commit: "abc123"
+            }
+          }
+        ]
+      }
+
+      {:ok, result} = Push.execute(token, multi_spec_params)
+
+      # All specs should be created
+      assert result.specs_created == 3
+      assert result.specs_updated == 0
+
+      # Verify all specs exist in DB
+      branch =
+        Repo.one(
+          from b in Branch,
+            where: b.repo_uri == "github.com/test-org/test-repo" and b.branch_name == "main"
+        )
+
+      specs = Repo.all(from s in Spec, where: s.branch_id == ^branch.id)
+      feature_names = Enum.map(specs, & &1.feature_name) |> Enum.sort()
+      assert feature_names == ["feature-one", "feature-three", "feature-two"]
+    end
+
+    # push.UPDATE_SPEC.1, push.UPDATE_SPEC.2, push.IDEMPOTENCY.1
+    # Batch optimization: multi-spec push with mix of new and existing specs
+    test "batch update: updates existing specs without creating duplicates", %{token: token} do
+      # First push - create initial specs
+      initial_params = %{
+        repo_uri: "github.com/test-org/test-repo",
+        branch_name: "main",
+        commit_hash: "abc123",
+        specs: [
+          %{
+            feature: %{
+              name: "feature-alpha",
+              product: "test-product",
+              description: "Alpha feature",
+              version: "1.0.0"
+            },
+            requirements: %{
+              "feature-alpha.REQ.1" => %{requirement: "Original alpha req"}
+            },
+            meta: %{
+              path: "features/alpha.feature.yaml",
+              last_seen_commit: "abc123"
+            }
+          },
+          %{
+            feature: %{
+              name: "feature-beta",
+              product: "test-product",
+              description: "Beta feature",
+              version: "1.0.0"
+            },
+            requirements: %{
+              "feature-beta.REQ.1" => %{requirement: "Original beta req"}
+            },
+            meta: %{
+              path: "features/beta.feature.yaml",
+              last_seen_commit: "abc123"
+            }
+          }
+        ]
+      }
+
+      {:ok, result1} = Push.execute(token, initial_params)
+      assert result1.specs_created == 2
+      assert result1.specs_updated == 0
+
+      # Second push - update one, add one new
+      updated_params = %{
+        repo_uri: "github.com/test-org/test-repo",
+        branch_name: "main",
+        commit_hash: "def456",
+        specs: [
+          %{
+            feature: %{
+              name: "feature-alpha",
+              product: "test-product",
+              description: "Alpha feature updated",
+              version: "1.1.0"
+            },
+            requirements: %{
+              "feature-alpha.REQ.1" => %{requirement: "Updated alpha req"},
+              "feature-alpha.REQ.2" => %{requirement: "New alpha req"}
+            },
+            meta: %{
+              path: "features/alpha.feature.yaml",
+              last_seen_commit: "def456"
+            }
+          },
+          %{
+            feature: %{
+              name: "feature-gamma",
+              product: "test-product",
+              description: "Gamma feature",
+              version: "1.0.0"
+            },
+            requirements: %{
+              "feature-gamma.REQ.1" => %{requirement: "Gamma req"}
+            },
+            meta: %{
+              path: "features/gamma.feature.yaml",
+              last_seen_commit: "def456"
+            }
+          }
+        ]
+      }
+
+      {:ok, result2} = Push.execute(token, updated_params)
+
+      # Should update alpha and create gamma
+      assert result2.specs_created == 1
+      assert result2.specs_updated == 1
+
+      # Verify final state - only 3 specs total (no duplicates)
+      branch =
+        Repo.one(
+          from b in Branch,
+            where: b.repo_uri == "github.com/test-org/test-repo" and b.branch_name == "main"
+        )
+
+      specs = Repo.all(from s in Spec, where: s.branch_id == ^branch.id)
+      assert length(specs) == 3
+
+      # Verify alpha was updated
+      alpha = Enum.find(specs, &(&1.feature_name == "feature-alpha"))
+      assert alpha.feature_description == "Alpha feature updated"
+      assert alpha.feature_version == "1.1.0"
+      assert map_size(alpha.requirements) == 2
+    end
+
+    # push.PERMANENCE.1 - Refs and states survive spec updates
+    test "preserves refs and states when spec is updated", %{token: token} do
+      # First push - create spec
+      {:ok, result1} = Push.execute(token, @valid_push_params)
+
+      # Push refs for the feature
+      refs_params = %{
+        repo_uri: "github.com/test-org/test-repo",
+        branch_name: "main",
+        commit_hash: "refcommit",
+        references: %{
+          data: %{
+            "test-feature.REQ.1" => [
+              %{path: "lib/my_app.ex:42", is_test: false}
+            ]
+          }
+        }
+      }
+
+      {:ok, _} = Push.execute(token, refs_params)
+
+      # Push states for the feature
+      states_params = %{
+        repo_uri: "github.com/test-org/test-repo",
+        branch_name: "main",
+        commit_hash: "statecommit",
+        states: %{
+          data: %{
+            "test-feature.REQ.1" => %{status: "completed", comment: "Done!"}
+          }
+        }
+      }
+
+      {:ok, _} = Push.execute(token, states_params)
+
+      # Verify refs and states exist
+      branch =
+        Repo.one(
+          from b in Branch,
+            where: b.repo_uri == "github.com/test-org/test-repo" and b.branch_name == "main"
+        )
+
+      ref =
+        Repo.one(
+          from fbr in FeatureBranchRef,
+            where: fbr.branch_id == ^branch.id and fbr.feature_name == "test-feature"
+        )
+
+      assert ref
+      assert ref.refs["test-feature.REQ.1"] != nil
+
+      impl = Repo.get(Implementation, result1.implementation_id)
+
+      state =
+        Repo.one(
+          from fis in FeatureImplState,
+            where: fis.implementation_id == ^impl.id and fis.feature_name == "test-feature"
+        )
+
+      assert state
+      assert get_in(state.states, ["test-feature.REQ.1", "status"]) == "completed"
+
+      # Update the spec
+      updated_params =
+        put_in(@valid_push_params, [:specs, Access.at(0), :requirements], %{
+          "test-feature.REQ.1" => %{requirement: "Updated requirement"},
+          "test-feature.REQ.2" => %{requirement: "New requirement"}
+        })
+
+      {:ok, _} = Push.execute(token, updated_params)
+
+      # Verify refs and states still exist after spec update
+      ref_after =
+        Repo.one(
+          from fbr in FeatureBranchRef,
+            where: fbr.branch_id == ^branch.id and fbr.feature_name == "test-feature"
+        )
+
+      assert ref_after
+      assert ref_after.refs["test-feature.REQ.1"] != nil
+
+      state_after =
+        Repo.one(
+          from fis in FeatureImplState,
+            where: fis.implementation_id == ^impl.id and fis.feature_name == "test-feature"
+        )
+
+      assert state_after
+      assert get_in(state_after.states, ["test-feature.REQ.1", "status"]) == "completed"
+    end
+
     # push.UPDATE_SPEC.1, push.UPDATE_SPEC.2, push.UPDATE_SPEC.3
     test "updates existing spec when same feature_name is pushed again", %{
       token: token
@@ -130,10 +403,61 @@ defmodule Acai.Services.PushTest do
       {:ok, result1} = Push.execute(token, @valid_push_params)
       assert result1.specs_created == 1
 
-      # Second push with identical content
+      # Second push with identical content - should be a no-op
       {:ok, result2} = Push.execute(token, @valid_push_params)
       assert result2.specs_created == 0
-      assert result2.specs_updated == 1
+      assert result2.specs_updated == 0
+    end
+
+    # push.IDEMPOTENCY.1 - Multi-spec idempotency
+    test "multi-spec identical re-push results in zero updates", %{token: token} do
+      multi_spec_params = %{
+        repo_uri: "github.com/test-org/test-repo",
+        branch_name: "main",
+        commit_hash: "abc123",
+        specs: [
+          %{
+            feature: %{
+              name: "feature-one",
+              product: "test-product",
+              description: "First feature",
+              version: "1.0.0"
+            },
+            requirements: %{
+              "feature-one.REQ.1" => %{requirement: "First requirement"}
+            },
+            meta: %{
+              path: "features/one.feature.yaml",
+              last_seen_commit: "abc123"
+            }
+          },
+          %{
+            feature: %{
+              name: "feature-two",
+              product: "test-product",
+              description: "Second feature",
+              version: "1.0.0"
+            },
+            requirements: %{
+              "feature-two.REQ.1" => %{requirement: "Second requirement"}
+            },
+            meta: %{
+              path: "features/two.feature.yaml",
+              last_seen_commit: "abc123"
+            }
+          }
+        ]
+      }
+
+      # First push - creates 2 specs
+      {:ok, result1} = Push.execute(token, multi_spec_params)
+      assert result1.specs_created == 2
+      assert result1.specs_updated == 0
+
+      # Identical re-push - should be no-op
+      {:ok, result2} = Push.execute(token, multi_spec_params)
+      assert result2.specs_created == 0
+      assert result2.specs_updated == 0
     end
 
     # push.NEW_IMPLS.1, push.NEW_IMPLS.1-1
@@ -422,6 +746,95 @@ defmodule Acai.Services.PushTest do
         )
 
       assert branch.team_id == team.id
+    end
+
+    # push.REQUEST.4, push.REQUEST.5, push.REQUEST.6, push.REQUEST.7, push.REQUEST.8
+    # Regression test: String-key params should work identically to atom-key params
+    test "accepts string-key params and normalizes them correctly", %{token: token} do
+      string_key_params = %{
+        "repo_uri" => "github.com/test-org/string-key-repo",
+        "branch_name" => "string-branch",
+        "commit_hash" => "stringcommit123",
+        "specs" => [
+          %{
+            "feature" => %{
+              "name" => "string-feature",
+              "product" => "string-product",
+              "description" => "A test feature with string keys",
+              "version" => "1.0.0"
+            },
+            "requirements" => %{
+              "string-feature.REQ.1" => %{
+                "requirement" => "Must work with string keys"
+              }
+            },
+            "meta" => %{
+              "path" => "features/string.feature.yaml",
+              "last_seen_commit" => "stringcommit123"
+            }
+          }
+        ]
+      }
+
+      {:ok, result} = Push.execute(token, string_key_params)
+
+      # Verify push succeeded with string keys
+      assert result.specs_created == 1
+      assert result.specs_updated == 0
+      assert result.product_name == "string-product"
+      assert result.implementation_name == "string-branch"
+
+      # Verify spec was created in DB
+      branch =
+        Repo.one(
+          from b in Branch,
+            where: b.repo_uri == "github.com/test-org/string-key-repo"
+        )
+
+      spec = Repo.one(from s in Spec, where: s.branch_id == ^branch.id)
+      assert spec.feature_name == "string-feature"
+    end
+
+    # push.LINK_IMPLS.1, push.PARENTS.1, push.PARENTS.3
+    # Regression test: Both target_impl_name and parent_impl_name present exercises consolidated lookup
+    test "linking with both target and parent uses consolidated lookup", %{
+      token: token,
+      team: team
+    } do
+      # Create existing implementation to link to
+      product = product_fixture(team, %{name: "test-product"})
+      existing_impl = implementation_fixture(product, %{name: "target-impl"})
+
+      # Create another implementation in same product (parent is validated during lookup)
+      _parent_impl = implementation_fixture(product, %{name: "parent-for-link"})
+
+      # Push to link to existing implementation while also specifying parent
+      # This exercises the consolidated fetch path in fetch_implementations_consolidated
+      params = %{
+        repo_uri: "github.com/test-org/target-parent-repo",
+        branch_name: "target-parent-branch",
+        commit_hash: "tparent123",
+        target_impl_name: "target-impl",
+        parent_impl_name: "parent-for-link",
+        specs: [
+          %{
+            feature: %{
+              name: "target-parent-feature",
+              product: "test-product",
+              description: "Feature with both target and parent"
+            },
+            requirements: %{"target-parent-feature.REQ.1" => %{requirement: "Test req"}},
+            meta: %{path: "features/tp.yaml", last_seen_commit: "tparent123"}
+          }
+        ]
+      }
+
+      # Should link to target_impl, not create new
+      {:ok, result} = Push.execute(token, params)
+
+      assert result.implementation_name == "target-impl"
+      assert result.implementation_id == existing_impl.id
+      assert result.specs_created == 1
     end
   end
 
@@ -762,6 +1175,366 @@ defmodule Acai.Services.PushTest do
       assert map_size(state.states) == 1
       assert get_in(state.states, ["test-feature.REQ.1"]) == nil
       assert get_in(state.states, ["test-feature.REQ.2", "status"]) == "in_progress"
+    end
+  end
+
+  describe "batch refs optimization" do
+    setup do
+      user = AccountsFixtures.user_fixture()
+      team = team_fixture()
+      user_team_role_fixture(team, user, %{title: "owner"})
+
+      {:ok, token} =
+        Teams.generate_token(
+          %{user: user},
+          team,
+          %{name: "Test Token"}
+        )
+
+      %{team: team, user: user, token: token}
+    end
+
+    # push.WRITE_REFS.1 - Batch refs with multiple features in one payload
+    test "batch write: writes refs for multiple features in single push", %{token: token} do
+      # Push refs for multiple features without pushing specs first
+      # push.WRITE_REFS.3 - Refs can be written even without implementation
+      multi_feature_refs = %{
+        repo_uri: "github.com/test-org/batch-repo",
+        branch_name: "main",
+        commit_hash: "batchcommit1",
+        references: %{
+          data: %{
+            "feature-alpha.REQ.1" => [%{path: "lib/alpha.ex:10", is_test: false}],
+            "feature-beta.REQ.1" => [%{path: "lib/beta.ex:20", is_test: false}],
+            "feature-gamma.REQ.1" => [%{path: "lib/gamma.ex:30", is_test: false}]
+          }
+        }
+      }
+
+      {:ok, result} = Push.execute(token, multi_feature_refs)
+
+      # No implementation since no specs
+      assert result.implementation_id == nil
+
+      # Verify branch exists
+      branch =
+        Repo.one(
+          from b in Branch,
+            where: b.repo_uri == "github.com/test-org/batch-repo"
+        )
+
+      assert branch
+
+      # Verify all three feature buckets were created
+      refs =
+        Repo.all(
+          from fbr in FeatureBranchRef,
+            where: fbr.branch_id == ^branch.id
+        )
+
+      assert length(refs) == 3
+
+      feature_names = Enum.map(refs, & &1.feature_name) |> Enum.sort()
+      assert feature_names == ["feature-alpha", "feature-beta", "feature-gamma"]
+
+      # Verify each ref has the correct data
+      alpha_ref = Enum.find(refs, &(&1.feature_name == "feature-alpha"))
+      assert alpha_ref.refs["feature-alpha.REQ.1"] != nil
+      assert alpha_ref.commit == "batchcommit1"
+    end
+
+    # push.REFS.5, push.IDEMPOTENCY.4 - Batch merge without duplicate bucket creation
+    test "batch merge: merges refs into existing rows without creating duplicates", %{
+      token: token
+    } do
+      # First push - create initial refs
+      initial_refs = %{
+        repo_uri: "github.com/test-org/merge-repo",
+        branch_name: "main",
+        commit_hash: "commit1",
+        references: %{
+          override: false,
+          data: %{
+            "merge-feature.REQ.1" => [%{path: "lib/original.ex:10", is_test: false}]
+          }
+        }
+      }
+
+      {:ok, _} = Push.execute(token, initial_refs)
+
+      branch =
+        Repo.one(
+          from b in Branch,
+            where: b.repo_uri == "github.com/test-org/merge-repo"
+        )
+
+      # Verify initial state
+      initial_row =
+        Repo.one(
+          from fbr in FeatureBranchRef,
+            where: fbr.branch_id == ^branch.id and fbr.feature_name == "merge-feature"
+        )
+
+      initial_id = initial_row.id
+      assert initial_row.refs["merge-feature.REQ.1"] != nil
+
+      # Second push - add new refs (merge mode)
+      merge_refs = %{
+        repo_uri: "github.com/test-org/merge-repo",
+        branch_name: "main",
+        commit_hash: "commit2",
+        references: %{
+          override: false,
+          data: %{
+            "merge-feature.REQ.2" => [%{path: "lib/added.ex:20", is_test: false}]
+          }
+        }
+      }
+
+      {:ok, _} = Push.execute(token, merge_refs)
+
+      # Verify same row was updated (no duplicate created)
+      final_rows =
+        Repo.all(
+          from fbr in FeatureBranchRef,
+            where: fbr.branch_id == ^branch.id and fbr.feature_name == "merge-feature"
+        )
+
+      assert length(final_rows) == 1
+      final_row = hd(final_rows)
+      assert final_row.id == initial_id
+
+      # Verify both refs are present (merged)
+      assert final_row.refs["merge-feature.REQ.1"] != nil
+      assert final_row.refs["merge-feature.REQ.2"] != nil
+      assert final_row.commit == "commit2"
+    end
+  end
+
+  describe "batch states optimization" do
+    setup do
+      user = AccountsFixtures.user_fixture()
+      team = team_fixture()
+      user_team_role_fixture(team, user, %{title: "owner"})
+
+      {:ok, token} =
+        Teams.generate_token(
+          %{user: user},
+          team,
+          %{name: "Test Token"}
+        )
+
+      # First push specs to create implementation
+      {:ok, _} = Push.execute(token, @valid_push_params)
+
+      %{team: team, user: user, token: token}
+    end
+
+    # push.WRITE_STATES.1 - Batch states with multiple features in one payload
+    test "batch write: writes states for multiple features in single push", %{token: token} do
+      # First push specs for multiple features (in addition to test-feature from setup)
+      multi_spec_params = %{
+        repo_uri: "github.com/test-org/test-repo",
+        branch_name: "main",
+        commit_hash: "speccommit",
+        specs: [
+          %{
+            feature: %{
+              name: "multi-feature-one",
+              product: "test-product",
+              description: "First feature",
+              version: "1.0.0"
+            },
+            requirements: %{"multi-feature-one.REQ.1" => %{requirement: "First req"}},
+            meta: %{path: "features/one.yaml", last_seen_commit: "speccommit"}
+          },
+          %{
+            feature: %{
+              name: "multi-feature-two",
+              product: "test-product",
+              description: "Second feature",
+              version: "1.0.0"
+            },
+            requirements: %{"multi-feature-two.REQ.1" => %{requirement: "Second req"}},
+            meta: %{path: "features/two.yaml", last_seen_commit: "speccommit"}
+          }
+        ]
+      }
+
+      {:ok, _} = Push.execute(token, multi_spec_params)
+
+      impl = Repo.one(from i in Implementation, where: i.name == "main")
+
+      # Now push states for both features
+      multi_feature_states = %{
+        repo_uri: "github.com/test-org/test-repo",
+        branch_name: "main",
+        commit_hash: "statecommit",
+        states: %{
+          data: %{
+            "multi-feature-one.REQ.1" => %{status: "completed"},
+            "multi-feature-two.REQ.1" => %{status: "in_progress"}
+          }
+        }
+      }
+
+      {:ok, _} = Push.execute(token, multi_feature_states)
+
+      # Verify both feature state buckets were created (2 new ones)
+      states =
+        Repo.all(
+          from fis in FeatureImplState,
+            where: fis.implementation_id == ^impl.id
+        )
+
+      # Should have 2 state rows (for multi-feature-one and multi-feature-two)
+      # test-feature has no state row yet since we didn't push states for it
+      assert length(states) == 2
+
+      one_state = Enum.find(states, &(&1.feature_name == "multi-feature-one"))
+      two_state = Enum.find(states, &(&1.feature_name == "multi-feature-two"))
+
+      assert one_state
+      assert get_in(one_state.states, ["multi-feature-one.REQ.1", "status"]) == "completed"
+
+      assert two_state
+      assert get_in(two_state.states, ["multi-feature-two.REQ.1", "status"]) == "in_progress"
+    end
+
+    # push.WRITE_STATES.2 - Batch parent inheritance for multiple features
+    test "batch inheritance: snapshots parent states for multiple features on first write", %{
+      token: token,
+      team: team
+    } do
+      # Use existing test-product from setup
+      product =
+        Repo.one(from p in Product, where: p.team_id == ^team.id and p.name == "test-product")
+
+      # Create parent implementation with existing states for multiple features
+      _parent_impl = implementation_fixture(product, %{name: "parent-batch-impl"})
+
+      # Push specs to parent implementation for two features
+      parent_specs = %{
+        repo_uri: "github.com/test-org/parent-repo",
+        branch_name: "parent-branch",
+        commit_hash: "parentcommit",
+        specs: [
+          %{
+            feature: %{
+              name: "inherit-feature-a",
+              product: "test-product",
+              description: "Feature A"
+            },
+            requirements: %{"inherit-feature-a.REQ.1" => %{requirement: "Req A"}},
+            meta: %{path: "a.yaml", last_seen_commit: "parentcommit"}
+          },
+          %{
+            feature: %{
+              name: "inherit-feature-b",
+              product: "test-product",
+              description: "Feature B"
+            },
+            requirements: %{"inherit-feature-b.REQ.1" => %{requirement: "Req B"}},
+            meta: %{path: "b.yaml", last_seen_commit: "parentcommit"}
+          }
+        ]
+      }
+
+      {:ok, _} = Push.execute(token, parent_specs)
+
+      # Manually add states to parent for both features
+      parent_impl_record =
+        Repo.one(from i in Implementation, where: i.name == "parent-batch-impl")
+
+      {:ok, _} =
+        FeatureImplState.changeset(%FeatureImplState{}, %{
+          implementation_id: parent_impl_record.id,
+          feature_name: "inherit-feature-a",
+          states: %{"inherit-feature-a.REQ.1" => %{status: "completed", comment: "Parent A"}}
+        })
+        |> Repo.insert()
+
+      {:ok, _} =
+        FeatureImplState.changeset(%FeatureImplState{}, %{
+          implementation_id: parent_impl_record.id,
+          feature_name: "inherit-feature-b",
+          states: %{"inherit-feature-b.REQ.1" => %{status: "accepted", comment: "Parent B"}}
+        })
+        |> Repo.insert()
+
+      # Create child implementation with parent
+      child_specs = %{
+        repo_uri: "github.com/test-org/child-repo",
+        branch_name: "child-branch",
+        commit_hash: "childcommit",
+        specs: [
+          %{
+            feature: %{
+              name: "inherit-feature-a",
+              product: "test-product",
+              description: "Feature A"
+            },
+            requirements: %{"inherit-feature-a.REQ.1" => %{requirement: "Req A"}},
+            meta: %{path: "a.yaml", last_seen_commit: "childcommit"}
+          },
+          %{
+            feature: %{
+              name: "inherit-feature-b",
+              product: "test-product",
+              description: "Feature B"
+            },
+            requirements: %{"inherit-feature-b.REQ.1" => %{requirement: "Req B"}},
+            meta: %{path: "b.yaml", last_seen_commit: "childcommit"}
+          }
+        ]
+      }
+
+      # Push specs to create child impl with parent
+      child_params =
+        child_specs
+        |> Map.put(:target_impl_name, nil)
+        |> Map.put(:parent_impl_name, "parent-batch-impl")
+
+      {:ok, _} = Push.execute(token, child_params)
+
+      # Now push states to child - should inherit from parent for both features
+      child_states = %{
+        repo_uri: "github.com/test-org/child-repo",
+        branch_name: "child-branch",
+        commit_hash: "childstatecommit",
+        states: %{
+          data: %{
+            # Only add new states, no updates to existing
+            "inherit-feature-a.REQ.2" => %{status: "in_progress"},
+            "inherit-feature-b.REQ.2" => %{status: "pending"}
+          }
+        }
+      }
+
+      {:ok, _} = Push.execute(token, child_states)
+
+      # Verify child has inherited parent states for both features
+      child_impl = Repo.one(from i in Implementation, where: i.name == "child-branch")
+
+      child_states_records =
+        Repo.all(
+          from fis in FeatureImplState,
+            where: fis.implementation_id == ^child_impl.id
+        )
+
+      assert length(child_states_records) == 2
+
+      # Feature A should have both inherited and new state
+      state_a = Enum.find(child_states_records, &(&1.feature_name == "inherit-feature-a"))
+      assert get_in(state_a.states, ["inherit-feature-a.REQ.1", "status"]) == "completed"
+      assert get_in(state_a.states, ["inherit-feature-a.REQ.1", "comment"]) == "Parent A"
+      assert get_in(state_a.states, ["inherit-feature-a.REQ.2", "status"]) == "in_progress"
+
+      # Feature B should have both inherited and new state
+      state_b = Enum.find(child_states_records, &(&1.feature_name == "inherit-feature-b"))
+      assert get_in(state_b.states, ["inherit-feature-b.REQ.1", "status"]) == "accepted"
+      assert get_in(state_b.states, ["inherit-feature-b.REQ.1", "comment"]) == "Parent B"
+      assert get_in(state_b.states, ["inherit-feature-b.REQ.2", "status"]) == "pending"
     end
   end
 end
