@@ -120,3 +120,74 @@
         transparent
     ) !important;
 }
+
+/* L-shape connector columns for parent-child hierarchy visualization.
+   Each column is a fixed-width cell that draws part of the tree connector. */
+.connector-col {
+    width: 28px;
+    flex-shrink: 0;
+    position: relative;
+}
+
+/* Passthrough: vertical line continues through this level (ancestor still has siblings below) */
+.connector-passthrough::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 0;
+    bottom: 0;
+    width: 1.5px;
+    background-color: var(--color-secondary);
+    opacity: 50%;
+}
+
+/* L-turn (last child): vertical line from top to ~1/3 down, then horizontal to the right edge */
+.connector-l::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 0;
+    height: 33%;
+    width: 1.5px;
+    background-color: var(--color-secondary);
+    opacity: 50%;
+}
+
+.connector-l::after {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 33%;
+    right: 0;
+    height: 2px;
+    background-color: var(--color-secondary);
+    opacity: 50%;
+}
+
+/* T-turn (middle child): full-height vertical line with horizontal branch at ~1/3 */
+.connector-t::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 0;
+    bottom: 0;
+    width: 1.5px;
+    background-color: var(--color-secondary);
+    opacity: 50%;
+}
+
+.connector-t::after {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 33%;
+    right: 0;
+    height: 2px;
+    background-color: var(--color-secondary);
+    opacity: 50%;
+}
+
+/* Empty connector: no lines (last sibling at this ancestor level already passed) */
+.connector-empty {
+    /* Intentionally empty - just provides spacing */
+}

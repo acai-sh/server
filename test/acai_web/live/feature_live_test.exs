@@ -472,7 +472,7 @@ defmodule AcaiWeb.FeatureLiveTest do
       )
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/my-feature")
-      assert has_element?(view, "#implementations-grid", "TestProduct")
+      assert has_element?(view, "#implementations-grid", "Production")
     end
 
     # feature-view.MAIN.3
@@ -1003,6 +1003,362 @@ defmodule AcaiWeb.FeatureLiveTest do
 
       # Both should show "2 requirements" (child inherits the spec requirement count)
       assert has_element?(view, "#implementations-grid", "2 requirements")
+    end
+  end
+
+  describe "hierarchy display" do
+    setup :register_and_log_in_user
+
+    # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2
+    test "renders cards in depth-first hierarchy order", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      # Create shared branch for specs
+      branch = branch_fixture(team)
+
+      # Create a spec for the feature
+      spec_fixture(product, %{
+        feature_name: "hierarchy-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{"hierarchy-feature.COMP.1" => %{"definition" => "Req 1"}}
+      })
+
+      # Create tree: Parent -> Child1 -> GrandChild, Parent -> Child2
+      parent =
+        create_implementation_for_product(product, name: "Parent-Root", is_active: true)
+
+      tracked_branch_fixture(parent, branch: branch, repo_uri: branch.repo_uri)
+
+      child1 =
+        create_implementation_for_product(product,
+          name: "Child-1",
+          is_active: true,
+          parent_implementation_id: parent.id
+        )
+
+      tracked_branch_fixture(child1, branch: branch, repo_uri: branch.repo_uri)
+
+      grandchild =
+        create_implementation_for_product(product,
+          name: "GrandChild",
+          is_active: true,
+          parent_implementation_id: child1.id
+        )
+
+      tracked_branch_fixture(grandchild, branch: branch, repo_uri: branch.repo_uri)
+
+      child2 =
+        create_implementation_for_product(product,
+          name: "Child-2",
+          is_active: true,
+          parent_implementation_id: parent.id
+        )
+
+      tracked_branch_fixture(child2, branch: branch, repo_uri: branch.repo_uri)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/hierarchy-feature")
+
+      # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2: Verify depth-first order
+      # Expected: Parent-Root, Child-1, GrandChild, Child-2
+      # Use selector-based assertions via element() to find cards in DOM order
+
+      # Get all implementation cards by their stream DOM ID pattern
+      # The cards have IDs like "implementations-impl-{uuid}" and data-depth attributes
+      html = render(view)
+
+      # Extract card order using render() output with string matching
+      # Each card link contains data-depth and the implementation name in an h3
+      card_pattern = ~r/<div[^>]*data-depth="(\d+)"[^>]*>.*?<h3[^>]*>([^<]+)<\/h3>/s
+      cards = Regex.scan(card_pattern, html)
+
+      assert length(cards) == 4,
+             "Expected 4 cards but found #{length(cards)}"
+
+      # Verify order: Parent-Root (depth 1), Child-1 (depth 2), GrandChild (depth 3), Child-2 (depth 2)
+      # Parent-Root at depth 1
+      assert Enum.at(cards, 0) |> Enum.at(1) == "1"
+      assert Enum.at(cards, 0) |> Enum.at(2) =~ "Parent-Root"
+
+      # Child-1 at depth 2
+      assert Enum.at(cards, 1) |> Enum.at(1) == "2"
+      assert Enum.at(cards, 1) |> Enum.at(2) =~ "Child-1"
+
+      # GrandChild at depth 3
+      assert Enum.at(cards, 2) |> Enum.at(1) == "3"
+      assert Enum.at(cards, 2) |> Enum.at(2) =~ "GrandChild"
+
+      # Child-2 at depth 2
+      assert Enum.at(cards, 3) |> Enum.at(1) == "2"
+      assert Enum.at(cards, 3) |> Enum.at(2) =~ "Child-2"
+    end
+
+    # feature-view.HIERARCHY.3: Visual depth indicators for levels 1-4
+    test "renders distinct depth indicators through level 4", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      # Create shared branch for specs
+      branch = branch_fixture(team)
+
+      spec_fixture(product, %{
+        feature_name: "depth-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{"depth-feature.COMP.1" => %{"definition" => "Req 1"}}
+      })
+
+      # Create 4-level chain: L1 -> L2 -> L3 -> L4
+      level1 =
+        create_implementation_for_product(product, name: "Level-1", is_active: true)
+
+      tracked_branch_fixture(level1, branch: branch, repo_uri: branch.repo_uri)
+
+      level2 =
+        create_implementation_for_product(product,
+          name: "Level-2",
+          is_active: true,
+          parent_implementation_id: level1.id
+        )
+
+      tracked_branch_fixture(level2, branch: branch, repo_uri: branch.repo_uri)
+
+      level3 =
+        create_implementation_for_product(product,
+          name: "Level-3",
+          is_active: true,
+          parent_implementation_id: level2.id
+        )
+
+      tracked_branch_fixture(level3, branch: branch, repo_uri: branch.repo_uri)
+
+      level4 =
+        create_implementation_for_product(product,
+          name: "Level-4",
+          is_active: true,
+          parent_implementation_id: level3.id
+        )
+
+      tracked_branch_fixture(level4, branch: branch, repo_uri: branch.repo_uri)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/depth-feature")
+
+      # feature-view.HIERARCHY.3: Verify each card has correct data-depth
+      # Use has_element? to verify data-depth attributes tied to specific implementation names
+      assert has_element?(view, "[data-depth='1']", "Level-1")
+      refute has_element?(view, "[data-depth='1']", "Level-2")
+      refute has_element?(view, "[data-depth='1']", "Level-3")
+      refute has_element?(view, "[data-depth='1']", "Level-4")
+
+      assert has_element?(view, "[data-depth='2']", "Level-2")
+      refute has_element?(view, "[data-depth='2']", "Level-1")
+      refute has_element?(view, "[data-depth='2']", "Level-3")
+      refute has_element?(view, "[data-depth='2']", "Level-4")
+
+      assert has_element?(view, "[data-depth='3']", "Level-3")
+      refute has_element?(view, "[data-depth='3']", "Level-1")
+      refute has_element?(view, "[data-depth='3']", "Level-2")
+      refute has_element?(view, "[data-depth='3']", "Level-4")
+
+      assert has_element?(view, "[data-depth='4']", "Level-4")
+      refute has_element?(view, "[data-depth='4']", "Level-1")
+      refute has_element?(view, "[data-depth='4']", "Level-2")
+      refute has_element?(view, "[data-depth='4']", "Level-3")
+
+      # Verify left rail depth indicators exist with different colors
+      assert has_element?(view, "[data-depth='1'] .bg-primary")
+      assert has_element?(view, "[data-depth='2'] .bg-secondary")
+      assert has_element?(view, "[data-depth='3'] .bg-accent")
+      assert has_element?(view, "[data-depth='4'] .bg-neutral")
+    end
+
+    # feature-view.HIERARCHY.4: Level 5+ flattened to depth 4
+    test "flattens implementations beyond depth 4 to depth 4", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      # Create shared branch for specs
+      branch = branch_fixture(team)
+
+      spec_fixture(product, %{
+        feature_name: "deep-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{"deep-feature.COMP.1" => %{"definition" => "Req 1"}}
+      })
+
+      # Create 5-level chain: L1 -> L2 -> L3 -> L4 -> L5
+      level1 =
+        create_implementation_for_product(product, name: "Level-1", is_active: true)
+
+      tracked_branch_fixture(level1, branch: branch, repo_uri: branch.repo_uri)
+
+      level2 =
+        create_implementation_for_product(product,
+          name: "Level-2",
+          is_active: true,
+          parent_implementation_id: level1.id
+        )
+
+      tracked_branch_fixture(level2, branch: branch, repo_uri: branch.repo_uri)
+
+      level3 =
+        create_implementation_for_product(product,
+          name: "Level-3",
+          is_active: true,
+          parent_implementation_id: level2.id
+        )
+
+      tracked_branch_fixture(level3, branch: branch, repo_uri: branch.repo_uri)
+
+      level4 =
+        create_implementation_for_product(product,
+          name: "Level-4",
+          is_active: true,
+          parent_implementation_id: level3.id
+        )
+
+      tracked_branch_fixture(level4, branch: branch, repo_uri: branch.repo_uri)
+
+      level5 =
+        create_implementation_for_product(product,
+          name: "Level-5",
+          is_active: true,
+          parent_implementation_id: level4.id
+        )
+
+      tracked_branch_fixture(level5, branch: branch, repo_uri: branch.repo_uri)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/deep-feature")
+
+      # feature-view.HIERARCHY.3, feature-view.HIERARCHY.4: Verify depth attributes
+      # Levels 1-4 have their actual depth
+      assert has_element?(view, "[data-depth='1']", "Level-1")
+      assert has_element?(view, "[data-depth='2']", "Level-2")
+      assert has_element?(view, "[data-depth='3']", "Level-3")
+      assert has_element?(view, "[data-depth='4']", "Level-4")
+
+      # feature-view.HIERARCHY.4: Level-5 MUST have data-depth="4" (flattened, not "5")
+      # Verify Level-5 specifically has data-depth="4" (not "5")
+      assert has_element?(view, "[data-depth='4']", "Level-5")
+      refute has_element?(view, "[data-depth='5']", "Level-5")
+
+      # Verify there are exactly 2 cards at depth 4 (Level-4 and Level-5)
+      html = render(view)
+      depth_4_count = Regex.scan(~r/data-depth="4"/, html) |> length()
+
+      assert depth_4_count == 2,
+             "Expected exactly 2 cards with data-depth=4 (Level-4 and Level-5), found #{depth_4_count}"
+
+      # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2: Verify depth-first order still holds
+      # Level-5 should still appear after Level-4 (depth-first order preserved)
+      card_pattern = ~r/<div[^>]*data-depth="(\d+)"[^>]*>.*?<h3[^>]*>([^<]+)<\/h3>/s
+      cards = Regex.scan(card_pattern, html)
+
+      level4_idx = Enum.find_index(cards, fn [_, _, name] -> name =~ "Level-4" end)
+      level5_idx = Enum.find_index(cards, fn [_, _, name] -> name =~ "Level-5" end)
+
+      assert level4_idx != nil, "Level-4 not found in cards: #{inspect(cards)}"
+      assert level5_idx != nil, "Level-5 not found in cards: #{inspect(cards)}"
+      assert level4_idx < level5_idx
+    end
+
+    test "exposes stable depth indication via data-depth attribute", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      # Create shared branch for specs
+      branch = branch_fixture(team)
+
+      spec_fixture(product, %{
+        feature_name: "indicator-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{"indicator-feature.COMP.1" => %{"definition" => "Req 1"}}
+      })
+
+      # Create parent and child
+      parent =
+        create_implementation_for_product(product, name: "Parent", is_active: true)
+
+      tracked_branch_fixture(parent, branch: branch, repo_uri: branch.repo_uri)
+
+      child =
+        create_implementation_for_product(product,
+          name: "Child",
+          is_active: true,
+          parent_implementation_id: parent.id
+        )
+
+      tracked_branch_fixture(child, branch: branch, repo_uri: branch.repo_uri)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/indicator-feature")
+
+      # Use has_element? to verify the data-depth attribute on each specific card
+      assert has_element?(view, "[data-depth='1']", "Parent")
+      refute has_element?(view, "[data-depth='1']", "Child")
+
+      assert has_element?(view, "[data-depth='2']", "Child")
+      refute has_element?(view, "[data-depth='2']", "Parent")
+    end
+
+    # feature-view.HIERARCHY.1: Cards with missing parents treated as roots
+    # This tests the scenario where a child's parent is NOT in the filtered card set
+    # (parent doesn't have the feature, but child does)
+    test "treats cards with missing parents as roots", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      # Create TWO separate branches for this test
+      # Parent will be on branch_without_feature (doesn't have the feature)
+      # Child will be on branch_with_feature (has the feature)
+      _branch_without_feature = branch_fixture(team, %{branch_name: "parent-branch"})
+      branch_with_feature = branch_fixture(team, %{branch_name: "child-branch"})
+
+      # Create spec ONLY on branch_with_feature
+      spec_fixture(product, %{
+        feature_name: "orphan-feature",
+        branch: branch_with_feature,
+        repo_uri: branch_with_feature.repo_uri,
+        requirements: %{"orphan-feature.COMP.1" => %{"definition" => "Req 1"}}
+      })
+
+      # Create parent implementation (NO tracked branch = parent doesn't have the feature)
+      parent =
+        create_implementation_for_product(product, name: "Parent-Orphaned", is_active: true)
+
+      # Parent is NOT tracked on any branch with this feature, so it won't appear on the page
+
+      # Create child that references parent (child DOES have the feature via tracked branch)
+      child =
+        create_implementation_for_product(product,
+          name: "Child-With-Feature",
+          is_active: true,
+          parent_implementation_id: parent.id
+        )
+
+      # Child IS tracked on the branch with the feature, so it WILL appear
+      tracked_branch_fixture(child,
+        branch: branch_with_feature,
+        repo_uri: branch_with_feature.repo_uri
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/f/orphan-feature")
+
+      # feature-view.HIERARCHY.1: Child should be rendered even though its parent is not on the page
+      assert has_element?(view, "#implementations-grid", "Child-With-Feature")
+
+      # Parent should NOT be rendered (it doesn't have the feature)
+      refute has_element?(view, "#implementations-grid", "Parent-Orphaned")
+
+      # feature-view.HIERARCHY.1: Child should be treated as a root (data-depth="1")
+      # because its parent is not in the filtered card set
+      assert has_element?(view, "[data-depth='1']", "Child-With-Feature")
+      refute has_element?(view, "[data-depth='2']", "Child-With-Feature")
     end
   end
 

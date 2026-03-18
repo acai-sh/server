@@ -308,20 +308,35 @@ defmodule AcaiWeb.ProductLive do
         <% else %>
           <%!-- Feature × Implementation Matrix --%>
           <%!-- product-view.MATRIX.1, product-view.MATRIX.2 --%>
-          <div class="overflow-x-auto border border-base-300 rounded-lg">
-            <table class="table w-full">
+          <div class="overflow-x-auto">
+            <table class="table w-full border-r-1 border-base-300 border-b-1 rounded-b-lg overflow-hidden">
               <thead>
+                <%!-- Label row for implementation columns --%>
+                <tr class="bg-base-100">
+                  <th class="sticky left-0 bg-base-100 z-10 lg:min-w-[200px] bg-base-200 border-0">
+                    <span class="sr-only">Feature</span>
+                  </th>
+                  <th
+                    colspan={length(@active_implementations)}
+                    class="text-center py-2 text-sm font-medium text-secondary border-base-300 rounded-t-lg border-1 border-r-0"
+                  >
+                    Implementation (% accepted)
+                  </th>
+                </tr>
                 <tr class="bg-base-100">
                   <%!-- Feature name column header --%>
-                  <th class="sticky left-0 bg-base-100 z-10 min-w-[200px] border-r border-base-300">
+                  <th class="sticky left-0 bg-base-100 z-10 lg:min-w-[200px] lg:py-2 text-sm font-medium text-primary rounded-tl-lg border-t-1 border-l-1 border-base-300">
                     Feature
                   </th>
                   <%!-- Implementation column headers --%>
                   <%= for impl <- @active_implementations do %>
-                    <th class="text-center min-w-[100px] border-l border-base-300 first:border-l-0">
+                    <th class="text-center lg:min-w-[100px] border-l border-base-300 first:border-l-0">
                       <div class="flex flex-col items-center gap-1">
                         <.icon name="hero-tag" class="size-4 text-secondary" />
-                        <span class="text-xs font-medium truncate max-w-[120px]" title={impl.name}>
+                        <span
+                          class="text-xs font-medium text-secondary truncate max-w-[120px]"
+                          title={impl.name}
+                        >
                           {impl.name}
                         </span>
                       </div>
@@ -334,16 +349,22 @@ defmodule AcaiWeb.ProductLive do
                   <tr class="bg-base-100 hover:bg-base-200/50">
                     <%!-- Feature name cell (row header) --%>
                     <%!-- product-view.MATRIX.5 --%>
-                    <td class="sticky left-0 bg-base-100 z-10 border-r border-base-300 p-0">
+                    <td class="sticky left-0 bg-base-100 z-10 p-0 border-l-1 border-base-300">
                       <.link
                         navigate={"/t/#{@team.name}/f/#{row.feature_name}"}
-                        class="block p-4 hover:bg-base-200 transition-colors"
+                        class="block p-2 lg:p-4 hover:bg-base-200 transition-colors"
                       >
-                        <div class="font-medium text-primary hover:underline">
-                          {row.feature_name}
+                        <div class="flex items-center gap-2">
+                          <.icon
+                            name="hero-cube"
+                            class="size-3 lg:size-4 text-primary flex-shrink-0"
+                          />
+                          <div class="font-medium text-primary hover:underline text-xs lg:text-base">
+                            {row.feature_name}
+                          </div>
                         </div>
                         <%= if row.feature_description do %>
-                          <div class="text-xs text-base-content/60 mt-1 line-clamp-2">
+                          <div class="text-base-content/70 mt-1 line-clamp-2 text-xs">
                             {row.feature_description}
                           </div>
                         <% end %>
@@ -358,8 +379,8 @@ defmodule AcaiWeb.ProductLive do
                           <.link
                             navigate={"/t/#{@team.name}/i/#{cell.implementation_slug}/f/#{row.feature_name}"}
                             class={[
-                              "block py-4 px-2 hover:bg-base-200 transition-colors",
-                              cell.percentage == 100 && "bg-success/10"
+                              "block py-4 lg:px-2 hover:bg-base-200 transition-colors",
+                              cell.percentage == 100 && "bg-success/3"
                             ]}
                           >
                             <span
@@ -376,7 +397,7 @@ defmodule AcaiWeb.ProductLive do
                           </.link>
                         <% else %>
                           <%!-- product-view.MATRIX.8: Unavailable cells show n/a --%>
-                          <div class="block py-4 px-2 text-base-content/30">
+                          <div class="block py-4 lg:px-2 text-base-content/30">
                             <span class="text-sm">n/a</span>
                           </div>
                         <% end %>

@@ -26,6 +26,10 @@ defmodule AcaiWeb.FeatureLive do
     end
   end
 
+  # Maximum display depth for hierarchy visualization
+  # feature-view.HIERARCHY.3: Hierarchy supports nesting up to a maximum depth of 4
+  @max_hierarchy_depth 4
+
   # Build all assigns for the feature page from consolidated data
   # feature-view.ENG.1: All data comes from single load_feature_page_data/2 call
   # Pass reset: true when called from reload_feature_data to ensure stream reset
@@ -39,6 +43,8 @@ defmodule AcaiWeb.FeatureLive do
       end)
 
     # Build implementation cards with pre-fetched data
+    # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2
+
     implementation_cards =
       feature_data.implementations
       |> Enum.map(fn impl ->
@@ -90,10 +96,13 @@ defmodule AcaiWeb.FeatureLive do
           slug: slug,
           product_name: impl.product.name,
           total_requirements: total_reqs,
-          status_percentages: status_percentages
+          status_percentages: status_percentages,
+          # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2: Include parent_id for tree ordering
+          parent_implementation_id: impl.parent_implementation_id
         }
       end)
-      |> Enum.sort_by(& &1.implementation.name)
+      # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2: Order by inheritance depth
+      |> order_cards_by_hierarchy()
 
     socket
     |> assign(:team, team)
@@ -112,6 +121,113 @@ defmodule AcaiWeb.FeatureLive do
     |> assign(:available_features, feature_data.available_features)
     # nav.AUTH.1: Pass current_path for navigation
     |> assign(:current_path, "/t/#{team.name}/f/#{feature_data.feature_name}")
+  end
+
+  # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2, feature-view.HIERARCHY.3, feature-view.HIERARCHY.4
+  # Orders implementation cards by inheritance tree structure.
+  # - Parents appear before their children (depth-first order)
+  # - Siblings are sorted alphabetically by name
+  # - Cards with parents not in the set are treated as roots
+  # - Display depth is capped at @max_hierarchy_depth (4 levels)
+  # - Each card gets connector metadata for L-shape connector rendering
+  defp order_cards_by_hierarchy(cards) do
+    # Build set of card IDs for root detection
+    card_ids = MapSet.new(cards, fn card -> card.implementation.id end)
+
+    # Build parent_id -> children map
+    children_by_parent =
+      cards
+      |> Enum.group_by(fn card -> card.parent_implementation_id end)
+
+    # Identify root nodes: either no parent OR parent not in the filtered card set
+    # This ensures cards whose parents are not in the filtered set are still shown
+    roots =
+      cards
+      |> Enum.filter(fn card ->
+        card.parent_implementation_id == nil ||
+          not MapSet.member?(card_ids, card.parent_implementation_id)
+      end)
+      |> Enum.sort_by(fn card -> card.implementation.name end)
+
+    # Perform depth-first traversal with depth tracking
+    # feature-view.HIERARCHY.3: Cap display depth at max_hierarchy_depth
+    # Pass active_levels as MapSet to track which ancestor depths still have siblings below
+    Enum.flat_map(roots, fn root ->
+      build_hierarchy_order(
+        root,
+        children_by_parent,
+        1,
+        @max_hierarchy_depth,
+        false,
+        MapSet.new()
+      )
+    end)
+  end
+
+  # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2, feature-view.HIERARCHY.3, feature-view.HIERARCHY.4
+  # Recursively builds hierarchy order for a card and its descendants.
+  # current_depth: actual depth in tree (for traversal)
+  # display_depth: capped depth for UI display (1-4, flattened at 4)
+  # is_last_child: whether this card is the last sibling at its level
+  # active_levels: MapSet of ancestor depth levels with continuing vertical lines
+  defp build_hierarchy_order(
+         card,
+         children_by_parent,
+         current_depth,
+         max_depth,
+         is_last_child,
+         active_levels
+       ) do
+    # feature-view.HIERARCHY.3, feature-view.HIERARCHY.4: Cap display depth
+    display_depth = min(current_depth, max_depth)
+
+    # Add display depth and connector metadata to the card for UI rendering
+    card_with_depth =
+      card
+      |> Map.put(:display_depth, display_depth)
+      |> Map.put(:is_last_child, is_last_child)
+      |> Map.put(:connector_levels, active_levels)
+
+    # Get children and sort alphabetically
+    children = Map.get(children_by_parent, card.implementation.id, [])
+    sorted_children = Enum.sort_by(children, fn child -> child.implementation.name end)
+    last_index = length(sorted_children) - 1
+
+    # For children, update active_levels: add current display_depth if this card has
+    # more siblings after it (i.e. it's not the last child), remove it if it is
+    child_active_levels =
+      if is_last_child do
+        MapSet.delete(active_levels, display_depth - 1)
+      else
+        active_levels
+      end
+
+    # Recursively process children with incremented depth
+    descendants =
+      sorted_children
+      |> Enum.with_index()
+      |> Enum.flat_map(fn {child, idx} ->
+        child_is_last = idx == last_index
+        # Add current depth to active levels for children (vertical line continues from parent)
+        # Remove it for the last child (the L terminates)
+        levels_for_child =
+          if child_is_last do
+            child_active_levels
+          else
+            MapSet.put(child_active_levels, display_depth)
+          end
+
+        build_hierarchy_order(
+          child,
+          children_by_parent,
+          current_depth + 1,
+          max_depth,
+          child_is_last,
+          levels_for_child
+        )
+      end)
+
+    [card_with_depth | descendants]
   end
 
   # Handle params for URL changes (patch navigation)
@@ -244,94 +360,118 @@ defmodule AcaiWeb.FeatureLive do
             <p class="text-base-content/60">No implementations found for this feature</p>
           </div>
         <% else %>
+          <%!-- feature-view.HIERARCHY.1, feature-view.HIERARCHY.2: Hierarchy-friendly layout --%>
           <div
             id="implementations-grid"
             phx-update="stream"
-            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
           >
             <%!-- feature-view.MAIN.2 --%>
-            <.link
+            <div
               :for={{id, card} <- @streams.implementations}
               id={id}
-              navigate={"/t/#{@team.name}/i/#{card.slug}/f/#{@feature_name}"}
-              class="block group"
+              class="flex items-stretch"
+              data-depth={card.display_depth}
             >
-              <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer h-full">
-                <div class="card-body">
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="flex-1 min-w-0">
-                      <%!-- feature-view.MAIN.3 --%>
-                      <h3 class="font-semibold text-base group-hover:text-primary transition-colors truncate">
-                        {card.implementation.name}
-                      </h3>
-                    </div>
-                    <div class="flex-shrink-0">
-                      <.icon name="hero-code-bracket" class="size-5 text-base-content/40" />
-                    </div>
+              <%!-- Connector columns: one per ancestor depth level --%>
+              <%= for level <- 1..(card.display_depth - 1)//1 do %>
+                <div class={
+                  [
+                    "connector-col",
+                    # The column at this card's immediate parent depth draws the turn
+                    level == card.display_depth - 1 && card.is_last_child && "connector-l",
+                    level == card.display_depth - 1 && !card.is_last_child && "connector-t",
+                    # Ancestor columns: passthrough if more siblings below, empty otherwise
+                    level != card.display_depth - 1 && MapSet.member?(card.connector_levels, level) &&
+                      "connector-passthrough",
+                    level != card.display_depth - 1 && !MapSet.member?(card.connector_levels, level) &&
+                      "connector-empty"
+                  ]
+                }>
+                </div>
+              <% end %>
+
+              <%!-- The card itself --%>
+              <.link
+                navigate={"/t/#{@team.name}/i/#{card.slug}/f/#{@feature_name}"}
+                class="block group flex-1 min-w-0 mt-4"
+              >
+                <div class={[
+                  "card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-secondary/40 transition-all duration-200 cursor-pointer",
+                  "flex items-stretch overflow-hidden h-full max-w-2xl"
+                ]}>
+                  <div class={[
+                    "w-1 flex-shrink-0",
+                    card.display_depth == 1 && "bg-primary",
+                    card.display_depth == 2 && "bg-secondary",
+                    card.display_depth == 3 && "bg-accent",
+                    card.display_depth >= 4 && "bg-neutral"
+                  ]}>
                   </div>
 
-                  <%!-- feature-view.MAIN.3: Product name and requirement count --%>
-                  <p class="text-sm text-base-content/60 mt-1">
-                    {card.product_name} • {card.total_requirements} requirements
-                  </p>
+                  <div class="card-body py-4 px-4 flex-1 min-w-0">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="flex-1 min-w-0">
+                        <%!-- feature-view.MAIN.3 --%>
+                        <div class="flex items-center gap-2">
+                          <.icon
+                            name="hero-tag"
+                            class="size-4 text-secondary flex-shrink-0"
+                          />
+                          <h3 class="font-semibold text-base group-hover:text-secondary transition-colors truncate">
+                            {card.implementation.name}
+                          </h3>
+                        </div>
+                        <p class="text-xs text-base-content/50 mt-1">
+                          Created {Calendar.strftime(card.implementation.inserted_at, "%b %d, %Y")}
+                        </p>
+                      </div>
 
-                  <%!-- feature-view.MAIN.3: Segmented progress bar by status --%>
-                  <div class="mt-4 pt-3 border-t border-base-200">
-                    <%!-- Progress bar with segments for each status --%>
-                    <div class="h-2 w-full rounded-full overflow-hidden flex">
-                      <%!-- accepted (green) --%>
-                      <div
-                        :if={card.status_percentages["accepted"] > 0}
-                        class="h-full bg-success"
-                        style={"width: #{card.status_percentages["accepted"]}%"}
-                      />
-                      <%!-- completed (blue) --%>
-                      <div
-                        :if={card.status_percentages["completed"] > 0}
-                        class="h-full bg-info"
-                        style={"width: #{card.status_percentages["completed"]}%"}
-                      />
-                      <%!-- assigned (gold) --%>
-                      <div
-                        :if={card.status_percentages["assigned"] > 0}
-                        class="h-full bg-warning"
-                        style={"width: #{card.status_percentages["assigned"]}%"}
-                      />
-                      <%!-- blocked (red) --%>
-                      <div
-                        :if={card.status_percentages["blocked"] > 0}
-                        class="h-full bg-error"
-                        style={"width: #{card.status_percentages["blocked"]}%"}
-                      />
-                      <%!-- rejected (red) --%>
-                      <div
-                        :if={card.status_percentages["rejected"] > 0}
-                        class="h-full bg-error opacity-60"
-                        style={"width: #{card.status_percentages["rejected"]}%"}
-                      />
-                      <%!-- null/no status (gray) --%>
-                      <div
-                        :if={card.status_percentages[nil] > 0}
-                        class="h-full bg-base-300"
-                        style={"width: #{card.status_percentages[nil]}%"}
-                      />
-                      <%!-- Empty state: full gray bar when no statuses at all --%>
-                      <div
-                        :if={
-                          card.status_percentages["accepted"] == 0 &&
-                            card.status_percentages["completed"] == 0 &&
-                            card.status_percentages["assigned"] == 0 &&
-                            card.status_percentages["blocked"] == 0 &&
-                            card.status_percentages["rejected"] == 0 &&
-                            card.status_percentages[nil] == 0
-                        }
-                        class="h-full w-full bg-base-300"
-                      />
+                      <%!-- feature-view.MAIN.3: Requirement count --%>
+                      <span class="badge badge-sm badge-ghost">
+                        {card.total_requirements} requirements
+                      </span>
+                    </div>
+
+                    <%!-- feature-view.MAIN.3: Segmented progress bar by status --%>
+                    <div class="pt-3 border-t border-base-200">
+                      <div class="h-2 w-full rounded-full overflow-hidden flex">
+                        <div
+                          :if={card.status_percentages["accepted"] > 0}
+                          class="h-full bg-success"
+                          style={"width: #{card.status_percentages["accepted"]}%"}
+                        />
+                        <div
+                          :if={card.status_percentages["completed"] > 0}
+                          class="h-full bg-info"
+                          style={"width: #{card.status_percentages["completed"]}%"}
+                        />
+                        <div
+                          :if={card.status_percentages["assigned"] > 0}
+                          class="h-full bg-warning"
+                          style={"width: #{card.status_percentages["assigned"]}%"}
+                        />
+                        <div
+                          :if={card.status_percentages["blocked"] > 0}
+                          class="h-full bg-error"
+                          style={"width: #{card.status_percentages["blocked"]}%"}
+                        />
+                        <div
+                          :if={card.status_percentages["rejected"] > 0}
+                          class="h-full bg-error opacity-60"
+                          style={"width: #{card.status_percentages["rejected"]}%"}
+                        />
+                        <div
+                          :if={card.status_percentages[nil] > 0}
+                          class="h-full bg-base-300"
+                          style={"width: #{card.status_percentages[nil]}%"}
+                        />
+                        <div class="h-full flex-1 bg-base-200" />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </.link>
+              </.link>
+            </div>
           </div>
         <% end %>
       </div>

@@ -25,8 +25,3 @@ feat/feature-impl-view-revision QA feedback
 Please take these notes, compare them to the spec. If they differ radically from the spec requirements, or are key behaviors that are missing from the spec, please let me know. Otherwise, fix the issues.
 
 items with [design] tag are never in specs, just fix these outright.
-
-[product-view][design] product overview matrix, let's put the cube icon next to each feature title (row header)
-
-[feature-impl-view][spec] Should render feature description from the target spec
-[feature-impl-view][bug] the requirement details for requirements in the `feat/ai-chat` implementation of inherited features, say `status: (accepted) (feat/ai-chat)` which is misleading, the status was not accepted on the feat/ai-chat implementation. As indicated by the `Inherited` badge in the Requirements Coverage card, these states were all inherited from an ancestor implementation. We should update this to show the same Inherited badge with the same popper and tooltip as we have on the requirements coverage card.
