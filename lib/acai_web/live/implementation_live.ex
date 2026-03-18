@@ -197,6 +197,7 @@ defmodule AcaiWeb.ImplementationLive do
       |> assign(:drawer_visible, false)
       |> assign(:spec_source, spec_source)
       |> assign(:spec_inherited, spec_source.is_inherited)
+      |> assign(:states, states)
       |> assign(:states_inherited, states_inherited)
       |> assign(:states_source_impl, states_source_impl)
       |> assign(:refs_inherited, refs_inherited)
@@ -538,6 +539,7 @@ defmodule AcaiWeb.ImplementationLive do
         <%!-- Requirement details drawer --%>
         <%!-- data-model.SPECS.11: Pass acid instead of requirement_id --%>
         <%!-- feature-impl-view.DRAWER.4: Pass aggregated_refs from tracked branches --%>
+        <%!-- feature-impl-view.INHERITANCE.2: Pass inherited state context and states to drawer --%>
         <.live_component
           module={AcaiWeb.Live.Components.RequirementDetailsLive}
           id="requirement-details-drawer"
@@ -546,6 +548,10 @@ defmodule AcaiWeb.ImplementationLive do
           implementation={@implementation}
           aggregated_refs={@aggregated_refs}
           visible={@drawer_visible}
+          states={@states}
+          states_inherited={@states_inherited}
+          states_source_impl={@states_source_impl}
+          feature_name={@feature_name}
         />
       </div>
     </Layouts.app>
@@ -745,6 +751,21 @@ defmodule AcaiWeb.ImplementationLive do
             </div>
             <span class="text-sm">{@spec.path}</span>
           </div>
+
+          <%!-- feature-impl-view.CARDS.4: Feature description from target spec --%>
+          <%= if @spec.feature_description do %>
+            <div class="mt-4 pt-4 border-t border-base-200">
+              <div class="flex items-start gap-2">
+                <div class="w-20 flex-shrink-0 flex items-center gap-1.5 text-xs text-base-content/50">
+                  <.icon name="hero-information-circle" class="size-3.5" />
+                  <span>Description</span>
+                </div>
+                <p id="feature-description" class="text-sm text-base-content/80 flex-1">
+                  {@spec.feature_description}
+                </p>
+              </div>
+            </div>
+          <% end %>
         </div>
       </div>
     </div>

@@ -1096,6 +1096,40 @@ defmodule AcaiWeb.ImplementationLiveTest do
                "#requirement-details-drawer",
                "This is the inherited status comment"
              )
+
+      # feature-impl-view.INHERITANCE.2: Drawer should show Inherited badge with unique ID
+      # ACID dots are converted to dashes for DOM-safe IDs
+      inherited_badge_id = "drawer-inherited-badge-inherited-feature-COMP-1"
+      assert has_element?(view, "##{inherited_badge_id}", "Inherited")
+
+      # feature-impl-view.INHERITANCE.2: Inherited badge should have popovertarget attribute
+      assert has_element?(
+               view,
+               "button[popovertarget='drawer-inherited-popover-inherited-feature-COMP-1']"
+             )
+
+      # feature-impl-view.INHERITANCE.2: Popover container should exist with correct ID
+      assert has_element?(view, "#drawer-inherited-popover-inherited-feature-COMP-1")
+
+      # feature-impl-view.INHERITANCE.2: Popover should contain explanatory copy
+      assert has_element?(
+               view,
+               "#drawer-inherited-popover-inherited-feature-COMP-1",
+               "No states have been added for this implementation"
+             )
+
+      # feature-impl-view.INHERITANCE.2: Popover should contain source implementation link wrapper with stable ID
+      assert has_element?(view, "#drawer-inherited-source-wrapper", parent_impl.name)
+
+      # feature-impl-view.INHERITANCE.2: Source link should navigate to parent implementation
+      # The link uses implementation slug format: {name}-{uuid_without_dashes}
+      slug = Acai.Implementations.implementation_slug(parent_impl)
+
+      assert has_element?(
+               view,
+               "a[href='/t/#{team.name}/i/#{slug}/f/inherited-feature']",
+               parent_impl.name
+             )
     end
   end
 
@@ -1905,6 +1939,124 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Should show empty state
       assert has_element?(view, ".card", "Tracked Branches")
       assert has_element?(view, ".card", "No tracked branches")
+    end
+
+    # feature-impl-view.CARDS.4
+    test "renders feature description from target spec", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Create tracked branch first
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/test-repo", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec with a specific feature description
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        feature_description: "This is the amazing feature description for testing",
+        path: "features/my-feature/spec.yaml",
+        branch: branch,
+        requirements: %{
+          "my-feature.COMP.1" => %{
+            "definition" => "Test req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # feature-impl-view.CARDS.4: Description should be visible in target spec card
+      assert has_element?(
+               view,
+               "#feature-description",
+               "This is the amazing feature description for testing"
+             )
+    end
+
+    # feature-impl-view.CARDS.4
+    # feature-impl-view.INHERITANCE.1
+    test "renders inherited feature description from ancestor spec", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      # Create parent implementation with tracked branch and spec with description
+      parent_impl = create_implementation_for_product(product, name: "ParentImpl")
+
+      parent_tracked_branch =
+        tracked_branch_fixture(parent_impl, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      parent_branch = Acai.Repo.get!(Acai.Implementations.Branch, parent_tracked_branch.branch_id)
+
+      spec_fixture(product, %{
+        feature_name: "inherited-feature",
+        feature_description: "This is the inherited feature description from parent",
+        path: "features/inherited-feature/spec.yaml",
+        branch: parent_branch,
+        requirements: %{
+          "inherited-feature.COMP.1" => %{
+            "definition" => "Inherited req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # Create child implementation without tracked branch - will inherit spec from parent
+      child_impl =
+        implementation_fixture(product, %{
+          name: "ChildImpl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      slug = build_impl_slug(child_impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/inherited-feature")
+
+      # feature-impl-view.CARDS.4: Inherited description should be visible
+      # feature-impl-view.INHERITANCE.1: Description comes from ancestor-resolved spec
+      assert has_element?(
+               view,
+               "#feature-description",
+               "This is the inherited feature description from parent"
+             )
+    end
+
+    # feature-impl-view.CARDS.4
+    test "handles nil feature description gracefully", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Create tracked branch first
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/test-repo", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec without feature_description (nil)
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        feature_description: nil,
+        path: "features/my-feature/spec.yaml",
+        branch: branch,
+        requirements: %{
+          "my-feature.COMP.1" => %{
+            "definition" => "Test req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # feature-impl-view.CARDS.4: Page should be stable when description is nil
+      # Description section should not be rendered when nil
+      refute has_element?(view, "#feature-description")
+      # But the rest of the page should still render
+      assert has_element?(view, ".card", "Target Spec")
     end
   end
 

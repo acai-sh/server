@@ -26,6 +26,7 @@ components:
             2-5: Indicates with a badge if the spec is inherited or is local
             2-5-note: inherited means; not pushed to a tracked branch, but found in an ancestor's. Local means; directly pushed to this implementation's tracked branch. There is only ever 1 canonical spec from this view.
             3: Renders a 'tracked-branches' card that lists every tracked branch name
+            4: Renders the feature description from the target spec
 
     LIST:
         name: List of requirements

@@ -146,23 +146,22 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
       %{spec: spec, implementation: implementation} = setup_data_chain()
       _role = user_team_role_fixture(team_fixture(), user, %{title: "owner"})
 
-      # data-model.FEATURE_IMPL_STATES: Create a feature_impl_state with status
-      _spec_impl_state =
-        spec_impl_state_fixture(spec, implementation, %{
-          states: %{
-            "test-feature.COMP.1" => %{
-              "status" => "completed",
-              "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
-            }
-          }
-        })
+      # feature-impl-view.INHERITANCE.2: Pass pre-resolved states from parent LiveView
+      states = %{
+        "test-feature.COMP.1" => %{
+          "status" => "completed",
+          "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+      }
 
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
-        visible: true
+        visible: true,
+        states: states,
+        states_inherited: false
       }
 
       html = render_drawer(assigns)
@@ -187,19 +186,262 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
     end
 
     # requirement-details.DRAWER.4-2
-    test "shows implementation name as context label", %{user: user} do
+    test "shows implementation name as context label for local status", %{user: user} do
       %{spec: spec, implementation: implementation} = setup_data_chain()
       _role = user_team_role_fixture(team_fixture(), user, %{title: "owner"})
+
+      # feature-impl-view.INHERITANCE.2: Local status shows implementation context
+      assigns = %{
+        id: "test-drawer",
+        acid: "test-feature.COMP.1",
+        spec: spec,
+        implementation: implementation,
+        visible: true,
+        states_inherited: false
+      }
+
+      html = render_drawer(assigns)
+      assert html =~ implementation.name
+    end
+  end
+
+  # feature-impl-view.INHERITANCE.2
+  describe "feature-impl-view.INHERITANCE.2: Inherited status presentation" do
+    setup :register_and_log_in_user
+
+    # feature-impl-view.INHERITANCE.2
+    test "shows Inherited badge when states_inherited is true", %{user: user} do
+      team = team_fixture()
+      product = product_fixture(team)
+      _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+      # Create parent implementation (source of inherited status)
+      # Preload team for the link in popover
+      parent_impl =
+        implementation_fixture(product, %{name: "ParentImpl"})
+        |> Acai.Repo.preload(:team)
+
+      # Create child implementation that inherits status
+      child_impl =
+        implementation_fixture(product, %{
+          name: "ChildImpl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      requirements = %{
+        "test-feature.COMP.1" => %{
+          "definition" => "Test requirement",
+          "note" => nil,
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+
+      spec = spec_fixture(product, %{feature_name: "test-feature", requirements: requirements})
+
+      # Create spec_impl_state on parent implementation
+      spec_impl_state_fixture(spec, parent_impl, %{
+        states: %{
+          "test-feature.COMP.1" => %{
+            "status" => "accepted",
+            "comment" => "Inherited comment",
+            "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+          }
+        }
+      })
+
+      # feature-impl-view.INHERITANCE.2: Pass pre-resolved states from parent LiveView
+      states = %{
+        "test-feature.COMP.1" => %{
+          "status" => "accepted",
+          "comment" => "Inherited comment",
+          "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+      }
+
+      assigns = %{
+        id: "test-drawer",
+        acid: "test-feature.COMP.1",
+        spec: spec,
+        implementation: child_impl,
+        visible: true,
+        states: states,
+        states_inherited: true,
+        states_source_impl: parent_impl,
+        feature_name: "test-feature"
+      }
+
+      html = render_drawer(assigns)
+
+      # feature-impl-view.INHERITANCE.2: Should show Inherited badge with stable ID
+      # ACID dots are converted to dashes for DOM-safe IDs
+      assert html =~ "id=\"drawer-inherited-badge-test-feature-COMP-1\""
+      # feature-impl-view.INHERITANCE.2: Should show the inherited status from passed states
+      assert html =~ "accepted"
+
+      # feature-impl-view.INHERITANCE.2: Should not show child implementation name (it's inherited, not local)
+      refute html =~ child_impl.name
+    end
+
+    # feature-impl-view.INHERITANCE.2
+    test "inherited badge popover contains source implementation link", %{user: user} do
+      team = team_fixture()
+      product = product_fixture(team)
+      _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+      # Create parent implementation (source of inherited status)
+      parent_impl =
+        implementation_fixture(product, %{name: "ParentImpl"})
+        |> Acai.Repo.preload(:team)
+
+      # Create child implementation
+      child_impl =
+        implementation_fixture(product, %{
+          name: "ChildImpl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      requirements = %{
+        "test-feature.COMP.1" => %{
+          "definition" => "Test requirement",
+          "note" => nil,
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+
+      spec = spec_fixture(product, %{feature_name: "test-feature", requirements: requirements})
+
+      # feature-impl-view.INHERITANCE.2: Pass pre-resolved states from parent LiveView
+      states = %{
+        "test-feature.COMP.1" => %{
+          "status" => "completed",
+          "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+      }
+
+      assigns = %{
+        id: "test-drawer",
+        acid: "test-feature.COMP.1",
+        spec: spec,
+        implementation: child_impl,
+        visible: true,
+        states: states,
+        states_inherited: true,
+        states_source_impl: parent_impl,
+        feature_name: "test-feature"
+      }
+
+      html = render_drawer(assigns)
+
+      # feature-impl-view.INHERITANCE.2: Should show Inherited badge with unique ID and popovertarget
+      # ACID dots are converted to dashes for DOM-safe IDs
+      assert html =~ "id=\"drawer-inherited-badge-test-feature-COMP-1\""
+      assert html =~ "popovertarget=\"drawer-inherited-popover-test-feature-COMP-1\""
+
+      # feature-impl-view.INHERITANCE.2: Popover container should exist with correct ID
+      assert html =~ "id=\"drawer-inherited-popover-test-feature-COMP-1\""
+
+      # feature-impl-view.INHERITANCE.2: Popover should contain explanatory copy
+      assert html =~ "No states have been added for this implementation"
+
+      # feature-impl-view.INHERITANCE.2: Popover should contain source implementation link wrapper with stable ID
+      assert html =~ "id=\"drawer-inherited-source-wrapper\""
+      assert html =~ parent_impl.name
+    end
+
+    # feature-impl-view.INHERITANCE.2
+    test "inherited status comment still renders", %{user: user} do
+      team = team_fixture()
+      product = product_fixture(team)
+      _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+      # Preload team for the link in popover
+      parent_impl =
+        implementation_fixture(product, %{name: "ParentImpl"})
+        |> Acai.Repo.preload(:team)
+
+      child_impl =
+        implementation_fixture(product, %{
+          name: "ChildImpl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      requirements = %{
+        "test-feature.COMP.1" => %{
+          "definition" => "Test requirement",
+          "note" => nil,
+          "is_deprecated" => false,
+          "replaced_by" => []
+        }
+      }
+
+      spec = spec_fixture(product, %{feature_name: "test-feature", requirements: requirements})
+
+      # feature-impl-view.INHERITANCE.2: Pass pre-resolved states from parent LiveView
+      # Include the comment from the inherited status
+      states = %{
+        "test-feature.COMP.1" => %{
+          "status" => "accepted",
+          "comment" => "This status was set on parent implementation",
+          "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+      }
+
+      assigns = %{
+        id: "test-drawer",
+        acid: "test-feature.COMP.1",
+        spec: spec,
+        implementation: child_impl,
+        visible: true,
+        states: states,
+        states_inherited: true,
+        states_source_impl: parent_impl,
+        feature_name: "test-feature"
+      }
+
+      html = render_drawer(assigns)
+
+      # feature-impl-view.INHERITANCE.2: Should show the inherited status comment
+      assert html =~ "Status Comment"
+      assert html =~ "This status was set on parent implementation"
+    end
+
+    # feature-impl-view.INHERITANCE.2
+    test "local status does not show inherited badge", %{user: user} do
+      %{spec: spec, implementation: implementation} = setup_data_chain()
+      _role = user_team_role_fixture(team_fixture(), user, %{title: "owner"})
+
+      # Create local state (not inherited)
+      # feature-impl-view.INHERITANCE.2: Pass pre-resolved states for local (non-inherited) status
+      states = %{
+        "test-feature.COMP.1" => %{
+          "status" => "completed",
+          "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+        }
+      }
 
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
-        visible: true
+        visible: true,
+        states: states,
+        states_inherited: false,
+        states_source_impl: nil,
+        feature_name: "test-feature"
       }
 
       html = render_drawer(assigns)
+
+      # feature-impl-view.INHERITANCE.2: Should show status from passed states
+      assert html =~ "completed"
+      # feature-impl-view.INHERITANCE.2: Should NOT show Inherited badge with ID
+      # ACID dots are converted to dashes for DOM-safe IDs
+      refute html =~ "id=\"drawer-inherited-badge-test-feature-COMP-1\""
+      refute html =~ ">Inherited<"
+      # feature-impl-view.DRAWER.4-2: Should show implementation context chip for local status
       assert html =~ implementation.name
     end
   end
