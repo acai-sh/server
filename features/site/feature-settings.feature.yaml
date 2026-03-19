@@ -31,7 +31,7 @@ components:
     CLEAR_REFS:
         description: Component for clearing code references for tracked branches
         requirements:
-            1: Renders a Clear Code Refs button with descriptive label
+            1: Renders a Clear Refs button with descriptive label
             2_1: Button is disabled when no feature_branch_refs exist for any tracked branch
             2_2: Button is disabled when all refs are inherited from a parent implementation
             3: Clicking the button opens a confirmation modal with branch picker

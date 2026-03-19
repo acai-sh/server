@@ -3011,7 +3011,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       view |> element("#impl-settings-btn") |> render_click()
 
       # Track branch button should be visible
-      assert has_element?(view, "#show-track-branch-btn", "Track Branch")
+      assert has_element?(view, "#show-track-branch-btn", "Add")
     end
 
     # impl-settings.DELETE.1
@@ -4079,7 +4079,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Verify modal is shown with warning text
       assert has_element?(view, "#cancel-clear-states-btn", "Cancel")
       assert has_element?(view, "#confirm-clear-states-btn", "Confirm Clear")
-      assert has_element?(view, ".alert-warning", "clear all requirement states")
+      assert has_element?(view, ".alert", "clear all requirement states")
     end
 
     # feature-settings.CLEAR_STATES.5: On confirmation, all feature_impl_states for this feature are deleted
@@ -4119,8 +4119,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
   describe "feature-settings.CLEAR_REFS" do
     setup :register_and_log_in_user
 
-    # feature-settings.CLEAR_REFS.1: Renders a Clear Code Refs button with descriptive label
-    test "drawer renders Clear Code Refs button", %{conn: conn, user: user} do
+    # feature-settings.CLEAR_REFS.1: Renders a Clear Refs button with descriptive label
+    test "drawer renders Clear Refs button", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
       impl = create_implementation_for_product(product, name: "Production")
@@ -4133,12 +4133,12 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Open feature settings drawer
       view |> element("#feature-settings-btn") |> render_click()
 
-      # feature-settings.CLEAR_REFS.1: Clear Code Refs button should be visible
-      assert has_element?(view, "#clear-refs-btn", "Clear Code Refs")
+      # feature-settings.CLEAR_REFS.1: Clear Refs button should be visible
+      assert has_element?(view, "#clear-refs-btn", "Clear Refs")
     end
 
     # feature-settings.CLEAR_REFS.2_1: Button is disabled when no feature_branch_refs exist
-    test "Clear Code Refs button is disabled when no local refs exist", %{conn: conn, user: user} do
+    test "Clear Refs button is disabled when no local refs exist", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
       impl = create_implementation_for_product(product, name: "Production")
@@ -4156,7 +4156,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
     end
 
     # feature-settings.CLEAR_REFS.2_2: Button is disabled when all refs are inherited from a parent implementation
-    test "Clear Code Refs button is disabled when refs are inherited", %{conn: conn, user: user} do
+    test "Clear Refs button is disabled when refs are inherited", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
 
@@ -4214,7 +4214,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
     # feature-settings.CLEAR_REFS.4_1: Each branch displays its full repo_uri and branch name
     # feature-settings.CLEAR_REFS.4_2: All branches are selected by default
     # feature-settings.CLEAR_REFS.5_1: Confirmation modal renders Cancel and Clear Selected buttons
-    test "clicking Clear Code Refs opens modal with branch picker", %{conn: conn, user: user} do
+    test "clicking Clear Refs opens modal with branch picker", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
       impl = create_implementation_for_product(product, name: "Production")
@@ -4227,7 +4227,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Open feature settings drawer
       view |> element("#feature-settings-btn") |> render_click()
 
-      # Click Clear Code Refs button
+      # Click Clear Refs button
       view |> element("#clear-refs-btn") |> render_click()
 
       # Verify modal is shown with branch selection
@@ -4277,7 +4277,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Open feature settings drawer
       view |> element("#feature-settings-btn") |> render_click()
 
-      # Click Clear Code Refs button
+      # Click Clear Refs button
       view |> element("#clear-refs-btn") |> render_click()
 
       # feature-settings.CLEAR_REFS.4_1: Verify full repo_uri is displayed
@@ -4331,7 +4331,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Open feature settings drawer
       view |> element("#feature-settings-btn") |> render_click()
 
-      # Click Clear Code Refs button
+      # Click Clear Refs button
       view |> element("#clear-refs-btn") |> render_click()
 
       # Confirm deletion
@@ -4419,7 +4419,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Verify modal is shown
       assert has_element?(view, "#cancel-delete-spec-btn", "Cancel")
       assert has_element?(view, "#confirm-delete-spec-btn", "Delete Spec")
-      assert has_element?(view, ".alert-error", "permanent")
+      assert has_element?(view, ".alert", "permanent")
     end
 
     # feature-settings.DELETE_SPEC.4_2: Modal shows parent spec fallback explanation for local spec

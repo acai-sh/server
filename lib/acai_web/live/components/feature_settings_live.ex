@@ -402,7 +402,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
         phx-target={@target}
       >
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-warning">Clear All States?</h3>
+          <h3 class="text-lg font-semibold">Clear All States?</h3>
           <button
             type="button"
             class="btn btn-ghost btn-sm btn-circle"
@@ -415,8 +415,8 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
         </div>
 
         <%!-- feature-settings.CLEAR_STATES.4_1 --%>
-        <div class="alert alert-warning text-sm">
-          <.icon name="hero-exclamation-triangle" class="size-5 shrink-0" />
+        <div class="alert text-sm">
+          <.icon name="hero-exclamation-triangle" class="size-5 shrink-0 text-alert" />
           <div>
             <p class="font-semibold">This will clear all requirement states for {@feature_name}.</p>
             <p class="mt-1 text-xs">
@@ -429,6 +429,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
         <div class="flex gap-3 justify-end">
           <.button
             type="button"
+            class="btn btn-soft"
             phx-click="cancel_clear_states"
             phx-target={@target}
             id="cancel-clear-states-btn"
@@ -486,7 +487,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
           disabled={@disabled}
           id="clear-refs-btn"
         >
-          <.icon name="hero-trash" class="size-4 mr-1" /> Clear Code Refs
+          <.icon name="hero-trash" class="size-4 mr-1" /> Clear Refs
         </button>
       </div>
     </div>
@@ -568,6 +569,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
         <div class="flex gap-3 justify-end">
           <.button
             type="button"
+            class="btn btn-soft"
             phx-click="cancel_clear_refs"
             phx-target={@target}
             id="cancel-clear-refs-btn"
@@ -669,8 +671,8 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
 
         <%!-- feature-settings.DELETE_SPEC.4_1 --%>
         <%!-- feature-settings.DELETE_SPEC.4_2 --%>
-        <div class="alert alert-error text-sm">
-          <.icon name="hero-exclamation-triangle" class="size-5 shrink-0" />
+        <div class="alert text-sm">
+          <.icon name="hero-exclamation-triangle" class="size-5 shrink-0 text-alert" />
           <div>
             <p class="font-semibold">This action is permanent and cannot be undone.</p>
             <p class="mt-1">
@@ -688,6 +690,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
         <div class="flex gap-3 justify-end">
           <.button
             type="button"
+            class="btn btn-soft"
             phx-click="cancel_delete_spec"
             phx-target={@target}
             id="cancel-delete-spec-btn"

@@ -870,7 +870,7 @@ defmodule AcaiWeb.ImplementationLive do
             phx-click="open_feature_settings"
             id="feature-settings-btn"
           >
-            <.icon name="hero-cog-6-tooth" class="size-5 text-primary" /> Feature Settings
+            <.icon name="hero-cog-6-tooth" class="size-5" /> Feature Settings
           </button>
 
           <%!-- feature-impl-view.MAIN.2: Renders an 'Implementation Settings' button --%>
@@ -881,7 +881,7 @@ defmodule AcaiWeb.ImplementationLive do
             phx-click="open_impl_settings"
             id="impl-settings-btn"
           >
-            <.icon name="hero-cog-6-tooth" class="size-5 text-secondary" /> Impl. Settings
+            <.icon name="hero-cog-6-tooth" class="size-5" /> Impl. Settings
           </button>
         </div>
 

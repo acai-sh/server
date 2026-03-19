@@ -661,6 +661,7 @@ defmodule AcaiWeb.Live.Components.ImplementationSettingsLive do
             phx-click="cancel_untrack"
             phx-target={@target}
             id="cancel-untrack-btn"
+            class="btn btn-soft"
           >
             Cancel
           </.button>
@@ -788,6 +789,7 @@ defmodule AcaiWeb.Live.Components.ImplementationSettingsLive do
         <div class="flex gap-3 justify-end">
           <.button
             type="button"
+            class="btn btn-soft"
             phx-click="cancel_delete"
             phx-target={@target}
             id="cancel-delete-btn"
