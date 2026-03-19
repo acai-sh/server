@@ -59,11 +59,13 @@ When changing code:
 When writing specs:
 -> Never renumber ACIDs, they are supposed to be stable. Prefer to use the `deprecated` flag rather than removing them.
 -> **Never change the spec** unless explicitly asked to change it.
--> Specs are pure, simple, behavior focused, user- and outcome-oriented. Only functionality, never design nor style nor status.
+-> Specs are pure, simple, concise, behavior focused, outcome-oriented. Only functionality, never design nor style nor status.
 -> Always better to under-specify than over-specify
 -> Stick to the feature.yaml conventions shown above
+-> Prefer to keep engineering, plumbing and under-the-hood details in the `constraints:` section of the spec.
+-> Specs go in /features/<product>/<feat>.feature.yaml
 
-We all do what we can to keep the code, ACID refs, and specs aligned.
+We always go above-and-beyond to keep the code, ACID refs, and specs aligned.
 
 If I ask you to significantly change the behavior of my code, always stop to remind me: "Should we write or edit the spec first?"
 
