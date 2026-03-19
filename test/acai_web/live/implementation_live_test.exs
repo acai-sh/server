@@ -3562,7 +3562,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # feature-impl-view.MAIN.2: Renders an 'Implementation Settings' button with visible text
-      assert has_element?(view, "#impl-settings-btn", "Implementation Settings")
+      assert has_element?(view, "#impl-settings-btn", "Impl. Settings")
     end
 
     # impl-settings.TRACK_BRANCH.5: Button label must be "Save"

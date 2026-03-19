@@ -844,28 +844,6 @@ defmodule AcaiWeb.ImplementationLive do
           </.link>
           <span class="text-base-content/40">/</span>
           <span class="text-base-content font-medium">{@implementation.name}</span>
-
-          <%!-- feature-impl-view.MAIN.1: Renders a 'Feature Settings' button --%>
-          <%!-- feature-settings.DRAWER.1: Renders a settings icon button that opens the drawer --%>
-          <button
-            type="button"
-            class="btn btn-ghost btn-sm ml-auto mr-2"
-            phx-click="open_feature_settings"
-            id="feature-settings-btn"
-          >
-            <.icon name="hero-cog-6-tooth" class="size-5 mr-1" /> Feature Settings
-          </button>
-
-          <%!-- feature-impl-view.MAIN.2: Renders an 'Implementation Settings' button --%>
-          <%!-- impl-settings.DRAWER.1: Renders a settings icon button that opens the drawer --%>
-          <button
-            type="button"
-            class="btn btn-ghost btn-sm"
-            phx-click="open_impl_settings"
-            id="impl-settings-btn"
-          >
-            <.icon name="hero-cog-6-tooth" class="size-5 mr-1" /> Implementation Settings
-          </button>
         </nav>
 
         <%!-- feature-impl-view.CARDS.1: Interactive title picker with dropdowns --%>
@@ -882,6 +860,30 @@ defmodule AcaiWeb.ImplementationLive do
             {@spec.feature_description}
           </p>
         <% end %>
+
+        <div class="flex flex-row-reverse gap-4">
+          <%!-- feature-impl-view.MAIN.1: Renders a 'Feature Settings' button --%>
+          <%!-- feature-settings.DRAWER.1: Renders a settings icon button that opens the drawer --%>
+          <button
+            type="button"
+            class="btn btn-soft"
+            phx-click="open_feature_settings"
+            id="feature-settings-btn"
+          >
+            <.icon name="hero-cog-6-tooth" class="size-5 text-primary" /> Feature Settings
+          </button>
+
+          <%!-- feature-impl-view.MAIN.2: Renders an 'Implementation Settings' button --%>
+          <%!-- impl-settings.DRAWER.1: Renders a settings icon button that opens the drawer --%>
+          <button
+            type="button"
+            class="btn btn-soft"
+            phx-click="open_impl_settings"
+            id="impl-settings-btn"
+          >
+            <.icon name="hero-cog-6-tooth" class="size-5 text-secondary" /> Impl. Settings
+          </button>
+        </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <%!-- feature-impl-view.CARDS.2: Target spec card with labeled fields and inheritance badge --%>
