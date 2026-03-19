@@ -995,13 +995,13 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Open drawer
       view |> render_click("open_drawer", %{"acid" => "my-feature.COMP.1"})
 
-      # Close drawer
+      # Close drawer - use specific selector for requirement details drawer
       view
-      |> element("button[aria-label='Close drawer']")
+      |> element("#requirement-details-drawer button[aria-label='Close drawer']")
       |> render_click()
 
       # Drawer should be hidden
-      refute has_element?(view, ".translate-x-0")
+      refute has_element?(view, "#requirement-details-drawer .translate-x-0")
     end
 
     test "same requirement can be opened multiple times", %{conn: conn, user: user} do
@@ -1016,20 +1016,20 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       # Open drawer for first time
       view |> render_click("open_drawer", %{"acid" => "my-feature.COMP.1"})
-      assert has_element?(view, ".translate-x-0")
-      assert has_element?(view, "h2", "my-feature.COMP.1")
+      assert has_element?(view, "#requirement-details-drawer .translate-x-0")
+      assert has_element?(view, "#requirement-details-drawer h2", "my-feature.COMP.1")
 
-      # Close drawer
+      # Close drawer - use specific selector for requirement details drawer
       view
-      |> element("button[aria-label='Close drawer']")
+      |> element("#requirement-details-drawer button[aria-label='Close drawer']")
       |> render_click()
 
-      refute has_element?(view, ".translate-x-0")
+      refute has_element?(view, "#requirement-details-drawer .translate-x-0")
 
       # Open same requirement again - should work
       view |> render_click("open_drawer", %{"acid" => "my-feature.COMP.1"})
-      assert has_element?(view, ".translate-x-0")
-      assert has_element?(view, "h2", "my-feature.COMP.1")
+      assert has_element?(view, "#requirement-details-drawer .translate-x-0")
+      assert has_element?(view, "#requirement-details-drawer h2", "my-feature.COMP.1")
     end
 
     # feature-impl-view.INHERITANCE.2
@@ -2550,6 +2550,1316 @@ defmodule AcaiWeb.ImplementationLiveTest do
       assert render(view) =~ "feature-two"
       # Implementation should still be present
       assert has_element?(view, "button[popovertarget='impl-popover']", "TestImpl")
+    end
+  end
+
+  describe "IMPL_SETTINGS - implementation settings drawer" do
+    setup :register_and_log_in_user
+
+    # feature-impl-view.MAIN.2
+    test "renders implementation settings button", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      assert has_element?(view, "#impl-settings-btn")
+    end
+
+    # impl-settings.DRAWER.1
+    # impl-settings.DRAWER.2
+    # feature-impl-view.MAIN.2-1
+    test "clicking settings button opens the drawer", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # impl-settings.DRAWER.1: Renders a settings icon button that opens the drawer
+      view
+      |> element("#impl-settings-btn")
+      |> render_click()
+
+      # Drawer should be visible (check for implementation name in drawer)
+      assert has_element?(view, "#implementation-settings-drawer", "Production")
+      # impl-settings.DRAWER.4: Drawer displays the implementation name and product context
+      assert has_element?(view, "#implementation-settings-drawer", "TestProduct")
+    end
+
+    # impl-settings.DRAWER.3
+    test "drawer closes when clicking close button", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+      assert has_element?(view, "#implementation-settings-drawer", "Production")
+
+      # Close drawer via close button
+      view
+      |> element("#implementation-settings-drawer button[aria-label='Close drawer']")
+      |> render_click()
+
+      # Drawer should be hidden (no longer shows translate-x-0)
+      refute has_element?(view, "#implementation-settings-drawer-panel.translate-x-0")
+    end
+
+    # impl-settings.RENAME.1
+    # impl-settings.RENAME.4
+    test "rename form has pre-populated name and disabled save when unchanged", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # impl-settings.RENAME.1: Renders a text input pre-populated with the current implementation name
+      assert has_element?(view, "#rename-implementation-form input[value='Production']")
+
+      # impl-settings.RENAME.4: Save button is disabled when input value matches current name
+      assert has_element?(view, "#save-rename-btn[disabled]")
+    end
+
+    # impl-settings.RENAME.5
+    test "rename save is disabled when input is empty", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Clear the input
+      view
+      |> element("#rename-implementation-form")
+      |> render_change(%{implementation: %{name: ""}})
+
+      # impl-settings.RENAME.5: Save button is disabled when input is empty or whitespace-only
+      assert has_element?(view, "#save-rename-btn[disabled]")
+    end
+
+    # impl-settings.RENAME.6
+    # impl-settings.RENAME.7_1
+    test "rename shows error when name already exists in product", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      # Create another implementation with name "Staging"
+      _other_impl = create_implementation_for_product(product, name: "Staging")
+
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Try to rename to existing name
+      view
+      |> element("#rename-implementation-form")
+      |> render_change(%{implementation: %{name: "Staging"}})
+
+      view
+      |> element("#rename-implementation-form")
+      |> render_submit(%{implementation: %{name: "Staging"}})
+
+      # impl-settings.RENAME.7_1: On validation failure, displays error message
+      assert has_element?(
+               view,
+               "#implementation-settings-drawer",
+               "Implementation name already exists"
+             )
+    end
+
+    # impl-settings.RENAME.2
+    test "rename section has Save button next to input", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # impl-settings.RENAME.2: Renders a Save button next to the input
+      assert has_element?(view, "#save-rename-btn", "Save")
+    end
+
+    # impl-settings.RENAME.3
+    test "rename input supports editing the implementation name", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "OldName")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # impl-settings.RENAME.3: Input supports editing the implementation name
+      # Change the name
+      view
+      |> element("#rename-implementation-form")
+      |> render_change(%{implementation: %{name: "NewName"}})
+
+      # Verify input value was updated
+      assert has_element?(view, "#rename-implementation-form input[value='NewName']")
+    end
+
+    # impl-settings.RENAME.7_2
+    test "rename error clears when user modifies input", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      # Create another implementation with name "Staging"
+      _other_impl = create_implementation_for_product(product, name: "Staging")
+
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Try to rename to existing name to trigger error
+      view
+      |> element("#rename-implementation-form")
+      |> render_change(%{implementation: %{name: "Staging"}})
+
+      view
+      |> element("#rename-implementation-form")
+      |> render_submit(%{implementation: %{name: "Staging"}})
+
+      # Verify error appears
+      assert has_element?(
+               view,
+               "#implementation-settings-drawer",
+               "Implementation name already exists"
+             )
+
+      # impl-settings.RENAME.7_2: Error clears when user modifies the input
+      view
+      |> element("#rename-implementation-form")
+      |> render_change(%{implementation: %{name: "StagingModified"}})
+
+      # Error should be gone
+      refute has_element?(
+               view,
+               "#implementation-settings-drawer",
+               "Implementation name already exists"
+             )
+    end
+
+    # impl-settings.RENAME.8
+    test "successful rename updates UI and patches URL", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "OldName")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Change name
+      view
+      |> element("#rename-implementation-form")
+      |> render_change(%{implementation: %{name: "NewName"}})
+
+      # Submit rename
+      view
+      |> element("#rename-implementation-form")
+      |> render_submit(%{implementation: %{name: "NewName"}})
+
+      # impl-settings.RENAME.8: On successful save, updates the implementation name and UI reflects change
+      assert has_element?(view, "#implementation-settings-drawer", "NewName")
+      # URL should be patched to new slug
+      assert_patch(
+        view,
+        ~p"/t/#{team.name}/i/newname-#{String.replace(impl.id, "-", "")}/f/my-feature"
+      )
+    end
+
+    # impl-settings.UNTRACK_BRANCH.1
+    # impl-settings.UNTRACK_BRANCH.2
+    test "tracked branches are listed with repo_uri and branch name", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Create tracked branches
+      branch1 = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      branch2 = branch_fixture(team, %{repo_uri: "github.com/org/repo2", branch_name: "develop"})
+
+      tracked_branch_fixture(impl, branch: branch1, repo_uri: branch1.repo_uri)
+      tracked_branch_fixture(impl, branch: branch2, repo_uri: branch2.repo_uri)
+
+      # Create spec on first branch
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: branch1,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # impl-settings.UNTRACK_BRANCH.1: Renders a list of all currently tracked branches
+      # impl-settings.UNTRACK_BRANCH.2: Each branch entry displays the full repo_uri and branch name
+      assert has_element?(view, "#implementation-settings-drawer", "github.com/org/repo1")
+      assert has_element?(view, "#implementation-settings-drawer", "github.com/org/repo2")
+      assert has_element?(view, "#implementation-settings-drawer", "main")
+      assert has_element?(view, "#implementation-settings-drawer", "develop")
+    end
+
+    # impl-settings.UNTRACK_BRANCH.3
+    test "each tracked branch has a delete icon button for removal", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Create tracked branches
+      branch1 = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      branch2 = branch_fixture(team, %{repo_uri: "github.com/org/repo2", branch_name: "develop"})
+
+      tracked_branch_fixture(impl, branch: branch1, repo_uri: branch1.repo_uri)
+      tracked_branch_fixture(impl, branch: branch2, repo_uri: branch2.repo_uri)
+
+      # Create spec on different branch so these can be untracked
+      branch3 = branch_fixture(team, %{repo_uri: "github.com/org/repo3", branch_name: "feature"})
+      tracked_branch_fixture(impl, branch: branch3, repo_uri: branch3.repo_uri)
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: branch3,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # impl-settings.UNTRACK_BRANCH.3: Each branch has a delete icon button for removal
+      # Each tracked branch should have an untrack button with trash icon
+      assert has_element?(view, "#untrack-branch-btn-#{branch1.id}")
+      assert has_element?(view, "#untrack-branch-btn-#{branch2.id}")
+      # The buttons should use a trash icon (rendered as span with hero-trash class)
+      assert has_element?(view, "#untrack-branch-btn-#{branch1.id} span.hero-trash")
+      assert has_element?(view, "#untrack-branch-btn-#{branch2.id} span.hero-trash")
+    end
+
+    # impl-settings.UNTRACK_BRANCH.4_1
+    test "delete button is disabled for current spec branch", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Create branch for spec (this will be the current spec branch)
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: branch,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      # Create another tracked branch
+      branch2 = branch_fixture(team, %{repo_uri: "github.com/org/repo2", branch_name: "develop"})
+      tracked_branch_fixture(impl, branch: branch2, repo_uri: branch2.repo_uri)
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # impl-settings.UNTRACK_BRANCH.4_1: Delete button is disabled for the branch containing the target spec
+      assert has_element?(view, "#untrack-branch-btn-#{branch.id}[disabled]")
+      # Other branch should not be disabled
+      refute has_element?(view, "#untrack-branch-btn-#{branch2.id}[disabled]")
+    end
+
+    # impl-settings.UNTRACK_BRANCH.5
+    # impl-settings.UNTRACK_BRANCH.6_1
+    test "untrack modal shows branch name and repo_uri", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec on different branch so this one can be untracked
+      branch2 = branch_fixture(team, %{repo_uri: "github.com/org/repo2", branch_name: "develop"})
+      tracked_branch_fixture(impl, branch: branch2, repo_uri: branch2.repo_uri)
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: branch2,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Click untrack button
+      view
+      |> element("#untrack-branch-btn-#{branch.id}")
+      |> render_click()
+
+      # impl-settings.UNTRACK_BRANCH.5: Clicking a delete button opens a confirmation modal
+      # impl-settings.UNTRACK_BRANCH.6_1: Confirmation modal displays the branch name and repo_uri
+      assert has_element?(view, "#implementation-settings-drawer", "github.com/org/repo1")
+      assert has_element?(view, "#implementation-settings-drawer", "main")
+    end
+
+    # impl-settings.UNTRACK_BRANCH.7
+    test "confirming untrack removes the branch", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec on different branch
+      branch2 = branch_fixture(team, %{repo_uri: "github.com/org/repo2", branch_name: "develop"})
+      tracked_branch_fixture(impl, branch: branch2, repo_uri: branch2.repo_uri)
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: branch2,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Verify branch is listed
+      assert has_element?(view, "#implementation-settings-drawer", "github.com/org/repo1")
+
+      # Click untrack button
+      view
+      |> element("#untrack-branch-btn-#{branch.id}")
+      |> render_click()
+
+      # Confirm untrack
+      view
+      |> element("#confirm-untrack-btn")
+      |> render_click()
+
+      # impl-settings.UNTRACK_BRANCH.7: On confirmation, removes the branch from tracked branches
+      # impl-settings.UNTRACK_BRANCH.8: UI updates immediately to reflect the removed branch
+      refute has_element?(view, "#implementation-settings-drawer", "github.com/org/repo1")
+    end
+
+    # impl-settings.TRACK_BRANCH.1
+    test "show track branch UI button is visible", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Track branch button should be visible
+      assert has_element?(view, "#show-track-branch-btn", "Track Branch")
+    end
+
+    # impl-settings.DELETE.1
+    # impl-settings.DELETE.2
+    test "delete implementation button is visible with warning styling", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # impl-settings.DELETE.1: Renders a Delete Implementation button
+      # impl-settings.DELETE.2: Button is visually distinct to indicate destructive action
+      assert has_element?(view, "#delete-implementation-btn")
+    end
+
+    # impl-settings.DELETE.3
+    # impl-settings.DELETE.4_1
+    test "delete modal shows implementation and product names", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Click delete button
+      view
+      |> element("#delete-implementation-btn")
+      |> render_click()
+
+      # impl-settings.DELETE.3: Clicking the button opens a confirmation modal
+      # impl-settings.DELETE.4_1: Modal displays the implementation name and product name
+      assert has_element?(view, "#implementation-settings-drawer", "Production")
+      assert has_element?(view, "#implementation-settings-drawer", "TestProduct")
+      # impl-settings.DELETE.4_2: Modal displays warning text that deletion is irreversible
+      assert has_element?(
+               view,
+               "#implementation-settings-drawer",
+               "This action is permanent and cannot be undone"
+             )
+    end
+
+    # impl-settings.DELETE.5
+    test "delete button disabled until confirmation name is typed", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Click delete button
+      view
+      |> element("#delete-implementation-btn")
+      |> render_click()
+
+      # impl-settings.DELETE.5: Delete button in modal requires additional confirmation (e.g. type name)
+      assert has_element?(view, "#confirm-delete-btn[disabled]")
+
+      # Type wrong name via the form
+      view
+      |> element("#delete-confirm-form")
+      |> render_change(%{confirm_name: "WrongName"})
+
+      # Should still be disabled
+      assert has_element?(view, "#confirm-delete-btn[disabled]")
+
+      # Type correct name via the form
+      view
+      |> element("#delete-confirm-form")
+      |> render_change(%{confirm_name: "Production"})
+
+      # Should now be enabled
+      refute has_element?(view, "#confirm-delete-btn[disabled]")
+    end
+
+    # impl-settings.DELETE.6
+    # impl-settings.DELETE.7
+    test "confirming delete redirects to product page", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Click delete button
+      view
+      |> element("#delete-implementation-btn")
+      |> render_click()
+
+      # Type confirmation
+      view
+      |> element("#delete-confirm-form")
+      |> render_change(%{confirm_name: "Production"})
+
+      # Confirm delete
+      view
+      |> element("#confirm-delete-btn")
+      |> render_click()
+
+      # impl-settings.DELETE.7: User is redirected to /p/:product_name after deletion
+      assert_redirect(view, ~p"/t/#{team.name}/p/TestProduct")
+    end
+
+    # impl-settings.DRAWER.3
+    test "drawer closes when clicking backdrop", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+      assert has_element?(view, "#implementation-settings-drawer", "Production")
+
+      # Close drawer via backdrop click (the backdrop is the first child div with phx-click="close")
+      view
+      |> element("#implementation-settings-drawer > div:first-child")
+      |> render_click()
+
+      # Drawer should be hidden
+      refute has_element?(view, "#implementation-settings-drawer-panel.translate-x-0")
+    end
+
+    # impl-settings.DRAWER.3
+    test "drawer closes when pressing Escape key", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+      assert has_element?(view, "#implementation-settings-drawer", "Production")
+
+      # Close drawer via Escape key
+      view
+      |> element("#implementation-settings-drawer")
+      |> render_keydown(%{"key" => "Escape"})
+
+      # Drawer should be hidden
+      refute has_element?(view, "#implementation-settings-drawer-panel.translate-x-0")
+    end
+
+    # impl-settings.UNTRACK_BRANCH.4_2
+    test "disabled delete button shows tooltip explaining it is the current feature's branch", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Create branch for spec (this will be the current spec branch)
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: branch,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # impl-settings.UNTRACK_BRANCH.4_2: Disabled delete button shows tooltip
+      # The button should have a title attribute explaining it's the current feature's branch
+      button = element(view, "#untrack-branch-btn-#{branch.id}")
+      html = render(button)
+      assert html =~ "current feature&#39;s branch"
+      assert html =~ "cannot be untracked"
+    end
+
+    # impl-settings.UNTRACK_BRANCH.6_2
+    # impl-settings.UNTRACK_BRANCH.6_3
+    test "untrack modal shows warning text and cancel/untrack buttons", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec on different branch
+      branch2 = branch_fixture(team, %{repo_uri: "github.com/org/repo2", branch_name: "develop"})
+      tracked_branch_fixture(impl, branch: branch2, repo_uri: branch2.repo_uri)
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: branch2,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Click untrack button
+      view
+      |> element("#untrack-branch-btn-#{branch.id}")
+      |> render_click()
+
+      # impl-settings.UNTRACK_BRANCH.6_2: Confirmation modal explains refs may disappear
+      assert has_element?(
+               view,
+               "#implementation-settings-drawer",
+               "Code references from this branch will no longer appear"
+             )
+
+      # impl-settings.UNTRACK_BRANCH.6_3: Confirmation modal renders Cancel and Untrack buttons
+      assert has_element?(view, "#cancel-untrack-btn", "Cancel")
+      assert has_element?(view, "#confirm-untrack-btn", "Untrack")
+    end
+
+    # impl-settings.UNTRACK_BRANCH.9
+    test "untrack modal explains user can re-track branch later without data loss", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec on different branch
+      branch2 = branch_fixture(team, %{repo_uri: "github.com/org/repo2", branch_name: "develop"})
+      tracked_branch_fixture(impl, branch: branch2, repo_uri: branch2.repo_uri)
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: branch2,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Click untrack button
+      view
+      |> element("#untrack-branch-btn-#{branch.id}")
+      |> render_click()
+
+      # impl-settings.UNTRACK_BRANCH.9: User can re-track the branch later without data loss
+      assert has_element?(
+               view,
+               "#implementation-settings-drawer",
+               "You can re-track this branch later without losing any data"
+             )
+    end
+
+    # impl-settings.TRACK_BRANCH.2
+    # impl-settings.TRACK_BRANCH.3_1
+    # impl-settings.TRACK_BRANCH.4
+    test "trackable branches exclude already tracked repos and show full repo_uri", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Create tracked branch
+      tracked = branch_fixture(team, %{repo_uri: "github.com/org/tracked", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: tracked, repo_uri: tracked.repo_uri)
+
+      # Create untracked branches
+      _untracked1 =
+        branch_fixture(team, %{repo_uri: "github.com/org/untracked1", branch_name: "develop"})
+
+      _untracked2 =
+        branch_fixture(team, %{repo_uri: "github.com/org/untracked2", branch_name: "feature"})
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: tracked,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Click show track branch UI
+      view
+      |> element("#show-track-branch-btn")
+      |> render_click()
+
+      # impl-settings.TRACK_BRANCH.4: Each option displays full repo_uri plus branch name
+      assert has_element?(view, "#implementation-settings-drawer", "github.com/org/untracked1")
+      assert has_element?(view, "#implementation-settings-drawer", "github.com/org/untracked2")
+
+      # impl-settings.TRACK_BRANCH.3_1: Excludes branches already tracked by this implementation
+      refute has_element?(view, "#implementation-settings-drawer", "github.com/org/tracked")
+    end
+
+    # impl-settings.TRACK_BRANCH.3_2
+    test "trackable branches exclude branches from other teams", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+
+      # Create branch for other team
+      other_team = team_fixture(%{name: "other-team"})
+
+      _other_branch =
+        branch_fixture(other_team, %{
+          repo_uri: "github.com/other-team/repo",
+          branch_name: "main"
+        })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Click show track branch UI
+      view
+      |> element("#show-track-branch-btn")
+      |> render_click()
+
+      # impl-settings.TRACK_BRANCH.3_2: List excludes branches for other teams
+      refute has_element?(
+               view,
+               "#implementation-settings-drawer",
+               "github.com/other-team/repo"
+             )
+    end
+
+    # impl-settings.TRACK_BRANCH.5
+    # impl-settings.TRACK_BRANCH.6
+    # impl-settings.TRACK_BRANCH.7
+    test "track branch UI shows save and cancel buttons with correct disabled state", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Create tracked branch for spec
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create trackable branch
+      trackable =
+        branch_fixture(team, %{repo_uri: "github.com/org/repo2", branch_name: "develop"})
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: branch,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Click show track branch UI
+      view
+      |> element("#show-track-branch-btn")
+      |> render_click()
+
+      # impl-settings.TRACK_BRANCH.5: Renders Save and Cancel buttons
+      assert has_element?(view, "#cancel-track-branch-btn", "Cancel")
+      assert has_element?(view, "#save-track-branch-btn")
+
+      # impl-settings.TRACK_BRANCH.6: Save button is disabled when no branch is selected
+      assert has_element?(view, "#save-track-branch-btn[disabled]")
+
+      # Select a branch
+      view
+      |> element("[phx-click='select_branch_to_track'][phx-value-branch_id='#{trackable.id}']")
+      |> render_click()
+
+      # Save button should now be enabled
+      refute has_element?(view, "#save-track-branch-btn[disabled]")
+
+      # impl-settings.TRACK_BRANCH.7: Cancel button clears the current selection
+      view
+      |> element("#cancel-track-branch-btn")
+      |> render_click()
+
+      # Should be back to tracked branches list
+      assert has_element?(view, "#show-track-branch-btn")
+    end
+
+    # impl-settings.TRACK_BRANCH.8
+    # impl-settings.TRACK_BRANCH.9
+    # impl-settings.TRACK_BRANCH.10
+    test "tracking a branch updates UI immediately and refreshes trackable list", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Create tracked branch
+      tracked = branch_fixture(team, %{repo_uri: "github.com/org/tracked", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: tracked, repo_uri: tracked.repo_uri)
+
+      # Create branch to track
+      to_track =
+        branch_fixture(team, %{repo_uri: "github.com/org/to-track", branch_name: "develop"})
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: tracked,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Click show track branch UI
+      view
+      |> element("#show-track-branch-btn")
+      |> render_click()
+
+      # Select the branch to track
+      view
+      |> element("[phx-click='select_branch_to_track'][phx-value-branch_id='#{to_track.id}']")
+      |> render_click()
+
+      # Save the tracking
+      view
+      |> element("#save-track-branch-btn")
+      |> render_click()
+
+      # impl-settings.TRACK_BRANCH.9: UI updates immediately to show the newly tracked branch
+      assert has_element?(view, "#implementation-settings-drawer", "github.com/org/to-track")
+
+      # impl-settings.TRACK_BRANCH.10: List of trackable branches refreshes to exclude the newly tracked branch
+      # Click track branch UI again
+      view
+      |> element("#show-track-branch-btn")
+      |> render_click()
+
+      # Should not show the now-tracked branch
+      refute has_element?(view, "#implementation-settings-drawer", "github.com/org/to-track")
+    end
+
+    # impl-settings.DELETE.4_3
+    # impl-settings.DELETE.4_4
+    # impl-settings.DELETE.4_5
+    test "delete modal shows all warning text and required buttons", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Click delete button
+      view
+      |> element("#delete-implementation-btn")
+      |> render_click()
+
+      # impl-settings.DELETE.4_3: Modal explains that all associated feature states and refs will be cleared
+      assert has_element?(
+               view,
+               "#implementation-settings-drawer",
+               "All feature states for this implementation"
+             )
+
+      assert has_element?(
+               view,
+               "#implementation-settings-drawer",
+               "All code reference associations"
+             )
+
+      # impl-settings.DELETE.4_4: Modal explains that child implementations will lose inherited states and refs
+      assert has_element?(
+               view,
+               "#implementation-settings-drawer",
+               "Child implementations will lose inherited states and refs"
+             )
+
+      # impl-settings.DELETE.4_5: Modal renders Cancel and Delete buttons
+      assert has_element?(view, "#cancel-delete-btn", "Cancel")
+      assert has_element?(view, "#confirm-delete-btn", "Delete Implementation")
+    end
+
+    # feature-impl-view.MAIN.2: Button must display "Implementation Settings" text
+    test "implementation settings button displays text label", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # feature-impl-view.MAIN.2: Renders an 'Implementation Settings' button with visible text
+      assert has_element?(view, "#impl-settings-btn", "Implementation Settings")
+    end
+
+    # impl-settings.TRACK_BRANCH.5: Button label must be "Save"
+    test "track branch save button displays 'Save' label", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Create tracked branch
+      tracked = branch_fixture(team, %{repo_uri: "github.com/org/tracked", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: tracked, repo_uri: tracked.repo_uri)
+
+      # Create trackable branch (not used directly but needed for the UI to show options)
+      _trackable =
+        branch_fixture(team, %{repo_uri: "github.com/org/trackable", branch_name: "develop"})
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: tracked,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer and track branch UI
+      view |> element("#impl-settings-btn") |> render_click()
+      view |> element("#show-track-branch-btn") |> render_click()
+
+      # impl-settings.TRACK_BRANCH.5: Save button displays "Save" label
+      assert has_element?(view, "#save-track-branch-btn", "Save")
+    end
+
+    # impl-settings.DELETE.1: Button label must be "Delete Implementation"
+    test "delete implementation button displays 'Delete Implementation' label", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+      create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+      slug = build_impl_slug(impl)
+
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # impl-settings.DELETE.1: Renders a Delete Implementation button with visible text
+      assert has_element?(view, "#delete-implementation-btn", "Delete Implementation")
+    end
+
+    # impl-settings.UNTRACK_BRANCH.8: Regression test - drawer stays open after untrack
+    test "settings drawer remains open after untracking a branch", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create spec on different branch so branch1 can be untracked
+      branch2 = branch_fixture(team, %{repo_uri: "github.com/org/repo2", branch_name: "develop"})
+      tracked_branch_fixture(impl, branch: branch2, repo_uri: branch2.repo_uri)
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: branch2,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Verify drawer is open by checking content is visible
+      assert has_element?(view, "#implementation-settings-drawer", "Production")
+
+      # Click untrack button
+      view
+      |> element("#untrack-branch-btn-#{branch.id}")
+      |> render_click()
+
+      # Confirm untrack - the render_click returns after handle_info completes
+      view
+      |> element("#confirm-untrack-btn")
+      |> render_click()
+
+      # impl-settings.UNTRACK_BRANCH.8: UI updates in-place with drawer remaining open
+      # Verify drawer is still open: the drawer content should still be visible
+      # and the branch should be removed from the list
+      refute has_element?(view, "#implementation-settings-drawer", "github.com/org/repo1")
+      # Verify the drawer panel is still visible by checking the translate-x-0 class
+      # on the specific panel element (not just anywhere in the document)
+      html = render(view)
+
+      panel_open =
+        html =~
+          ~r/<div[^>]*id="implementation-settings-drawer-panel"[^>]*class="[^"]*translate-x-0[^"]*"/
+
+      assert panel_open, "Drawer panel should still be visibly open after untrack"
+    end
+
+    # impl-settings.TRACK_BRANCH.9: Regression test - drawer stays open after track
+    test "settings drawer remains open after tracking a branch", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Create tracked branch
+      tracked = branch_fixture(team, %{repo_uri: "github.com/org/tracked", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: tracked, repo_uri: tracked.repo_uri)
+
+      # Create branch to track
+      to_track =
+        branch_fixture(team, %{repo_uri: "github.com/org/to-track", branch_name: "develop"})
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        branch: tracked,
+        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Verify drawer is open by checking content is visible
+      assert has_element?(view, "#implementation-settings-drawer", "Production")
+
+      # Click show track branch UI
+      view
+      |> element("#show-track-branch-btn")
+      |> render_click()
+
+      # Select the branch to track
+      view
+      |> element("[phx-click='select_branch_to_track'][phx-value-branch_id='#{to_track.id}']")
+      |> render_click()
+
+      # Save the tracking - render_click returns after all handlers complete
+      view
+      |> element("#save-track-branch-btn")
+      |> render_click()
+
+      # impl-settings.TRACK_BRANCH.9: UI updates in-place with drawer remaining open
+      # Verify the newly tracked branch is now in the list
+      assert has_element?(view, "#implementation-settings-drawer", "github.com/org/to-track")
+      # Verify the drawer panel is still visible by checking the translate-x-0 class
+      # on the specific panel element using regex to match the class within the panel div
+      html = render(view)
+
+      panel_open =
+        html =~
+          ~r/<div[^>]*id="implementation-settings-drawer-panel"[^>]*class="[^"]*translate-x-0[^"]*"/
+
+      assert panel_open, "Drawer panel should still be visibly open after track"
+    end
+
+    # impl-settings.RENAME.8: Regression test - dropdown options refresh after rename
+    test "implementation dropdown shows updated name after rename", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      # Create two implementations that share the feature
+      impl_a = create_implementation_for_product(product, name: "ImplA")
+
+      impl_b =
+        create_implementation_for_product(product, name: "ImplB")
+
+      # Create a shared branch with the feature spec
+      shared_branch =
+        branch_fixture(team, %{repo_uri: "github.com/org/shared", branch_name: "main"})
+
+      tracked_branch_fixture(impl_a, branch: shared_branch, repo_uri: shared_branch.repo_uri)
+      tracked_branch_fixture(impl_b, branch: shared_branch, repo_uri: shared_branch.repo_uri)
+
+      spec_fixture(product, %{
+        feature_name: "shared-feature",
+        branch: shared_branch,
+        requirements: %{
+          "shared-feature.COMP.1" => %{
+            "definition" => "Shared req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      slug_a = build_impl_slug(impl_a)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug_a}/f/shared-feature")
+
+      # Verify initial state shows ImplA in dropdown
+      assert has_element?(view, "#impl-popover", "ImplA")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Rename implementation
+      view
+      |> element("#rename-implementation-form")
+      |> render_change(%{implementation: %{name: "RenamedImpl"}})
+
+      view
+      |> element("#rename-implementation-form")
+      |> render_submit(%{implementation: %{name: "RenamedImpl"}})
+
+      # Verify URL was patched
+      assert_patch(view)
+
+      # Verify implementation dropdown now shows the new name
+      assert has_element?(view, "#impl-popover", "RenamedImpl")
+      # And not the old name
+      refute has_element?(view, "#impl-popover", "ImplA")
+    end
+
+    # impl-settings.UNTRACK_BRANCH.8: Regression test - page state refreshes after untrack
+    test "refs counts refresh after untracking a branch", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      # Create tracked branches
+      branch1 = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      branch2 = branch_fixture(team, %{repo_uri: "github.com/org/repo2", branch_name: "develop"})
+
+      tracked_branch_fixture(impl, branch: branch1, repo_uri: branch1.repo_uri)
+      tracked_branch_fixture(impl, branch: branch2, repo_uri: branch2.repo_uri)
+
+      # Create spec on branch1
+      _spec =
+        spec_fixture(product, %{
+          feature_name: "my-feature",
+          branch: branch1,
+          requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        })
+
+      # Create FeatureBranchRefs manually for both branches
+      # (spec_impl_ref_fixture would create for all tracked branches which is not what we want here)
+      Acai.Specs.FeatureBranchRef.changeset(
+        %Acai.Specs.FeatureBranchRef{},
+        %{
+          feature_name: "my-feature",
+          branch_id: branch1.id,
+          refs: %{
+            "my-feature.COMP.1" => [
+              %{"path" => "lib/file1.ex:1", "is_test" => false}
+            ]
+          },
+          commit: "abc123",
+          pushed_at: DateTime.utc_now()
+        }
+      )
+      |> Acai.Repo.insert!()
+
+      Acai.Specs.FeatureBranchRef.changeset(
+        %Acai.Specs.FeatureBranchRef{},
+        %{
+          feature_name: "my-feature",
+          branch_id: branch2.id,
+          refs: %{
+            "my-feature.COMP.1" => [
+              %{"path" => "lib/file2.ex:2", "is_test" => false}
+            ]
+          },
+          commit: "abc123",
+          pushed_at: DateTime.utc_now()
+        }
+      )
+      |> Acai.Repo.insert!()
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      # Verify refs count shows 2 (from both branches)
+      assert has_element?(view, "#requirement-row-my-feature-COMP-1 td:nth-child(4)", "2")
+
+      # Open drawer
+      view |> element("#impl-settings-btn") |> render_click()
+
+      # Click untrack button for branch2
+      view
+      |> element("#untrack-branch-btn-#{branch2.id}")
+      |> render_click()
+
+      # Confirm untrack
+      view
+      |> element("#confirm-untrack-btn")
+      |> render_click()
+
+      # Verify refs count now shows 1 (only from branch1)
+      assert has_element?(view, "#requirement-row-my-feature-COMP-1 td:nth-child(4)", "1")
     end
   end
 end
