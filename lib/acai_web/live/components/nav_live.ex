@@ -279,16 +279,15 @@ defmodule AcaiWeb.Live.Components.NavLive do
       <%!-- nav.PANEL.3-2: Product display name --%>
       <div class="flex items-center group">
         <%!-- nav.PANEL.3-3, nav.PANEL.4-3: Product item links to overview --%>
-        <%!-- Product styling uses secondary color to align with Product visual language --%>
         <.link
           navigate={~p"/t/#{@team.name}/p/#{@product}"}
           class={
             [
               "flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors min-h-10 min-w-0",
               # nav.PANEL.5-4: Active product highlighted with secondary color
-              @active_product == @product && "bg-base-300 text-secondary",
+              @active_product == @product && "bg-base-300 text-accent",
               @active_product != @product &&
-                "text-base-content/70 hover:bg-base-200 hover:text-secondary"
+                "text-base-content/70 hover:bg-base-200 hover:text-accent"
             ]
           }
         >
@@ -300,8 +299,8 @@ defmodule AcaiWeb.Live.Components.NavLive do
         <button
           type="button"
           class={[
-            "px-2 py-2 rounded-lg transition-colors text-base-content/40 hover:text-secondary hover:bg-base-200 min-h-10",
-            @active_product == @product && "bg-base-300 text-secondary/60 hover:text-secondary"
+            "px-2 py-2 rounded-lg transition-colors text-base-content/40 hover:text-accent hover:bg-base-200 min-h-10",
+            @active_product == @product && "bg-base-300 text-accent/60 hover:text-accent"
           ]}
           phx-click="toggle_product"
           phx-value-product={@product}

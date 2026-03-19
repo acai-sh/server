@@ -367,6 +367,90 @@ defmodule Acai.Implementations do
   end
 
   @doc """
+  Deletes a tracked branch (untracks a branch from an implementation).
+
+  ACIDs:
+  - impl-settings.UNTRACK_BRANCH.7: On confirmation, removes the branch from tracked branches
+  - impl-settings.DATA_INTEGRITY.1: Untrack operation preserves feature_branch_ref data
+  """
+  def delete_tracked_branch(%TrackedBranch{} = tracked_branch) do
+    Repo.delete(tracked_branch)
+  end
+
+  @doc """
+  Lists all trackable branches for an implementation.
+
+  Trackable branches are defined as branches where repo_uri is not already tracked
+  by this implementation. Excludes branches from other teams.
+
+  ACIDs:
+  - impl-settings.TRACK_BRANCH.2: Trackable branches where repo_uri is not already tracked
+  - impl-settings.TRACK_BRANCH.3_1: Excludes branches already tracked by this implementation
+  - impl-settings.TRACK_BRANCH.3_2: Excludes branches for other teams
+  - impl-settings.TRACK_BRANCH.4: Each option displays full repo_uri plus branch name
+  """
+  def list_trackable_branches(%Implementation{} = implementation) do
+    # Single efficient query that excludes already tracked repo_uris at the SQL level
+    # Uses a subquery to get tracked repo_uris and filters them out in the main query
+    tracked_repo_uris =
+      from tb in TrackedBranch,
+        where: tb.implementation_id == ^implementation.id,
+        select: tb.repo_uri
+
+    Repo.all(
+      from b in Branch,
+        where: b.team_id == ^implementation.team_id,
+        where: b.repo_uri not in subquery(tracked_repo_uris),
+        order_by: [b.repo_uri, b.branch_name]
+    )
+  end
+
+  @doc """
+  Deletes an implementation and handles cascading effects.
+
+  ACIDs:
+  - impl-settings.DELETE.6: On confirmation, permanently deletes the implementation
+  - impl-settings.DATA_INTEGRITY.2: Delete operation cascades to clear dependent states (DB constraint)
+  - impl-settings.DATA_INTEGRITY.3: Child implementations are not deleted, parent_implementation_id is cleared
+  """
+  def delete_implementation(%Implementation{} = implementation) do
+    # impl-settings.DATA_INTEGRITY.3: Child implementations are not deleted
+    # Use a transaction to ensure atomicity - if delete fails, children remain attached
+    Repo.transaction(fn ->
+      # Clear parent_implementation_id for child implementations
+      # This preserves child implementations per data-model.IMPLS.7-1
+      Repo.update_all(
+        from(i in Implementation, where: i.parent_implementation_id == ^implementation.id),
+        set: [parent_implementation_id: nil]
+      )
+
+      Repo.delete!(implementation)
+    end)
+  end
+
+  @doc """
+  Checks if a name is unique within a product for an implementation.
+
+  Returns true if the name is available (not taken by another implementation
+  in the same product), false otherwise.
+  """
+  def implementation_name_unique?(%Implementation{} = implementation, name) do
+    trimmed_name = String.trim(name)
+
+    existing =
+      Repo.one(
+        from i in Implementation,
+          where:
+            i.product_id == ^implementation.product_id and
+              fragment("lower(?)", i.name) == ^String.downcase(trimmed_name) and
+              i.id != ^implementation.id,
+          limit: 1
+      )
+
+    is_nil(existing)
+  end
+
+  @doc """
   Counts tracked branches for an implementation.
   """
   def count_tracked_branches(%Implementation{} = implementation) do

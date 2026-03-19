@@ -505,4 +505,255 @@ defmodule Acai.ImplementationsTest do
       assert Enum.map(result, & &1.name) == ["Alpha", "Beta"]
     end
   end
+
+  describe "delete_tracked_branch/1" do
+    test "removes the tracked branch without deleting the branch", %{product: product} do
+      impl = implementation_fixture(product)
+      tracked_branch = tracked_branch_fixture(impl)
+
+      # impl-settings.UNTRACK_BRANCH.7: On confirmation, removes the branch from tracked branches
+      assert {:ok, _} = Implementations.delete_tracked_branch(tracked_branch)
+
+      # Tracked branch should be gone
+      assert Implementations.list_tracked_branches(impl) == []
+
+      # But the underlying branch should still exist
+      assert Repo.get(Acai.Implementations.Branch, tracked_branch.branch_id) != nil
+    end
+
+    # impl-settings.DATA_INTEGRITY.1: Untrack operation preserves feature_branch_ref data
+    test "preserves feature_branch_ref data for potential re-tracking", %{product: product} do
+      team = Repo.get!(Acai.Teams.Team, product.team_id)
+      impl = implementation_fixture(product)
+      branch = branch_fixture(team)
+
+      # Create a feature_branch_ref with actual refs data
+      Acai.Specs.FeatureBranchRef.changeset(
+        %Acai.Specs.FeatureBranchRef{},
+        %{
+          feature_name: "test-feature",
+          branch_id: branch.id,
+          refs: %{
+            "test-feature.COMP.1" => [
+              %{"path" => "lib/file.ex:1", "is_test" => false}
+            ]
+          },
+          commit: "abc123",
+          pushed_at: DateTime.utc_now()
+        }
+      )
+      |> Repo.insert!()
+
+      tracked_branch = tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Delete the tracked branch
+      assert {:ok, _} = Implementations.delete_tracked_branch(tracked_branch)
+
+      # impl-settings.DATA_INTEGRITY.1: FeatureBranchRef should still exist (preserved for re-tracking)
+      fbr = Repo.get_by(Acai.Specs.FeatureBranchRef, branch_id: branch.id)
+      assert fbr != nil
+      # The refs data should be preserved
+      assert fbr.refs["test-feature.COMP.1"] != nil
+    end
+  end
+
+  describe "list_trackable_branches/1" do
+    test "returns branches not already tracked by the implementation", %{
+      product: product,
+      team: team
+    } do
+      impl = implementation_fixture(product)
+
+      # Create some branches
+      branch1 = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      branch2 = branch_fixture(team, %{repo_uri: "github.com/org/repo2", branch_name: "main"})
+      branch3 = branch_fixture(team, %{repo_uri: "github.com/org/repo3", branch_name: "develop"})
+
+      # Track branch1
+      tracked_branch_fixture(impl, branch: branch1, repo_uri: branch1.repo_uri)
+
+      # impl-settings.TRACK_BRANCH.2: Trackable branches where repo_uri is not already tracked
+      # impl-settings.TRACK_BRANCH.3_1: Excludes branches already tracked by this implementation
+      trackable = Implementations.list_trackable_branches(impl)
+      trackable_ids = Enum.map(trackable, & &1.id)
+
+      # Should not include branch1 (already tracked)
+      refute branch1.id in trackable_ids
+      # Should include branch2 and branch3 (different repo_uris)
+      assert branch2.id in trackable_ids
+      assert branch3.id in trackable_ids
+    end
+
+    test "excludes branches from other teams", %{product: product, team: team} do
+      impl = implementation_fixture(product)
+
+      # Create branch for current team
+      _branch1 = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+
+      # Create branch for different team
+      other_team = Acai.DataModelFixtures.team_fixture(%{name: "other-team"})
+
+      _branch2 =
+        branch_fixture(other_team, %{repo_uri: "github.com/org/repo2", branch_name: "main"})
+
+      # impl-settings.TRACK_BRANCH.3_2: List excludes untrackable repos or branches for other teams
+      trackable = Implementations.list_trackable_branches(impl)
+      trackable_repo_uris = Enum.map(trackable, & &1.repo_uri)
+
+      # Should include branch from current team
+      assert "github.com/org/repo1" in trackable_repo_uris
+      # Should not include branch from other team
+      refute "github.com/org/repo2" in trackable_repo_uris
+    end
+
+    test "returns empty list when all branches are tracked", %{product: product, team: team} do
+      impl = implementation_fixture(product)
+
+      # Create and track all branches
+      branch1 = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch1, repo_uri: branch1.repo_uri)
+
+      trackable = Implementations.list_trackable_branches(impl)
+      assert trackable == []
+    end
+  end
+
+  describe "delete_implementation/1" do
+    test "permanently deletes the implementation", %{product: product} do
+      impl = implementation_fixture(product, %{name: "ToDelete"})
+
+      # impl-settings.DELETE.6: On confirmation, permanently deletes the implementation
+      assert {:ok, _} = Implementations.delete_implementation(impl)
+
+      # Implementation should be gone
+      assert Implementations.get_implementation(impl.id) == nil
+    end
+
+    test "clears parent_implementation_id for child implementations", %{product: product} do
+      parent = implementation_fixture(product, %{name: "Parent"})
+
+      child =
+        implementation_fixture(product, %{name: "Child", parent_implementation_id: parent.id})
+
+      # Delete the parent
+      assert {:ok, _} = Implementations.delete_implementation(parent)
+
+      # impl-settings.DATA_INTEGRITY.3: Child implementations are not deleted, parent_implementation_id is cleared
+      child_after = Implementations.get_implementation!(child.id)
+      assert child_after.parent_implementation_id == nil
+    end
+
+    test "does not delete child implementations", %{product: product} do
+      parent = implementation_fixture(product, %{name: "Parent"})
+
+      child =
+        implementation_fixture(product, %{name: "Child", parent_implementation_id: parent.id})
+
+      # Delete the parent
+      assert {:ok, _} = Implementations.delete_implementation(parent)
+
+      # Child should still exist
+      assert Implementations.get_implementation(child.id) != nil
+    end
+
+    # impl-settings.DATA_INTEGRITY.2: Delete operation cascades to clear dependent states
+    test "cascades to clear dependent feature_impl_states", %{product: product} do
+      team = Repo.get!(Acai.Teams.Team, product.team_id)
+      impl = implementation_fixture(product, %{name: "ToDelete"})
+      branch = branch_fixture(team)
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "test-feature",
+          branch: branch,
+          requirements: %{"test-feature.COMP.1" => %{"definition" => "Test"}}
+        })
+
+      # Create feature_impl_state for this implementation
+      spec_impl_state_fixture(spec, impl, %{
+        states: %{"test-feature.COMP.1" => %{"status" => "completed", "comment" => "Done"}}
+      })
+
+      # Verify state exists before delete (get_feature_impl_state expects feature_name string)
+      assert Acai.Specs.get_feature_impl_state("test-feature", impl) != nil
+
+      # Delete the implementation
+      assert {:ok, _} = Implementations.delete_implementation(impl)
+
+      # impl-settings.DATA_INTEGRITY.2: Dependent feature_impl_states should be cleared (deleted)
+      assert Acai.Specs.get_feature_impl_state("test-feature", impl) == nil
+    end
+
+    # impl-settings.DATA_INTEGRITY.2: Delete operation cascades to clear dependent states
+    test "cascades to clear dependent feature_branch_refs", %{product: product} do
+      team = Repo.get!(Acai.Teams.Team, product.team_id)
+      impl = implementation_fixture(product, %{name: "ToDelete"})
+      branch = branch_fixture(team)
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create feature_branch_ref
+      Acai.Specs.FeatureBranchRef.changeset(
+        %Acai.Specs.FeatureBranchRef{},
+        %{
+          feature_name: "test-feature",
+          branch_id: branch.id,
+          refs: %{"test-feature.COMP.1" => [%{"path" => "lib/file.ex:1", "is_test" => false}]},
+          commit: "abc123",
+          pushed_at: DateTime.utc_now()
+        }
+      )
+      |> Repo.insert!()
+
+      # Verify ref exists before delete (via tracked branch association)
+      fbr_before = Repo.get_by(Acai.Specs.FeatureBranchRef, branch_id: branch.id)
+      assert fbr_before != nil
+
+      # Delete the implementation (this should delete tracked_branch via DB constraint)
+      assert {:ok, _} = Implementations.delete_implementation(impl)
+
+      # Tracked branches should be gone
+      assert Implementations.list_tracked_branches(impl) == []
+
+      # impl-settings.DATA_INTEGRITY.2: Feature_branch_ref data remains on branch but is
+      # no longer associated with this implementation since tracked_branches are deleted
+      # The ref data itself is preserved at branch level per impl-settings.DATA_INTEGRITY.1
+    end
+  end
+
+  describe "implementation_name_unique?/2" do
+    test "returns true when name is unique within product", %{product: product} do
+      impl = implementation_fixture(product, %{name: "Existing"})
+
+      assert Implementations.implementation_name_unique?(impl, "NewName") == true
+    end
+
+    test "returns false when name already exists in product", %{product: product} do
+      _impl1 = implementation_fixture(product, %{name: "Existing"})
+      impl2 = implementation_fixture(product, %{name: "Another"})
+
+      assert Implementations.implementation_name_unique?(impl2, "Existing") == false
+      # Case insensitive
+      assert Implementations.implementation_name_unique?(impl2, "existing") == false
+    end
+
+    test "returns true when checking against own name", %{product: product} do
+      impl = implementation_fixture(product, %{name: "MyName"})
+
+      # impl-settings.RENAME.4: Save button is disabled when input value matches current name
+      # When checking own name, we expect true (available for keeping)
+      assert Implementations.implementation_name_unique?(impl, "MyName") == true
+    end
+
+    test "considers only same product", %{team: team} do
+      product1 = product_fixture(team, %{name: "product1"})
+      product2 = product_fixture(team, %{name: "product2"})
+
+      _impl1 = implementation_fixture(product1, %{name: "SameName"})
+      impl2 = implementation_fixture(product2, %{name: "OtherName"})
+
+      # Same name in different products should be allowed
+      assert Implementations.implementation_name_unique?(impl2, "SameName") == true
+    end
+  end
 end

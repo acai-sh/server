@@ -2137,4 +2137,174 @@ defmodule Acai.SpecsTest do
       assert result[{"inherited-feature", child_impl.id}] == false
     end
   end
+
+  # ============================================================================
+  # Feature Settings - Deletion Helpers
+  # ============================================================================
+
+  describe "delete_feature_impl_state/2" do
+    # feature-settings.CLEAR_STATES.5: On confirmation, all feature_impl_states for this feature are deleted
+    test "deletes the local feature_impl_state for the feature and implementation" do
+      team = team_fixture()
+      product = product_fixture(team)
+      spec = spec_fixture(product, %{feature_name: "test-feature"})
+      impl = implementation_fixture(product)
+
+      # Create a feature_impl_state
+      state =
+        spec_impl_state_fixture(spec, impl, %{
+          states: %{"test-feature.COMP.1" => %{"status" => "accepted"}}
+        })
+
+      # Verify it exists
+      assert Specs.get_feature_impl_state("test-feature", impl).id == state.id
+
+      # Delete it
+      assert {:ok, _} = Specs.delete_feature_impl_state("test-feature", impl)
+
+      # Verify it's deleted
+      assert is_nil(Specs.get_feature_impl_state("test-feature", impl))
+    end
+
+    test "returns ok when no state exists" do
+      team = team_fixture()
+      product = product_fixture(team)
+      impl = implementation_fixture(product)
+
+      # Try to delete non-existent state
+      assert {:ok, nil} = Specs.delete_feature_impl_state("nonexistent-feature", impl)
+    end
+  end
+
+  describe "local_feature_impl_state_exists?/2" do
+    # feature-settings.CLEAR_STATES.2_1: Button is disabled when no feature_impl_states exist for this feature and implementation
+    test "returns true when a local feature_impl_state exists" do
+      team = team_fixture()
+      product = product_fixture(team)
+      spec = spec_fixture(product, %{feature_name: "test-feature"})
+      impl = implementation_fixture(product)
+
+      spec_impl_state_fixture(spec, impl, %{states: %{}})
+
+      assert Specs.local_feature_impl_state_exists?("test-feature", impl) == true
+    end
+
+    test "returns false when no local feature_impl_state exists" do
+      team = team_fixture()
+      product = product_fixture(team)
+      impl = implementation_fixture(product)
+
+      assert Specs.local_feature_impl_state_exists?("nonexistent-feature", impl) == false
+    end
+  end
+
+  describe "delete_feature_branch_refs_for_branches/2" do
+    # feature-settings.CLEAR_REFS.6: On confirmation, feature_branch_refs are cleared for all selected branches
+    test "deletes feature_branch_refs for the given branch IDs and feature_name" do
+      team = team_fixture()
+      product = product_fixture(team)
+      impl = implementation_fixture(product)
+      branch = branch_fixture(team)
+
+      # Track the branch
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create a feature_branch_ref
+      spec_impl_ref_fixture(
+        spec_fixture(product, %{feature_name: "test-feature", branch: branch}),
+        impl,
+        %{refs: %{"test-feature.COMP.1" => [%{"path" => "lib/test.ex:1", "is_test" => false}]}}
+      )
+
+      # Verify it exists
+      assert Specs.local_feature_branch_refs_exist?([branch.id], "test-feature") == true
+
+      # Delete it
+      assert {:ok, 1} = Specs.delete_feature_branch_refs_for_branches([branch.id], "test-feature")
+
+      # Verify it's deleted
+      assert Specs.local_feature_branch_refs_exist?([branch.id], "test-feature") == false
+    end
+
+    test "returns 0 count when no refs exist" do
+      team = team_fixture()
+      branch = branch_fixture(team)
+
+      assert {:ok, 0} =
+               Specs.delete_feature_branch_refs_for_branches([branch.id], "nonexistent-feature")
+    end
+
+    test "deletes refs for multiple branches" do
+      team = team_fixture()
+
+      # Create two different branches with different repo_uris
+      branch1 = branch_fixture(team, %{repo_uri: "github.com/org/repo1", branch_name: "main"})
+      branch2 = branch_fixture(team, %{repo_uri: "github.com/org/repo2", branch_name: "main"})
+
+      # Create refs directly using the feature_branch_ref_fixture
+      feature_branch_ref_fixture(branch1, "test-feature", %{refs: %{}, commit: "abc123"})
+      feature_branch_ref_fixture(branch2, "test-feature", %{refs: %{}, commit: "def456"})
+
+      # Verify both exist
+      assert Specs.local_feature_branch_refs_exist?([branch1.id], "test-feature") == true
+      assert Specs.local_feature_branch_refs_exist?([branch2.id], "test-feature") == true
+
+      # Delete refs for both branches
+      assert {:ok, 2} =
+               Specs.delete_feature_branch_refs_for_branches(
+                 [branch1.id, branch2.id],
+                 "test-feature"
+               )
+
+      # Verify both are deleted
+      assert Specs.local_feature_branch_refs_exist?([branch1.id, branch2.id], "test-feature") ==
+               false
+    end
+  end
+
+  describe "local_feature_branch_refs_exist?/2" do
+    # feature-settings.CLEAR_REFS.2_1: Button is disabled when no feature_branch_refs exist for any tracked branch
+    test "returns true when refs exist for the given branch IDs" do
+      team = team_fixture()
+      product = product_fixture(team)
+      impl = implementation_fixture(product)
+      branch = branch_fixture(team)
+
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      spec_impl_ref_fixture(
+        spec_fixture(product, %{feature_name: "test-feature", branch: branch}),
+        impl,
+        %{refs: %{}}
+      )
+
+      assert Specs.local_feature_branch_refs_exist?([branch.id], "test-feature") == true
+    end
+
+    test "returns false when no refs exist" do
+      team = team_fixture()
+      branch = branch_fixture(team)
+
+      assert Specs.local_feature_branch_refs_exist?([branch.id], "nonexistent-feature") == false
+    end
+
+    test "returns false for empty branch IDs list" do
+      assert Specs.local_feature_branch_refs_exist?([], "test-feature") == false
+    end
+  end
+
+  describe "delete_spec/1" do
+    # feature-settings.DELETE_SPEC.5: On confirmation, the target spec for the current tracked branch is deleted
+    test "deletes the spec" do
+      team = team_fixture()
+      product = product_fixture(team)
+      spec = spec_fixture(product)
+
+      assert {:ok, _} = Specs.delete_spec(spec)
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Specs.get_spec!(spec.id)
+      end
+    end
+  end
 end

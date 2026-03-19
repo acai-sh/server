@@ -438,8 +438,8 @@ defmodule AcaiWeb.Live.Components.NavLiveTest do
 
       html = render(view)
 
-      # The active product should have text-secondary class
-      assert html =~ "text-secondary"
+      # The active product should have text-accent class
+      assert html =~ "text-accent"
     end
 
     # Feature items should use primary color (not secondary)

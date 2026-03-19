@@ -214,10 +214,177 @@ defmodule AcaiWeb.ImplementationLive do
       |> assign(:refs_inherited, refs_inherited)
       |> assign(:refs_source_impl, refs_source_impl)
       |> assign(:drawer_refs_by_branch, %{})
+      # impl-settings.DRAWER: Settings drawer state
+      |> assign(:impl_settings_visible, false)
+      # feature-settings.DRAWER.1: Renders a settings icon button that opens the drawer
+      # feature-settings.DRAWER.2: Drawer opens from the right side of the viewport
+      # feature-settings.DRAWER.3: Drawer closes when clicking the close button, clicking outside, or pressing Escape
+      # feature-settings.DRAWER.4: Drawer displays the feature name and implementation context in its header
+      |> assign(:feature_settings_visible, false)
       |> assign(
         :current_path,
         "/t/#{team.name}/i/#{Implementations.implementation_slug(implementation)}/f/#{feature_name}"
       )
+
+    {:ok, socket}
+  end
+
+  # Reload implementation data for refresh after track/untrack operations.
+  # Similar to load_implementation_data but preserves drawer and other UI state.
+  # impl-settings.UNTRACK_BRANCH.8: Preserves drawer visibility during refresh
+  # impl-settings.TRACK_BRANCH.9: Preserves drawer visibility during refresh
+  defp reload_implementation_data(
+         socket,
+         team,
+         product,
+         implementation,
+         feature_name
+       ) do
+    # Resolve the canonical spec (may change if tracked branches changed)
+    case Specs.resolve_canonical_spec(feature_name, implementation.id) do
+      {nil, nil} ->
+        # No spec found - redirect
+        socket =
+          socket
+          |> put_flash(:error, "Feature not found for this implementation")
+          |> push_navigate(to: ~p"/t/#{team.name}/f/#{feature_name}")
+
+        {:ok, socket}
+
+      {spec, spec_source} ->
+        do_reload_implementation_data(
+          socket,
+          team,
+          product,
+          spec,
+          implementation,
+          feature_name,
+          spec_source
+        )
+    end
+  end
+
+  # Internal function that actually reloads the data
+  defp do_reload_implementation_data(
+         socket,
+         team,
+         product,
+         spec,
+         implementation,
+         feature_name,
+         spec_source
+       ) do
+    sort_field = socket.assigns[:sort_field] || :acid
+    sort_dir = socket.assigns[:sort_dir] || :asc
+
+    # Preload associations
+    spec = Acai.Repo.preload(spec, [:product, :branch])
+
+    # Build requirement rows
+    requirements = build_requirement_rows_from_spec(spec)
+
+    # Load states with inheritance
+    {spec_impl_state, state_source_impl_id} =
+      Specs.get_feature_impl_state_with_inheritance(feature_name, implementation.id)
+
+    states = if spec_impl_state, do: spec_impl_state.states, else: %{}
+    states_inherited = state_source_impl_id != nil
+
+    # Aggregate refs with inheritance
+    {aggregated_refs, refs_source_impl_id} =
+      Implementations.get_aggregated_refs_with_inheritance(feature_name, implementation.id)
+
+    refs_inherited = refs_source_impl_id != nil
+
+    # Reload tracked branches (this is what changed!)
+    tracked_branches = Implementations.list_tracked_branches(implementation)
+
+    # Reload available implementations and features
+    available_implementations =
+      Specs.list_implementations_for_feature_batched(feature_name, product)
+
+    available_features = Specs.list_features_for_implementation(implementation, product)
+
+    # Build requirement rows with updated data
+    requirement_rows =
+      requirements
+      |> Enum.map(fn req ->
+        acid = req.acid
+        state_data = Map.get(states, acid, %{"status" => nil})
+        acid_refs = Implementations.get_refs_for_acid(aggregated_refs, acid)
+
+        refs_count =
+          Enum.reduce(acid_refs, 0, fn {_branch, ref_list}, acc ->
+            acc + length(ref_list)
+          end)
+
+        tests_count =
+          Enum.reduce(acid_refs, 0, fn {_branch, ref_list}, acc ->
+            acc + Enum.count(ref_list, fn ref -> Map.get(ref, "is_test", false) end)
+          end)
+
+        %{
+          id: acid,
+          acid: acid,
+          definition: req.definition,
+          status: state_data["status"],
+          refs_count: refs_count,
+          tests_count: tests_count,
+          note: req.note,
+          is_deprecated: req.is_deprecated,
+          replaced_by: req.replaced_by
+        }
+      end)
+      |> sort_requirements(sort_field, sort_dir)
+
+    # Load source implementations
+    states_source_impl =
+      if state_source_impl_id do
+        Implementations.get_implementation(state_source_impl_id)
+        |> Acai.Repo.preload(:team)
+      else
+        nil
+      end
+
+    refs_source_impl =
+      if refs_source_impl_id do
+        Implementations.get_implementation(refs_source_impl_id)
+        |> Acai.Repo.preload(:team)
+      else
+        nil
+      end
+
+    spec_source_impl =
+      if spec_source.is_inherited && spec_source.source_implementation_id do
+        Implementations.get_implementation(spec_source.source_implementation_id)
+      else
+        nil
+      end
+
+    # Update all assigns WITHOUT resetting impl_settings_visible
+    socket =
+      socket
+      |> assign(:team, team)
+      |> assign(:product, product)
+      |> assign(:spec, spec)
+      |> assign(:implementation, implementation)
+      |> assign(:feature_name, feature_name)
+      |> assign(:requirements, requirement_rows)
+      |> assign(:sort_field, sort_field)
+      |> assign(:sort_dir, sort_dir)
+      |> assign(:tracked_branches, tracked_branches)
+      |> assign(:available_implementations, available_implementations)
+      |> assign(:available_features, available_features)
+      |> assign(:spec_source, spec_source)
+      |> assign(:spec_inherited, spec_source.is_inherited)
+      |> assign(:spec_source_impl, spec_source_impl)
+      |> assign(:states, states)
+      |> assign(:states_inherited, states_inherited)
+      |> assign(:states_source_impl, states_source_impl)
+      |> assign(:refs_inherited, refs_inherited)
+      |> assign(:refs_source_impl, refs_source_impl)
+
+    # Note: impl_settings_visible and feature_settings_visible are NOT assigned here - they are preserved by the caller
 
     {:ok, socket}
   end
@@ -433,6 +600,26 @@ defmodule AcaiWeb.ImplementationLive do
      |> assign(:selected_acid, nil)}
   end
 
+  # feature-impl-view.MAIN.2: Renders an 'Implementation Settings' button
+  # feature-impl-view.MAIN.2-1: On click, toggles the impl-settings drawer
+  def handle_event("open_impl_settings", _params, socket) do
+    {:noreply, assign(socket, :impl_settings_visible, true)}
+  end
+
+  def handle_event("close_impl_settings", _params, socket) do
+    {:noreply, assign(socket, :impl_settings_visible, false)}
+  end
+
+  # feature-impl-view.MAIN.1: Renders a 'Feature Settings' button
+  # feature-impl-view.MAIN.1-1: On click, toggles the feature-settings drawer
+  def handle_event("open_feature_settings", _params, socket) do
+    {:noreply, assign(socket, :feature_settings_visible, true)}
+  end
+
+  def handle_event("close_feature_settings", _params, socket) do
+    {:noreply, assign(socket, :feature_settings_visible, false)}
+  end
+
   # feature-impl-view.CARDS.1-2: Handle implementation dropdown change with patch navigation
   def handle_event("select_implementation", %{"impl_id" => impl_slug}, socket) do
     %{
@@ -479,12 +666,157 @@ defmodule AcaiWeb.ImplementationLive do
     {:noreply, push_patch(socket, to: ~p"/t/#{team.name}/i/#{impl_slug}/f/#{new_feature_name}")}
   end
 
+  # Handle messages from the RequirementDetailsLive component
   @impl true
   def handle_info("drawer_closed", socket) do
     {:noreply,
      socket
      |> assign(:selected_acid, nil)
      |> assign(:drawer_visible, false)}
+  end
+
+  # Handle messages from the ImplementationSettingsLive component
+  @impl true
+  def handle_info("impl_settings_closed", socket) do
+    {:noreply, assign(socket, :impl_settings_visible, false)}
+  end
+
+  # Handle messages from the FeatureSettingsLive component
+  # feature-settings.DRAWER.3: Drawer closes when clicking outside, close button, or pressing Escape
+  @impl true
+  def handle_info("feature_settings_closed", socket) do
+    {:noreply, assign(socket, :feature_settings_visible, false)}
+  end
+
+  # feature-settings.CLEAR_STATES.6: UI updates immediately after deletion to show no states or inherited states
+  def handle_info(:feature_states_changed, socket) do
+    # Preserve the feature settings drawer visibility state
+    feature_settings_visible = socket.assigns[:feature_settings_visible] || false
+
+    # Reload all page data through the loader path to ensure consistency
+    %{team: team, implementation: implementation, feature_name: feature_name} = socket.assigns
+
+    # Reload the implementation to get fresh data
+    implementation = Acai.Repo.preload(implementation, :product, force: true)
+
+    # Use reload_implementation_data which preserves existing socket assigns
+    {:ok, new_socket} =
+      reload_implementation_data(
+        socket,
+        team,
+        implementation.product,
+        implementation,
+        feature_name
+      )
+
+    # Restore the drawer visibility state after refresh
+    {:noreply, assign(new_socket, :feature_settings_visible, feature_settings_visible)}
+  end
+
+  # feature-settings.CLEAR_REFS.7: UI updates immediately after deletion to show no refs or inherited refs
+  def handle_info(:feature_refs_changed, socket) do
+    # Preserve the feature settings drawer visibility state
+    feature_settings_visible = socket.assigns[:feature_settings_visible] || false
+
+    # Reload all page data through the loader path to ensure consistency
+    %{team: team, implementation: implementation, feature_name: feature_name} = socket.assigns
+
+    # Reload the implementation to get fresh data
+    implementation = Acai.Repo.preload(implementation, :product, force: true)
+
+    # Use reload_implementation_data which preserves existing socket assigns
+    {:ok, new_socket} =
+      reload_implementation_data(
+        socket,
+        team,
+        implementation.product,
+        implementation,
+        feature_name
+      )
+
+    # Restore the drawer visibility state after refresh
+    {:noreply, assign(new_socket, :feature_settings_visible, feature_settings_visible)}
+  end
+
+  # feature-settings.DELETE_SPEC.6_1: If a parent spec exists, UI updates to show parent requirements
+  # feature-settings.DELETE_SPEC.6_2: If no parent spec exists, user is redirected to /p/:product_name
+  def handle_info(:feature_spec_deleted, socket) do
+    team = socket.assigns.team
+    product = socket.assigns.product
+    feature_name = socket.assigns.feature_name
+    implementation = socket.assigns.implementation
+
+    # Check if a parent spec exists for this feature
+    case Specs.resolve_canonical_spec(feature_name, implementation.id) do
+      {nil, nil} ->
+        # feature-settings.DELETE_SPEC.6_2: No parent spec - redirect to product page
+        {:noreply, push_navigate(socket, to: ~p"/t/#{team.name}/p/#{product.name}")}
+
+      {_spec, _spec_source} ->
+        # feature-settings.DELETE_SPEC.6_1: Parent spec exists - reload page to show inherited spec
+        {:ok, new_socket} =
+          mount_implementation_view(socket, team, implementation, feature_name)
+
+        {:noreply, new_socket}
+    end
+  end
+
+  # impl-settings.RENAME.8: On successful save, updates the implementation name and UI reflects change
+  # After rename, patch to new URL so it aligns with feature-impl-view.ROUTING.1-3
+  def handle_info({:implementation_renamed, updated_implementation}, socket) do
+    team = socket.assigns.team
+    product = socket.assigns.product
+    feature_name = socket.assigns.feature_name
+    new_slug = Implementations.implementation_slug(updated_implementation)
+
+    # Reload available_implementations to reflect the name change in dropdown
+    # This ensures the dropdown shows the updated name instead of stale data
+    available_implementations =
+      Specs.list_implementations_for_feature_batched(feature_name, product)
+
+    {:noreply,
+     socket
+     |> assign(:implementation, updated_implementation)
+     |> assign(:available_implementations, available_implementations)
+     |> push_patch(to: ~p"/t/#{team.name}/i/#{new_slug}/f/#{feature_name}")}
+  end
+
+  # impl-settings.UNTRACK_BRANCH.8: UI updates immediately to reflect the removed branch
+  # impl-settings.TRACK_BRANCH.9: UI updates immediately to show the newly tracked branch
+  # impl-settings.TRACK_BRANCH.10: List of trackable branches refreshes to exclude the newly tracked branch
+  def handle_info(:tracked_branches_changed, socket) do
+    # Preserve the drawer visibility state so the settings drawer stays open after refresh
+    impl_settings_visible = socket.assigns[:impl_settings_visible] || false
+
+    # Reload all page data through the loader path to ensure consistency:
+    # - tracked_branches, refs counts, dropdowns, inherited/local context all stay correct
+    # We use load_implementation_data directly instead of mount_implementation_view
+    # because mount_implementation_view resets assigns like impl_settings_visible
+    %{team: team, implementation: implementation, feature_name: feature_name} = socket.assigns
+
+    # Reload the implementation to get fresh tracked_branches
+    implementation = Acai.Repo.preload(implementation, :product, force: true)
+
+    # Use reload_implementation_data which preserves existing socket assigns
+    {:ok, new_socket} =
+      reload_implementation_data(
+        socket,
+        team,
+        implementation.product,
+        implementation,
+        feature_name
+      )
+
+    # Restore the drawer visibility state after refresh
+    {:noreply, assign(new_socket, :impl_settings_visible, impl_settings_visible)}
+  end
+
+  # impl-settings.DELETE.7: User is redirected to /p/:product_name after deletion
+  def handle_info({:implementation_deleted, _implementation}, socket) do
+    team = socket.assigns.team
+    product = socket.assigns.product
+
+    {:noreply, push_navigate(socket, to: ~p"/t/#{team.name}/p/#{product.name}")}
   end
 
   @impl true
@@ -528,6 +860,30 @@ defmodule AcaiWeb.ImplementationLive do
             {@spec.feature_description}
           </p>
         <% end %>
+
+        <div class="flex flex-row-reverse gap-4">
+          <%!-- feature-impl-view.MAIN.1: Renders a 'Feature Settings' button --%>
+          <%!-- feature-settings.DRAWER.1: Renders a settings icon button that opens the drawer --%>
+          <button
+            type="button"
+            class="btn btn-soft"
+            phx-click="open_feature_settings"
+            id="feature-settings-btn"
+          >
+            <.icon name="hero-cog-6-tooth" class="size-5" /> Feature Settings
+          </button>
+
+          <%!-- feature-impl-view.MAIN.2: Renders an 'Implementation Settings' button --%>
+          <%!-- impl-settings.DRAWER.1: Renders a settings icon button that opens the drawer --%>
+          <button
+            type="button"
+            class="btn btn-soft"
+            phx-click="open_impl_settings"
+            id="impl-settings-btn"
+          >
+            <.icon name="hero-cog-6-tooth" class="size-5" /> Impl. Settings
+          </button>
+        </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <%!-- feature-impl-view.CARDS.2: Target spec card with labeled fields and inheritance badge --%>
@@ -644,6 +1000,39 @@ defmodule AcaiWeb.ImplementationLive do
           states_inherited={@states_inherited}
           states_source_impl={@states_source_impl}
           feature_name={@feature_name}
+        />
+
+        <%!-- Implementation Settings drawer --%>
+        <%!-- impl-settings.DRAWER: Settings drawer for implementation management --%>
+        <.live_component
+          module={AcaiWeb.Live.Components.ImplementationSettingsLive}
+          id="implementation-settings-drawer"
+          implementation={@implementation}
+          product={@product}
+          team={@team}
+          tracked_branches={@tracked_branches}
+          current_branch_id={@spec.branch_id}
+          visible={@impl_settings_visible}
+        />
+
+        <%!-- Feature Settings drawer --%>
+        <%!-- feature-settings.DRAWER.1: Renders a settings icon button that opens the drawer --%>
+        <%!-- feature-settings.DRAWER.2: Drawer opens from the right side of the viewport --%>
+        <%!-- feature-settings.DRAWER.3: Drawer closes when clicking the close button, clicking outside, or pressing Escape --%>
+        <%!-- feature-settings.DRAWER.4: Drawer displays the feature name and implementation context in its header --%>
+        <.live_component
+          module={AcaiWeb.Live.Components.FeatureSettingsLive}
+          id="feature-settings-drawer"
+          feature_name={@feature_name}
+          implementation={@implementation}
+          product={@product}
+          team={@team}
+          spec={@spec}
+          spec_inherited={@spec_inherited}
+          tracked_branches={@tracked_branches}
+          states_inherited={@states_inherited}
+          refs_inherited={@refs_inherited}
+          visible={@feature_settings_visible}
         />
       </div>
     </Layouts.app>

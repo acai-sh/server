@@ -89,6 +89,15 @@ defmodule Acai.Specs do
     Spec.changeset(spec, attrs)
   end
 
+  @doc """
+  Deletes a spec.
+
+  feature-settings.DELETE_SPEC.5: On confirmation, the target spec for the current tracked branch is deleted
+  """
+  def delete_spec(%Spec{} = spec) do
+    Repo.delete(spec)
+  end
+
   # --- Products Navigation ---
 
   @doc """
@@ -305,6 +314,34 @@ defmodule Acai.Specs do
       conflict_target: [:feature_name, :implementation_id],
       returning: true
     )
+  end
+
+  @doc """
+  Deletes a feature_impl_state for a feature_name and implementation.
+
+  feature-settings.CLEAR_STATES.5: On confirmation, all feature_impl_states for this feature are deleted
+  """
+  def delete_feature_impl_state(
+        feature_name,
+        %Acai.Implementations.Implementation{} = implementation
+      ) do
+    case get_feature_impl_state(feature_name, implementation) do
+      nil -> {:ok, nil}
+      state -> Repo.delete(state)
+    end
+  end
+
+  @doc """
+  Checks if a local feature_impl_state exists for this feature and implementation
+  (not inherited from parent).
+
+  feature-settings.CLEAR_STATES.2_1: Button is disabled when no feature_impl_states exist for this feature and implementation
+  """
+  def local_feature_impl_state_exists?(
+        feature_name,
+        %Acai.Implementations.Implementation{} = implementation
+      ) do
+    not is_nil(get_feature_impl_state(feature_name, implementation))
   end
 
   # --- FeatureImplState Batch Queries ---
@@ -850,6 +887,42 @@ defmodule Acai.Specs do
       conflict_target: [:feature_name, :branch_id],
       returning: true
     )
+  end
+
+  @doc """
+  Deletes feature_branch_refs for a list of branch IDs and a feature_name.
+
+  feature-settings.CLEAR_REFS.6: On confirmation, feature_branch_refs are cleared for all selected branches
+  """
+  def delete_feature_branch_refs_for_branches(branch_ids, feature_name)
+      when is_list(branch_ids) do
+    {count, _} =
+      Repo.delete_all(
+        from fbr in FeatureBranchRef,
+          where: fbr.branch_id in ^branch_ids and fbr.feature_name == ^feature_name
+      )
+
+    {:ok, count}
+  end
+
+  @doc """
+  Checks if local feature_branch_refs exist for any of the given branch IDs and feature_name.
+
+  feature-settings.CLEAR_REFS.2_1: Button is disabled when no feature_branch_refs exist for any tracked branch
+  """
+  def local_feature_branch_refs_exist?(branch_ids, feature_name) when is_list(branch_ids) do
+    if branch_ids == [] do
+      false
+    else
+      count =
+        Repo.one(
+          from fbr in FeatureBranchRef,
+            where: fbr.branch_id in ^branch_ids and fbr.feature_name == ^feature_name,
+            select: count()
+        )
+
+      count > 0
+    end
   end
 
   # --- Legacy API (backwards compatibility with Implementation-based API) ---

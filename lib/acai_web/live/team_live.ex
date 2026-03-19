@@ -293,14 +293,14 @@ defmodule AcaiWeb.TeamLive do
               <div :for={product <- @products}>
                 <%!-- team-view.PRODUCTS.3 --%>
                 <.link navigate={"/t/#{@team.name}/p/#{product}"} class="block group">
-                  <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-secondary/40 transition-all duration-200 cursor-pointer h-full">
+                  <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-accent/40 transition-all duration-200 cursor-pointer h-full">
                     <div class="card-body p-5">
                       <div class="flex items-center gap-3">
-                        <div class="rounded-lg bg-secondary/10 p-2">
-                          <.icon name="custom-boxes" class="size-5 text-secondary" />
+                        <div class="rounded-lg bg-accent/10 p-2">
+                          <.icon name="custom-boxes" class="size-5 text-accent" />
                         </div>
                         <%!-- team-view.PRODUCTS.2 --%>
-                        <h3 class="font-semibold text-base group-hover:text-secondary transition-colors">
+                        <h3 class="font-semibold text-base group-hover:text-accent transition-colors">
                           {product}
                         </h3>
                       </div>
