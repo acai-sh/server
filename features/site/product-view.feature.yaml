@@ -34,4 +34,3 @@ constraints:
         requirements:
             1: Route is /t/:team_name/p/:product_name.
             2: Single batched query fetches all implementations, specs, and state counts.
-            3: Respects inheritence where

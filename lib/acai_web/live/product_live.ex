@@ -141,7 +141,7 @@ defmodule AcaiWeb.ProductLive do
     end)
   end
 
-  # Calculate cell color based on completion percentage
+  # product-view.MATRIX.4: Cell text color uses ease-in gradient (0-50% uncolored, 100% saturated green)
   defp completion_color_class(percentage) when percentage <= 50, do: ""
 
   defp completion_color_class(percentage) do
@@ -167,7 +167,7 @@ defmodule AcaiWeb.ProductLive do
     |> String.trim("-")
   end
 
-  # Handle product selector change with patch navigation
+  # product-view.PRODUCT_SELECTOR.2: Changing selection patches URL via handle_params
   @impl true
   def handle_event("select_product", %{"product_name" => new_product_name}, socket) do
     %{team: team} = socket.assigns
@@ -207,7 +207,7 @@ defmodule AcaiWeb.ProductLive do
         <div class="flex flex-col sm:flex-row sm:items-center gap-3">
           <span class="text-2xl font-bold">Overview of the</span>
 
-          <%!-- Product selector dropdown --%>
+          <%!-- product-view.PRODUCT_SELECTOR.1: Dropdown lists all products in the current team --%>
           <div class="flex-shrink-0" id="product-selector-container">
             <button
               id="product-selector-trigger"
@@ -254,7 +254,7 @@ defmodule AcaiWeb.ProductLive do
                                                                        1, do: "s", else: ""}
         </div>
 
-        <%!-- Empty state --%>
+        <%!-- product-view.MATRIX.6: Empty state shown if product has no features or implementations --%>
         <%= if @empty? do %>
           <div class="text-center py-16 bg-base-200/50 rounded-lg border border-base-300">
             <.icon name="hero-table-cells" class="size-16 text-base-content/20 mx-auto mb-4" />
@@ -314,7 +314,7 @@ defmodule AcaiWeb.ProductLive do
                   id={id}
                   class="bg-base-100 hover:bg-base-200/50"
                 >
-                  <%!-- Feature name cell (row header) --%>
+                  <%!-- product-view.MATRIX.5: Clicking a row navigates to the feature view --%>
                   <td class="sticky left-0 bg-base-100 z-10 p-0 border-l-1 border-base-300">
                     <.link
                       navigate={"/t/#{row.team_name}/f/#{row.feature_name}"}
@@ -339,6 +339,7 @@ defmodule AcaiWeb.ProductLive do
                   <%!-- Completion cells --%>
                   <%= for {cell, idx} <- Enum.with_index(row.cells) do %>
                     <td class="bg-base-100 text-center border-l border-base-300 first:border-l-0 p-0">
+                      <%!-- product-view.MATRIX.7: Clicking a cell navigates to that feature-impl --%>
                       <%= if cell.available do %>
                         <.link
                           navigate={"/t/#{row.team_name}/i/#{cell.implementation_slug}/f/#{row.feature_name}"}
