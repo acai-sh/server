@@ -545,9 +545,9 @@ defmodule AcaiWeb.ImplementationLive do
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <%!-- implementation-view.REQ_COVERAGE: Requirements coverage grid --%>
+          <%!-- implementation-view.REQ_COVERAGE.1 --%>
           <.coverage_section
-            title="Requirements Coverage"
+            title="Status"
             inherited={@states_inherited}
             source_impl={@states_source_impl}
             feature_name={@feature_name}

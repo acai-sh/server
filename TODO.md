@@ -11,17 +11,11 @@
 Think of a concept for backtracking or handling dead links when an implementation / feature is removed?
 * [ ] Is it enough to grab from git origin? What happens if there is no repo_uri? Allow user to provide anything?
 
----
-
-plan of attack
-- QA verification of seed data
-- Review core views to ensure performance
-- API simulation of `push` and light review of the push api code
-- clean up reference concepts in UI
-
---
-feat/feature-impl-view-revision QA feedback
-
-Please take these notes, compare them to the spec. If they differ radically from the spec requirements, or are key behaviors that are missing from the spec, please let me know. Otherwise, fix the issues.
-
-items with [design] tag are never in specs, just fix these outright.
+UI actions
+- Clear all feature_impl_states for a feature (fallback to inherited states)
+  - Status card gets a Reset Status button
+- Clear feature_branch_refs - what is pushed? The specs and refs on a branch
+  - Test Coverage card gets a Clear Refs button
+- Clear spec version
+  - Target Spec card has a Delete Spec button
+  - If the implementation does not have a parent
