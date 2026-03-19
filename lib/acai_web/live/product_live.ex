@@ -248,12 +248,6 @@ defmodule AcaiWeb.ProductLive do
           <span class="text-2xl font-bold">product</span>
         </div>
 
-        <%!-- Implementation count --%>
-        <div class="text-sm text-base-content/60">
-          {length(@active_implementations)} active implementation{if length(@active_implementations) !=
-                                                                       1, do: "s", else: ""}
-        </div>
-
         <%!-- product-view.MATRIX.6: Empty state shown if product has no features or implementations --%>
         <%= if @empty? do %>
           <div class="text-center py-16 bg-base-200/50 rounded-lg border border-base-300">
