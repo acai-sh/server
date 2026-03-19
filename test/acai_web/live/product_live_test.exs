@@ -530,9 +530,9 @@ defmodule AcaiWeb.ProductLiveTest do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
 
       # 100% cell should have success background class
-      # Check for the bg-success/10 class in the rendered HTML
+      # Check for the bg-success/3 class in the rendered HTML
       html = render(view)
-      assert html =~ "bg-success/10"
+      assert html =~ "bg-success/3"
       assert has_element?(view, "td", "100%")
     end
   end
