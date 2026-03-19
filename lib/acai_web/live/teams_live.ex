@@ -62,7 +62,7 @@ defmodule AcaiWeb.TeamsLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="space-y-8">
+      <div class="space-y-6 lg:space-y-8">
         <%!-- Page header --%>
         <.header>
           My Teams

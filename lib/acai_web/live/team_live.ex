@@ -255,7 +255,7 @@ defmodule AcaiWeb.TeamLive do
       team={@team}
       current_path={@current_path}
     >
-      <div class="space-y-10">
+      <div class="space-y-6 lg:space-y-8">
         <%!-- team-view.MAIN.0: Page header --%>
         <.content_header
           page_title="Team Overview"
@@ -275,7 +275,7 @@ defmodule AcaiWeb.TeamLive do
         </.content_header>
 
         <%!-- team-view.PRODUCTS.1 --%>
-        <div class="space-y-4">
+        <div class="space-y- -mt-4">
           <div>
             <h2 class="text-base font-semibold">Products</h2>
             <p class="text-sm text-base-content/60">Overview of products owned by this team</p>

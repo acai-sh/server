@@ -122,7 +122,7 @@ defmodule AcaiWeb.TeamSettingsLive do
       team={@team}
       current_path={@current_path}
     >
-      <div class="space-y-8 max-w-2xl mx-auto">
+      <div class="space-y-6 lg:space-y-8 max-w-2xl mx-auto">
         <%!-- team-settings.MAIN.1 --%>
         <.header>
           {@team.name}

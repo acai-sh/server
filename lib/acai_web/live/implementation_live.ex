@@ -575,7 +575,7 @@ defmodule AcaiWeb.ImplementationLive do
       <%!-- Implementation dropdown with popover API --%>
       <div class="flex-shrink-0">
         <button
-          class="btn btn-outline btn-xl flex items-center gap-2 justify-start font-bold lg:text-2xl px-2 border-secondary border-dashed"
+          class="btn btn-outline lg:btn-xl flex items-center gap-2 justify-start font-bold text-base lg:text-2xl px-2 border-secondary border-dashed"
           popovertarget="impl-popover"
           style="anchor-name:--anchor-impl"
         >
@@ -609,12 +609,12 @@ defmodule AcaiWeb.ImplementationLive do
         </ul>
       </div>
 
-      <span class="text-2xl font-bold">implementation of the</span>
+      <span class="text-base lg:text-2xl font-bold">implementation of the</span>
 
       <%!-- Feature dropdown with popover API --%>
       <div class="flex-shrink-0">
         <button
-          class="btn btn-outline btn-xl flex items-center gap-2 justify-start font-bold lg:text-2xl px-2 border-primary border-dashed"
+          class="btn btn-outline lg:btn-xl flex items-center gap-2 justify-start font-bold text-base lg:text-2xl px-2 border-primary border-dashed"
           popovertarget="feature-popover"
           style="anchor-name:--anchor-feature"
         >
@@ -648,7 +648,7 @@ defmodule AcaiWeb.ImplementationLive do
         </ul>
       </div>
 
-      <span class="text-2xl font-bold">feature</span>
+      <span class="text-base lg:text-2xl font-bold">feature</span>
     </div>
     """
   end

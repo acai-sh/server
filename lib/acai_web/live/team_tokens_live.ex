@@ -204,7 +204,7 @@ defmodule AcaiWeb.TeamTokensLive do
       team={@team}
       current_path={@current_path}
     >
-      <div class="space-y-8">
+      <div class="space-y-6 lg:space-y-8">
         <.header>
           {@team.name} — Access Tokens
           <:subtitle>Manage API access tokens for this team</:subtitle>

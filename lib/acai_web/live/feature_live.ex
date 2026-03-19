@@ -286,7 +286,7 @@ defmodule AcaiWeb.FeatureLive do
       team={@team}
       current_path={@current_path}
     >
-      <div class="space-y-8">
+      <div class="space-y-6 lg:space-y-8">
         <%!-- feature-view.MAIN.1: Page header with breadcrumb --%>
         <nav class="flex items-center gap-2 text-sm text-base-content/70">
           <.link navigate={~p"/t/#{@team.name}"} class="hover:text-primary flex items-center gap-1">
@@ -346,7 +346,7 @@ defmodule AcaiWeb.FeatureLive do
 
         <%!-- feature-view.MAIN.1: Feature description --%>
         <%= if @feature_description do %>
-          <p class="text-base-content/70 text-lg">{@feature_description}</p>
+          <p class="text-base-content/70 text-lg -mt-4">{@feature_description}</p>
         <% end %>
 
         <%!-- feature-view.MAIN.3: Section header --%>
@@ -363,6 +363,7 @@ defmodule AcaiWeb.FeatureLive do
           <%!-- feature-view.HIERARCHY.1, feature-view.HIERARCHY.2: Hierarchy-friendly layout --%>
           <div
             id="implementations-grid"
+            class="-mt-4"
             phx-update="stream"
           >
             <%!-- feature-view.MAIN.2 --%>
