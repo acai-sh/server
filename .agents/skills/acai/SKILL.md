@@ -29,6 +29,7 @@ components:
     # Simply reference them in code comments or other specs by full ACID only:
     # my-feature.EXAMPLE.1
     AUTH:
+      requirements:
         1: The ACID for this requirement is `my-feature.AUTH.1`
         1-1: This is a sub-requirement `my-feature.AUTH.1-1`
         2:

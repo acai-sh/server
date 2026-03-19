@@ -35,12 +35,24 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
     }
   end
 
-  # Helper to get aggregated refs for the component
-  defp get_aggregated_refs(spec, implementation) do
+  # Helper to get refs_by_branch for the component
+  # feature-impl-view.INHERITANCE.3: Now returns refs_by_branch directly instead of aggregated_refs
+  defp get_refs_by_branch(spec, implementation) do
     {aggregated_refs, _is_inherited} =
       Implementations.get_aggregated_refs_with_inheritance(spec.feature_name, implementation.id)
 
+    # Transform aggregated_refs to refs_by_branch format
+    # Same logic as in ImplementationLive.get_refs_by_branch/2
+    acid = "#{spec.feature_name}.COMP.1"
+
     aggregated_refs
+    |> Enum.reduce(%{}, fn {branch, refs_map}, acc ->
+      case Map.get(refs_map, acid) do
+        nil -> acc
+        ref_list when is_list(ref_list) -> Map.put(acc, branch, ref_list)
+        _ -> acc
+      end
+    end)
   end
 
   # Helper to render the component directly
@@ -490,14 +502,14 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
         })
 
       # Get aggregated refs for the component
-      aggregated_refs = get_aggregated_refs(spec, implementation)
+      refs_by_branch = get_refs_by_branch(spec, implementation)
 
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
-        aggregated_refs: aggregated_refs,
+        refs_by_branch: refs_by_branch,
         visible: true
       }
 
@@ -524,14 +536,14 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
           }
         })
 
-      aggregated_refs = get_aggregated_refs(spec, implementation)
+      refs_by_branch = get_refs_by_branch(spec, implementation)
 
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
-        aggregated_refs: aggregated_refs,
+        refs_by_branch: refs_by_branch,
         visible: true
       }
 
@@ -556,14 +568,14 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
           }
         })
 
-      aggregated_refs = get_aggregated_refs(spec, implementation)
+      refs_by_branch = get_refs_by_branch(spec, implementation)
 
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
-        aggregated_refs: aggregated_refs,
+        refs_by_branch: refs_by_branch,
         visible: true
       }
 
@@ -592,14 +604,14 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
           }
         })
 
-      aggregated_refs = get_aggregated_refs(spec, implementation)
+      refs_by_branch = get_refs_by_branch(spec, implementation)
 
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
-        aggregated_refs: aggregated_refs,
+        refs_by_branch: refs_by_branch,
         visible: true
       }
 
@@ -627,11 +639,11 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
           }
         })
 
-      aggregated_refs = get_aggregated_refs(spec, implementation)
+      refs_by_branch = get_refs_by_branch(spec, implementation)
 
       assigns = %{
         id: "test-drawer",
-        aggregated_refs: aggregated_refs,
+        refs_by_branch: refs_by_branch,
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
@@ -779,14 +791,14 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
         }
       })
 
-      aggregated_refs = get_aggregated_refs(spec, implementation)
+      refs_by_branch = get_refs_by_branch(spec, implementation)
 
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
-        aggregated_refs: aggregated_refs,
+        refs_by_branch: refs_by_branch,
         visible: true
       }
 
@@ -839,14 +851,14 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
         }
       })
 
-      aggregated_refs = get_aggregated_refs(spec, implementation)
+      refs_by_branch = get_refs_by_branch(spec, implementation)
 
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
-        aggregated_refs: aggregated_refs,
+        refs_by_branch: refs_by_branch,
         visible: true
       }
 
@@ -900,14 +912,14 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
         }
       })
 
-      aggregated_refs = get_aggregated_refs(spec, implementation)
+      refs_by_branch = get_refs_by_branch(spec, implementation)
 
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
-        aggregated_refs: aggregated_refs,
+        refs_by_branch: refs_by_branch,
         visible: true
       }
 
@@ -961,14 +973,14 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
         }
       })
 
-      aggregated_refs = get_aggregated_refs(spec, implementation)
+      refs_by_branch = get_refs_by_branch(spec, implementation)
 
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
-        aggregated_refs: aggregated_refs,
+        refs_by_branch: refs_by_branch,
         visible: true
       }
 
@@ -1022,14 +1034,14 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
         }
       })
 
-      aggregated_refs = get_aggregated_refs(spec, implementation)
+      refs_by_branch = get_refs_by_branch(spec, implementation)
 
       assigns = %{
         id: "test-drawer",
         acid: "test-feature.COMP.1",
         spec: spec,
         implementation: implementation,
-        aggregated_refs: aggregated_refs,
+        refs_by_branch: refs_by_branch,
         visible: true
       }
 

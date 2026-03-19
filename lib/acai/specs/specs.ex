@@ -573,6 +573,155 @@ defmodule Acai.Specs do
     end
   end
 
+  @doc """
+  Batch computes both completion and availability data in a single pass.
+
+  This is a consolidated loader that uses already-loaded specs and shares pre-fetched
+  ancestry data and tracked branches between completion and availability calculations.
+  Instead of calling batch_get_spec_impl_completion/2 and batch_check_feature_availability/2
+  separately (which each rebuild their own ancestry/state data), this function:
+
+  1. Accepts pre-loaded specs (avoids redundant query)
+  2. Fetches all product implementations once to build ancestry chains
+  3. Fetches all tracked branches for all ancestors once
+  4. Fetches all feature_impl_states for completion calculation once
+  5. Uses the shared data to compute both completion and availability maps
+
+  Returns a tuple of {spec_impl_completion_map, feature_availability_map} where:
+  - spec_impl_completion_map: {spec_id, impl_id} => %{completed: count, total: count}
+  - feature_availability_map: {feature_name, impl_id} => boolean
+
+  ACIDs:
+  - product-view.MATRIX.3: Cells display completion percentage
+  - product-view.MATRIX.3-1: Progress inherits from parent when local row doesn't exist
+  - product-view.MATRIX.7-1: Cells where implementation doesn't have/inherit feature are unavailable
+  - product-view.MATRIX.8: Feature not in ancestor tree renders as n/a
+  - product-view.ROUTING.2: Single batched query fetches shared ancestry/state data
+  """
+  def batch_get_completion_and_availability(specs, feature_names, implementations)
+      when is_list(specs) and is_list(feature_names) and is_list(implementations) do
+    if implementations == [] do
+      {%{}, %{}}
+    else
+      product_id = List.first(implementations).product_id
+
+      # ============================================================================
+      # SHARED DATA FETCHING - these are fetched once and used by both calculations
+      # ============================================================================
+
+      # 1. Build ancestor chains for all implementations (self + all parents)
+      # Used by: completion (for state inheritance), availability (for spec lookup)
+      ancestor_chains = build_ancestor_chains_for_specs(implementations, product_id)
+
+      all_ancestor_ids =
+        ancestor_chains
+        |> Map.values()
+        |> List.flatten()
+        |> Enum.uniq()
+
+      # 2. Fetch all tracked branches for all ancestors
+      # Used by: availability (to find specs), completion (not directly used but part of shared context)
+      tracked_branches =
+        Repo.all(
+          from tb in Acai.Implementations.TrackedBranch,
+            where: tb.implementation_id in ^all_ancestor_ids,
+            select: {tb.implementation_id, tb.branch_id}
+        )
+
+      branch_ids_by_impl =
+        Enum.reduce(tracked_branches, %{}, fn {impl_id, branch_id}, acc ->
+          Map.update(acc, impl_id, MapSet.new([branch_id]), &MapSet.put(&1, branch_id))
+        end)
+
+      all_branch_ids =
+        tracked_branches
+        |> Enum.map(&elem(&1, 1))
+        |> Enum.uniq()
+
+      # 3. Build specs_by_feature from already-loaded specs for availability checking
+      # The specs are pre-loaded by Products.load_product_page/2, so we don't query again
+      # We only need specs that are on tracked branches (in all_branch_ids)
+      specs_by_feature =
+        specs
+        |> Enum.filter(fn s -> s.branch_id in all_branch_ids end)
+        |> Enum.group_by(& &1.feature_name)
+        |> Enum.map(fn {name, spec_list} ->
+          {name, MapSet.new(Enum.map(spec_list, & &1.branch_id))}
+        end)
+        |> Map.new()
+
+      # 4. Fetch all feature_impl_states for completion calculation
+      # Used by: completion (for state inheritance), availability (not used)
+      states_by_feature_impl =
+        if all_ancestor_ids == [] do
+          %{}
+        else
+          Repo.all(
+            from fis in FeatureImplState,
+              where:
+                fis.feature_name in ^feature_names and fis.implementation_id in ^all_ancestor_ids,
+              select: {fis.implementation_id, fis.feature_name, fis.states}
+          )
+          |> Enum.map(fn {impl_id, feature_name, states} ->
+            {{feature_name, impl_id}, states}
+          end)
+          |> Map.new()
+        end
+
+      # ============================================================================
+      # COMPUTE COMPLETION MAP using shared data
+      # ============================================================================
+      spec_impl_completion =
+        for spec <- specs,
+            implementation <- implementations,
+            into: %{} do
+          chain = Map.get(ancestor_chains, implementation.id, [implementation.id])
+
+          relevant_states =
+            find_inherited_feature_states(spec.feature_name, chain, states_by_feature_impl)
+
+          spec_acids = Map.keys(spec.requirements)
+
+          completed_count =
+            Enum.count(spec_acids, fn acid ->
+              case relevant_states[acid] do
+                %{"status" => status} when status in ["completed", "accepted"] -> true
+                _ -> false
+              end
+            end)
+
+          {{spec.id, implementation.id},
+           %{completed: completed_count, total: map_size(spec.requirements)}}
+        end
+
+      # ============================================================================
+      # COMPUTE AVAILABILITY MAP using shared data
+      # ============================================================================
+      feature_availability =
+        for feature_name <- feature_names,
+            implementation <- implementations,
+            into: %{} do
+          spec_branch_ids = Map.get(specs_by_feature, feature_name, MapSet.new())
+
+          available? =
+            if MapSet.size(spec_branch_ids) == 0 do
+              false
+            else
+              ancestor_ids = Map.get(ancestor_chains, implementation.id, [implementation.id])
+
+              Enum.any?(ancestor_ids, fn ancestor_id ->
+                ancestor_branch_ids = Map.get(branch_ids_by_impl, ancestor_id, MapSet.new())
+                not MapSet.disjoint?(ancestor_branch_ids, spec_branch_ids)
+              end)
+            end
+
+          {{feature_name, implementation.id}, available?}
+        end
+
+      {spec_impl_completion, feature_availability}
+    end
+  end
+
   # Build ancestor chains for all implementations in one batch query
   # Returns a map of impl_id => [impl_id, parent_id, grandparent_id, ...]
   # product-view.ROUTING.2: Batch query for ancestry data
@@ -931,6 +1080,7 @@ defmodule Acai.Specs do
   - `:implementations` - List of active implementations that resolve this feature
   - `:status_counts_by_impl` - Map of impl_id => %{status => count}
   - `:total_requirements` - Total requirement count across all specs
+  - `:canonical_specs_by_impl` - Map of impl_id => %{spec_id: id, is_inherited: bool, source_impl_id: id}
 
   ACIDs:
   - feature-view.ENG.1: Single query fetches all specs, implementations, and state counts
@@ -968,7 +1118,12 @@ defmodule Acai.Specs do
             specs
           )
 
-        # Step 7: Calculate total requirements (unique across all specs)
+        # Step 7: Batch resolve canonical specs for all implementations
+        # feature-view.ENG.1: Precompute canonical spec resolution to avoid N+1
+        canonical_specs_by_impl =
+          batch_resolve_canonical_specs(actual_feature_name, implementations)
+
+        # Step 8: Calculate total requirements (unique across all specs)
         # ACIDs should be consistent across specs for the same feature
         total_requirements =
           specs
@@ -985,9 +1140,150 @@ defmodule Acai.Specs do
            available_features: available_features,
            implementations: implementations,
            status_counts_by_impl: status_counts_by_impl,
+           canonical_specs_by_impl: canonical_specs_by_impl,
            total_requirements: total_requirements
          }}
     end
+  end
+
+  # --- Canonical Spec Resolution (Batched) ---
+
+  @doc """
+  Batch resolves canonical specs for multiple implementations and a single feature_name.
+
+  Returns a map of implementation_id => %{spec_id: spec_id, is_inherited: boolean, source_impl_id: id | nil}
+  where:
+  - spec_id: the ID of the canonical spec for this implementation
+  - is_inherited: true if the spec was found in a parent implementation
+  - source_impl_id: the implementation ID where the spec was found (nil if local)
+
+  Uses a batched query approach to avoid N+1 patterns:
+  1. Fetches all implementations in the product to build ancestry chains
+  2. Batch fetches tracked branches for all implementations and ancestors
+  3. Batch fetches specs for those branches (scoped to product)
+  4. For each implementation, walks the ancestry chain to find the first matching spec
+
+  ACIDs:
+  - feature-view.ENG.1: Batched query approach - constant queries regardless of implementation count
+  - feature-impl-view.INHERITANCE.1: Recurse up parent chain via preloaded ancestry data
+  - feature-impl-view.ROUTING.4: Same-product scoping for shared branches
+  """
+  def batch_resolve_canonical_specs(feature_name, implementations)
+      when is_list(implementations) do
+    if implementations == [] do
+      %{}
+    else
+      product_id = List.first(implementations).product_id
+
+      # Batch 1: Get all implementations in this product to build parent chains
+      all_product_impls =
+        Repo.all(
+          from i in Acai.Implementations.Implementation,
+            where: i.product_id == ^product_id,
+            select: {i.id, i.parent_implementation_id}
+        )
+        |> Map.new()
+
+      # Build ancestor chains for all implementations (self + all parents)
+      ancestors_by_impl =
+        Map.new(implementations, fn impl ->
+          {impl.id, build_ancestor_chain_ordered(impl.id, all_product_impls)}
+        end)
+
+      # Get all ancestor IDs to fetch their tracked branches
+      all_ancestor_ids =
+        ancestors_by_impl
+        |> Map.values()
+        |> List.flatten()
+        |> Enum.uniq()
+
+      # Batch 2: Get all tracked branch IDs for all implementations and ancestors
+      tracked_branches =
+        Repo.all(
+          from tb in Acai.Implementations.TrackedBranch,
+            where: tb.implementation_id in ^all_ancestor_ids,
+            select: {tb.implementation_id, tb.branch_id}
+        )
+
+      # Group branch_ids by implementation_id
+      branch_ids_by_impl =
+        Enum.reduce(tracked_branches, %{}, fn {impl_id, branch_id}, acc ->
+          Map.update(acc, impl_id, MapSet.new([branch_id]), &MapSet.put(&1, branch_id))
+        end)
+
+      all_branch_ids =
+        tracked_branches
+        |> Enum.map(&elem(&1, 1))
+        |> Enum.uniq()
+
+      # Batch 3: Get all specs for these branches that match the feature_name
+      # Grouped by branch_id => spec
+      specs_by_branch =
+        if all_branch_ids == [] do
+          %{}
+        else
+          Repo.all(
+            from s in Spec,
+              where:
+                s.branch_id in ^all_branch_ids and
+                  s.feature_name == ^feature_name and
+                  s.product_id == ^product_id,
+              select: {s.branch_id, s}
+          )
+          |> Map.new()
+        end
+
+      # Now resolve canonical spec for each implementation
+      for implementation <- implementations,
+          into: %{} do
+        result =
+          resolve_canonical_spec_with_batch_data(
+            implementation.id,
+            branch_ids_by_impl,
+            specs_by_branch,
+            ancestors_by_impl
+          )
+
+        {implementation.id, result}
+      end
+    end
+  end
+
+  # Resolve canonical spec for a single implementation using pre-fetched batch data
+  # Returns %{spec_id: spec_id | nil, is_inherited: boolean, source_impl_id: id | nil}
+  defp resolve_canonical_spec_with_batch_data(
+         impl_id,
+         branch_ids_by_impl,
+         specs_by_branch,
+         ancestors_by_impl
+       ) do
+    # Get the ancestor chain for this implementation (self first, then parents)
+    ancestor_chain = Map.get(ancestors_by_impl, impl_id, [impl_id])
+
+    # Walk the chain to find the first spec
+    Enum.reduce_while(
+      ancestor_chain,
+      %{spec_id: nil, is_inherited: false, source_impl_id: nil},
+      fn current_impl_id, _acc ->
+        branch_ids = Map.get(branch_ids_by_impl, current_impl_id, MapSet.new())
+
+        # Find the first spec that matches any of these branches
+        spec =
+          branch_ids
+          |> MapSet.to_list()
+          |> Enum.find_value(fn branch_id ->
+            Map.get(specs_by_branch, branch_id)
+          end)
+
+        if spec do
+          is_inherited = current_impl_id != impl_id
+          source_impl_id = if is_inherited, do: current_impl_id, else: nil
+          {:halt, %{spec_id: spec.id, is_inherited: is_inherited, source_impl_id: source_impl_id}}
+        else
+          {:cont, %{spec_id: nil, is_inherited: false, source_impl_id: nil}}
+        end
+      end
+    )
   end
 
   # --- Implementations for Feature (Batched Resolution) ---

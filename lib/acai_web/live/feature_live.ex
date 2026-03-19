@@ -6,24 +6,25 @@ defmodule AcaiWeb.FeatureLive do
   alias Acai.Implementations
 
   @impl true
-  def mount(%{"team_name" => team_name, "feature_name" => feature_name}, _session, socket) do
+  def mount(%{"team_name" => team_name}, _session, socket) do
+    # mount/3: Only do cheap initialization
+    # feature-view.ENG.1: Full data loading happens in handle_params/3
     team = Teams.get_team_by_name!(team_name)
 
-    # feature-view.ENG.1: Single consolidated query loads all feature page data
-    case Specs.load_feature_page_data(team, feature_name) do
-      {:error, :feature_not_found} ->
-        # feature-view.ROUTING.2: Redirect if feature not found
-        socket =
-          socket
-          |> put_flash(:error, "Feature not found")
-          |> push_navigate(to: ~p"/t/#{team.name}")
+    socket =
+      socket
+      |> assign(:team, team)
+      |> assign(:page_title, "Feature")
+      # These will be populated by handle_params/3
+      |> assign(:feature_name, nil)
+      |> assign(:feature_description, nil)
+      |> assign(:product_name, nil)
+      |> assign(:implementations_empty?, true)
+      |> assign(:available_features, [])
+      |> assign(:current_path, nil)
+      |> stream(:implementations, [])
 
-        {:ok, socket}
-
-      {:ok, feature_data} ->
-        socket = build_feature_page_assigns(socket, team, feature_data)
-        {:ok, socket}
-    end
+    {:ok, socket}
   end
 
   # Maximum display depth for hierarchy visualization
@@ -32,8 +33,8 @@ defmodule AcaiWeb.FeatureLive do
 
   # Build all assigns for the feature page from consolidated data
   # feature-view.ENG.1: All data comes from single load_feature_page_data/2 call
-  # Pass reset: true when called from reload_feature_data to ensure stream reset
-  defp build_feature_page_assigns(socket, team, feature_data, opts \\ []) do
+  # Pass reset: true when called from handle_params to ensure stream reset
+  defp build_feature_page_assigns(socket, feature_data, opts) do
     reset_stream? = Keyword.get(opts, :reset, false)
 
     # Build a map of spec_id => requirement_count for quick lookup
@@ -44,83 +45,85 @@ defmodule AcaiWeb.FeatureLive do
 
     # Build implementation cards with pre-fetched data
     # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2
-
+    # feature-view.ENG.1: Use precomputed canonical_specs_by_impl instead of N+1 resolve_canonical_spec/2
     implementation_cards =
       feature_data.implementations
       |> Enum.map(fn impl ->
         # feature-view.MAIN.3: Get status counts from feature_impl_states
         impl_counts = Map.get(feature_data.status_counts_by_impl, impl.id, %{})
 
-        # feature-view.MAIN.3: Get requirement count from the spec this implementation uses
-        # (considering inheritance - may use parent's spec)
-        {canonical_spec, _source_info} =
-          Specs.resolve_canonical_spec(feature_data.feature_name, impl.id)
+        # feature-view.MAIN.3: Get requirement count from the canonical spec (using precomputed data)
+        canonical_spec_info = Map.get(feature_data.canonical_specs_by_impl, impl.id, %{})
+        canonical_spec_id = canonical_spec_info[:spec_id]
 
         total_reqs =
-          if canonical_spec do
-            Map.get(spec_req_counts, canonical_spec.id, 0)
+          if canonical_spec_id do
+            Map.get(spec_req_counts, canonical_spec_id, 0)
           else
             0
           end
 
         # Calculate status percentages for progress bar
-        status_percentages =
-          if total_reqs > 0 do
-            %{
-              nil => Map.get(impl_counts, nil, 0) / total_reqs * 100,
-              "assigned" => Map.get(impl_counts, "assigned", 0) / total_reqs * 100,
-              "blocked" => Map.get(impl_counts, "blocked", 0) / total_reqs * 100,
-              "completed" => Map.get(impl_counts, "completed", 0) / total_reqs * 100,
-              "accepted" => Map.get(impl_counts, "accepted", 0) / total_reqs * 100,
-              "rejected" => Map.get(impl_counts, "rejected", 0) / total_reqs * 100
-            }
-          else
-            %{
-              nil => 0,
-              "assigned" => 0,
-              "blocked" => 0,
-              "completed" => 0,
-              "accepted" => 0,
-              "rejected" => 0
-            }
-          end
+        status_percentages = calculate_status_percentages(impl_counts, total_reqs)
 
         # Build the slug for navigation (impl_name-uuid_without_dashes)
         # feature-view.MAIN.4
         # feature-impl-view.ROUTING.1: Route uses impl_name-impl_id format
         slug = Implementations.implementation_slug(impl)
 
+        # feature-view.ENG.1: Lean view-model with only fields needed for rendering
         %{
           id: "impl-#{impl.id}",
-          implementation: impl,
+          name: impl.name,
+          inserted_at: impl.inserted_at,
           slug: slug,
-          product_name: impl.product.name,
+          parent_implementation_id: impl.parent_implementation_id,
           total_requirements: total_reqs,
-          status_percentages: status_percentages,
-          # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2: Include parent_id for tree ordering
-          parent_implementation_id: impl.parent_implementation_id
+          status_percentages: status_percentages
         }
       end)
       # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2: Order by inheritance depth
       |> order_cards_by_hierarchy()
 
+    team = socket.assigns.team
+
     socket
-    |> assign(:team, team)
     # feature-view.MAIN.1
     |> assign(:feature_name, feature_data.feature_name)
     # feature-view.MAIN.1
     |> assign(:feature_description, feature_data.feature_description)
     # data-model.SPECS.12: Get product name from preloaded association
     |> assign(:product_name, feature_data.product.name)
-    |> assign(:product, feature_data.product)
     |> assign(:implementations_empty?, implementation_cards == [])
-    # feature-view.MAIN.2
     # Reset stream when switching features to remove stale cards from DOM
     |> stream(:implementations, implementation_cards, reset: reset_stream?)
     # feature-view.MAIN.1: Available features for dropdown
     |> assign(:available_features, feature_data.available_features)
     # nav.AUTH.1: Pass current_path for navigation
     |> assign(:current_path, "/t/#{team.name}/f/#{feature_data.feature_name}")
+  end
+
+  # Calculate status percentages from counts
+  defp calculate_status_percentages(impl_counts, total_reqs) do
+    if total_reqs > 0 do
+      %{
+        nil => Map.get(impl_counts, nil, 0) / total_reqs * 100,
+        "assigned" => Map.get(impl_counts, "assigned", 0) / total_reqs * 100,
+        "blocked" => Map.get(impl_counts, "blocked", 0) / total_reqs * 100,
+        "completed" => Map.get(impl_counts, "completed", 0) / total_reqs * 100,
+        "accepted" => Map.get(impl_counts, "accepted", 0) / total_reqs * 100,
+        "rejected" => Map.get(impl_counts, "rejected", 0) / total_reqs * 100
+      }
+    else
+      %{
+        nil => 0,
+        "assigned" => 0,
+        "blocked" => 0,
+        "completed" => 0,
+        "accepted" => 0,
+        "rejected" => 0
+      }
+    end
   end
 
   # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2, feature-view.HIERARCHY.3, feature-view.HIERARCHY.4
@@ -132,7 +135,11 @@ defmodule AcaiWeb.FeatureLive do
   # - Each card gets connector metadata for L-shape connector rendering
   defp order_cards_by_hierarchy(cards) do
     # Build set of card IDs for root detection
-    card_ids = MapSet.new(cards, fn card -> card.implementation.id end)
+    card_ids =
+      MapSet.new(cards, fn card ->
+        # Extract UUID from "impl-{uuid}" format
+        String.replace_prefix(card.id, "impl-", "")
+      end)
 
     # Build parent_id -> children map
     children_by_parent =
@@ -147,7 +154,7 @@ defmodule AcaiWeb.FeatureLive do
         card.parent_implementation_id == nil ||
           not MapSet.member?(card_ids, card.parent_implementation_id)
       end)
-      |> Enum.sort_by(fn card -> card.implementation.name end)
+      |> Enum.sort_by(fn card -> card.name end)
 
     # Perform depth-first traversal with depth tracking
     # feature-view.HIERARCHY.3: Cap display depth at max_hierarchy_depth
@@ -188,9 +195,12 @@ defmodule AcaiWeb.FeatureLive do
       |> Map.put(:is_last_child, is_last_child)
       |> Map.put(:connector_levels, active_levels)
 
+    # Extract UUID from id for looking up children
+    card_uuid = String.replace_prefix(card.id, "impl-", "")
+
     # Get children and sort alphabetically
-    children = Map.get(children_by_parent, card.implementation.id, [])
-    sorted_children = Enum.sort_by(children, fn child -> child.implementation.name end)
+    children = Map.get(children_by_parent, card_uuid, [])
+    sorted_children = Enum.sort_by(children, fn child -> child.name end)
     last_index = length(sorted_children) - 1
 
     # For children, update active_levels: add current display_depth if this card has
@@ -231,29 +241,37 @@ defmodule AcaiWeb.FeatureLive do
   end
 
   # Handle params for URL changes (patch navigation)
-  # feature-view.MAIN.1: Reload page data when URL is patched via dropdown changes
+  # feature-view.MAIN.1: Centralized param-driven data loading
+  # feature-view.ENG.1: Single path for all data loading (mount + handle_params)
   @impl true
   def handle_params(%{"team_name" => team_name, "feature_name" => feature_name}, uri, socket) do
     # Update current_path for navigation highlighting
     socket = assign(socket, :current_path, URI.parse(uri).path)
 
-    # Only reload data if feature has actually changed (not on initial mount)
-    current_feature = socket.assigns[:feature_name]
+    # Get the team - reuse if already assigned and team hasn't changed
+    team =
+      if socket.assigns.team && socket.assigns.team.name == team_name do
+        socket.assigns.team
+      else
+        Teams.get_team_by_name!(team_name)
+      end
 
+    socket = assign(socket, :team, team)
+
+    # Only reload data if feature has actually changed
+    current_feature = socket.assigns[:feature_name]
     should_reload = is_nil(current_feature) || current_feature != feature_name
 
     if should_reload do
-      reload_feature_data(socket, team_name, feature_name)
+      load_feature_data(socket, team, feature_name)
     else
       {:noreply, socket}
     end
   end
 
-  # Reload feature data after URL patch (shared logic with mount)
+  # Load feature data - single consolidated path for all data loading
   # feature-view.ENG.1: Uses single consolidated query path
-  defp reload_feature_data(socket, team_name, feature_name) do
-    team = Teams.get_team_by_name!(team_name)
-
+  defp load_feature_data(socket, team, feature_name) do
     case Specs.load_feature_page_data(team, feature_name) do
       {:error, :feature_not_found} ->
         {:noreply,
@@ -263,7 +281,7 @@ defmodule AcaiWeb.FeatureLive do
 
       {:ok, feature_data} ->
         # Pass reset: true to clear stale stream entries when switching features
-        socket = build_feature_page_assigns(socket, team, feature_data, reset: true)
+        socket = build_feature_page_assigns(socket, feature_data, reset: true)
         {:noreply, socket}
     end
   end
@@ -419,11 +437,11 @@ defmodule AcaiWeb.FeatureLive do
                             class="size-4 text-secondary flex-shrink-0"
                           />
                           <h3 class="font-semibold text-base group-hover:text-secondary transition-colors truncate">
-                            {card.implementation.name}
+                            {card.name}
                           </h3>
                         </div>
                         <p class="text-xs text-base-content/50 mt-1">
-                          Created {Calendar.strftime(card.implementation.inserted_at, "%b %d, %Y")}
+                          Created {Calendar.strftime(card.inserted_at, "%b %d, %Y")}
                         </p>
                       </div>
 

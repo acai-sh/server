@@ -168,3 +168,38 @@ socket = stream(socket, :matrix_rows, matrix_rows)
 ```
 - **Expected impact:** Reduces memory pressure for products with 50+ features
 - **Verification:** Monitor memory usage with `:erlang.memory()` before/after
+
+## Re-review 2026-03-19
+
+### Result: REJECTED
+
+### What improved
+- `AcaiWeb.ProductLive` now uses non-raising lookups for the team/product flow.
+- Matrix rows are now streamed via `@streams.matrix_rows` with `phx-update="stream"` and `reset: true`.
+- Full test suite passes: `mix test` -> 894 tests, 0 failures.
+
+### Remaining issue
+- **Consolidated loader still performs an overlapping spec fetch/build pass.**
+  - `Products.load_product_page/2` fetches `specs = Acai.Specs.list_specs_for_product(product)` and passes that list into `Acai.Specs.batch_get_completion_and_availability/3`.
+  - Inside `batch_get_completion_and_availability/3`, the function performs another `Repo.all(from s in Spec, ...)` to rebuild `specs_by_branch/specs_by_feature` for the same product/feature set.
+  - This means the prior review issue is only partially fixed: the separate completion/availability helper paths were consolidated, but the loader still does a second overlapping spec pass instead of reusing the already-loaded `specs` list.
+
+### Action items
+- [ ] Remove the second spec query from `Acai.Specs.batch_get_completion_and_availability/3`.
+- [ ] Derive `specs_by_feature` / branch-id lookup data directly from the `specs` argument already loaded by `Products.load_product_page/2`.
+- [ ] Keep the shared ancestry/tracked-branch/state pass, but ensure spec lookup state is built once from the in-memory `specs` list.
+- [ ] Add/adjust a focused test covering that the consolidated loader reuses the passed spec set for both completion and availability logic.
+
+## Re-review 2026-03-19 (pass 2)
+
+### Result: ACCEPTED
+
+### Verified
+- `Products.load_product_page/2` still loads specs once, and `Acai.Specs.batch_get_completion_and_availability/3` now derives availability data from the already-loaded `specs` list instead of issuing a second `Spec` query.
+- The overlapping `Spec` fetch inside the consolidated product-page loader path has been eliminated; the shared loader now only batches ancestry, tracked-branch, and state reads.
+- Matrix streaming is still correct: `ProductLive` initializes `:matrix_rows` as a stream, renders via `@streams.matrix_rows`, and resets the stream on product changes.
+- Non-raising LiveView lookups are in place for the reviewed flow via `Products.get_team_by_name/1` and `Products.get_product_from_list/3`.
+- Full test suite passes: `mix test` -> 894 tests, 0 failures.
+
+### Supervisor notification
+The code for `/app/docs/reviews/routes/202603_product-show.task.md` has passed review and can be merged.

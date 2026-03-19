@@ -115,7 +115,9 @@ defmodule AcaiWeb.ImplementationLive do
     # feature-impl-view.ROUTING.4: Load implementations that can resolve this feature
     # feature-impl-view.INHERITANCE.1: Includes implementations that inherit the feature from parents
     # feature-impl-view.CARDS.1-4
-    available_implementations = Specs.list_implementations_for_feature(feature_name, product)
+    # Using batched version to avoid N+1 queries
+    available_implementations =
+      Specs.list_implementations_for_feature_batched(feature_name, product)
 
     # feature-impl-view.ROUTING.4: Load features scoped to this implementation's tracked branches
     # feature-impl-view.INHERITANCE.1: Includes features inherited from parent implementations
@@ -180,6 +182,14 @@ defmodule AcaiWeb.ImplementationLive do
         nil
       end
 
+    # Preload spec source implementation to avoid render-time query
+    spec_source_impl =
+      if spec_source.is_inherited && spec_source.source_implementation_id do
+        Implementations.get_implementation(spec_source.source_implementation_id)
+      else
+        nil
+      end
+
     socket =
       socket
       |> assign(:team, team)
@@ -197,12 +207,13 @@ defmodule AcaiWeb.ImplementationLive do
       |> assign(:drawer_visible, false)
       |> assign(:spec_source, spec_source)
       |> assign(:spec_inherited, spec_source.is_inherited)
+      |> assign(:spec_source_impl, spec_source_impl)
       |> assign(:states, states)
       |> assign(:states_inherited, states_inherited)
       |> assign(:states_source_impl, states_source_impl)
       |> assign(:refs_inherited, refs_inherited)
       |> assign(:refs_source_impl, refs_source_impl)
-      |> assign(:aggregated_refs, aggregated_refs)
+      |> assign(:drawer_refs_by_branch, %{})
       |> assign(
         :current_path,
         "/t/#{team.name}/i/#{Implementations.implementation_slug(implementation)}/f/#{feature_name}"
@@ -279,6 +290,21 @@ defmodule AcaiWeb.ImplementationLive do
 
   defp acid_dom_id(acid), do: String.replace(acid, ".", "-")
 
+  # feature-impl-view.DRAWER.4: Get refs for a specific ACID from aggregated branch refs
+  # Returns a map of branch => ref_list
+  defp get_refs_by_branch(aggregated_refs, acid) when is_list(aggregated_refs) do
+    aggregated_refs
+    |> Enum.reduce(%{}, fn {branch, refs_map}, acc ->
+      case Map.get(refs_map, acid) do
+        nil -> acc
+        ref_list when is_list(ref_list) -> Map.put(acc, branch, ref_list)
+        _ -> acc
+      end
+    end)
+  end
+
+  defp get_refs_by_branch(_, _), do: %{}
+
   # Handle params for URL changes (patch navigation)
   # feature-impl-view.CARDS.1-2: Reload page data when URL is patched via dropdown changes
   @impl true
@@ -292,33 +318,79 @@ defmodule AcaiWeb.ImplementationLive do
 
     # Only reload data if params have actually changed (not on initial mount)
     current_impl = socket.assigns[:implementation]
+    current_team = socket.assigns[:team]
     current_feature = socket.assigns[:feature_name]
 
-    should_reload =
+    implementation_changed =
       is_nil(current_impl) or
-        is_nil(current_feature) or
-        Implementations.implementation_slug(current_impl) != impl_slug or
-        current_feature != feature_name
+        Implementations.implementation_slug(current_impl) != impl_slug
+
+    team_changed = is_nil(current_team) or current_team.name != team_name
+    feature_changed = is_nil(current_feature) or current_feature != feature_name
+
+    should_reload = implementation_changed or team_changed or feature_changed
 
     if should_reload do
-      reload_implementation_data(socket, team_name, impl_slug, feature_name)
+      reload_implementation_data(
+        socket,
+        team_name,
+        impl_slug,
+        feature_name,
+        implementation_changed,
+        team_changed
+      )
     else
       {:noreply, socket}
     end
   end
 
   # Reload implementation data after URL patch (shared logic with mount)
-  defp reload_implementation_data(socket, team_name, impl_slug, feature_name) do
-    team = Teams.get_team_by_name!(team_name)
+  # When only feature changes, reuse existing team and implementation to avoid unnecessary DB queries
+  defp reload_implementation_data(
+         socket,
+         team_name,
+         impl_slug,
+         feature_name,
+         implementation_changed,
+         team_changed
+       ) do
+    # Reuse existing team if it hasn't changed
+    team =
+      if team_changed do
+        Teams.get_team_by_name!(team_name)
+      else
+        socket.assigns.team
+      end
 
-    case Implementations.get_implementation_by_slug(impl_slug) do
-      nil ->
+    # Reuse existing implementation if it hasn't changed
+    implementation_result =
+      cond do
+        implementation_changed ->
+          case Implementations.get_implementation_by_slug(impl_slug) do
+            nil -> {:error, :not_found}
+            impl -> {:ok, impl}
+          end
+
+        team_changed ->
+          # Team changed but implementation slug didn't - still need to verify the implementation
+          case Implementations.get_implementation_by_slug(impl_slug) do
+            nil -> {:error, :not_found}
+            impl -> {:ok, impl}
+          end
+
+        true ->
+          # Neither changed, reuse existing
+          {:ok, socket.assigns.implementation}
+      end
+
+    case implementation_result do
+      {:error, :not_found} ->
         {:noreply,
          socket
          |> put_flash(:error, "Implementation not found")
          |> push_navigate(to: ~p"/t/#{team.name}/f/#{feature_name}")}
 
-      implementation ->
+      {:ok, implementation} ->
         if implementation.team_id == team.id do
           # Reload all data for the new implementation/feature
           {:ok, new_socket} =
@@ -336,10 +408,22 @@ defmodule AcaiWeb.ImplementationLive do
 
   @impl true
   def handle_event("open_drawer", %{"acid" => acid}, socket) do
+    # Load refs lazily for this specific ACID when drawer opens
+    # feature-impl-view.INHERITANCE.3: Get refs with inheritance walking
+    {aggregated_refs, _refs_source_impl_id} =
+      Implementations.get_aggregated_refs_with_inheritance(
+        socket.assigns.feature_name,
+        socket.assigns.implementation.id
+      )
+
+    # Extract refs for this ACID only
+    drawer_refs_by_branch = get_refs_by_branch(aggregated_refs, acid)
+
     {:noreply,
      socket
      |> assign(:selected_acid, acid)
-     |> assign(:drawer_visible, true)}
+     |> assign(:drawer_visible, true)
+     |> assign(:drawer_refs_by_branch, drawer_refs_by_branch)}
   end
 
   def handle_event("close_drawer", _params, socket) do
@@ -451,6 +535,7 @@ defmodule AcaiWeb.ImplementationLive do
             spec={@spec}
             spec_inherited={@spec_inherited}
             spec_source={@spec_source}
+            spec_source_impl={@spec_source_impl}
             feature_name={@feature_name}
             team={@team}
           />
@@ -553,7 +638,7 @@ defmodule AcaiWeb.ImplementationLive do
           acid={@selected_acid}
           spec={@spec}
           implementation={@implementation}
-          aggregated_refs={@aggregated_refs}
+          refs_by_branch={@drawer_refs_by_branch}
           visible={@drawer_visible}
           states={@states}
           states_inherited={@states_inherited}
@@ -681,21 +766,15 @@ defmodule AcaiWeb.ImplementationLive do
             >
               <p class="text-xs text-base-content/70">
                 No spec has been pushed for this implementation. It has been inherited from
-                <%= if @spec_source && @spec_source.source_implementation_id do %>
-                  <% source_impl =
-                    Acai.Implementations.get_implementation(@spec_source.source_implementation_id) %>
-                  <%= if source_impl do %>
-                    <.link
-                      navigate={
-                        ~p"/t/#{@team.name}/i/#{Acai.Implementations.implementation_slug(source_impl)}/f/#{@feature_name}"
-                      }
-                      class="link link-primary"
-                    >
-                      {source_impl.name}
-                    </.link>
-                  <% else %>
-                    parent implementation
-                  <% end %>
+                <%= if @spec_source_impl do %>
+                  <.link
+                    navigate={
+                      ~p"/t/#{@team.name}/i/#{Acai.Implementations.implementation_slug(@spec_source_impl)}/f/#{@feature_name}"
+                    }
+                    class="link link-primary"
+                  >
+                    {@spec_source_impl.name}
+                  </.link>
                 <% else %>
                   parent implementation
                 <% end %>

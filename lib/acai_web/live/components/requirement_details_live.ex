@@ -20,8 +20,10 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
     spec = Map.get(assigns, :spec) || Map.get(assigns, "spec")
     implementation = Map.get(assigns, :implementation) || Map.get(assigns, "implementation")
 
-    aggregated_refs =
-      Map.get(assigns, :aggregated_refs) || Map.get(assigns, "aggregated_refs") || []
+    # feature-impl-view.INHERITANCE.3: refs_by_branch is now passed directly from parent
+    # Parent loads refs lazily when drawer opens to avoid storing large payload in socket
+    refs_by_branch =
+      Map.get(assigns, :refs_by_branch) || Map.get(assigns, "refs_by_branch") || %{}
 
     # feature-impl-view.INHERITANCE.2: Accept inherited state context from parent LiveView
     # Parent LiveView already resolved states via get_feature_impl_state_with_inheritance/2
@@ -49,10 +51,6 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
       # Parent already called get_feature_impl_state_with_inheritance/2, so we use those states
       # feature-impl-view.DRAWER.3: Shows status and comment from inherited states
       state_data = Map.get(states, acid)
-
-      # feature-impl-view.DRAWER.4: Get refs for this ACID from aggregated branch refs
-      # These are already aggregated across tracked branches
-      refs_by_branch = get_refs_by_branch(aggregated_refs, acid)
 
       # Build requirement struct-like map from JSONB data
       requirement = build_requirement_from_jsonb(acid, requirement_data)
@@ -89,21 +87,6 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
        |> assign(:feature_name, feature_name)}
     end
   end
-
-  # feature-impl-view.DRAWER.4: Get refs for a specific ACID from aggregated branch refs
-  # Returns a map of branch => ref_list
-  defp get_refs_by_branch(aggregated_refs, acid) when is_list(aggregated_refs) do
-    aggregated_refs
-    |> Enum.reduce(%{}, fn {branch, refs_map}, acc ->
-      case Map.get(refs_map, acid) do
-        nil -> acc
-        ref_list when is_list(ref_list) -> Map.put(acc, branch, ref_list)
-        _ -> acc
-      end
-    end)
-  end
-
-  defp get_refs_by_branch(_, _), do: %{}
 
   # Build requirement map from JSONB data
   defp build_requirement_from_jsonb(acid, nil) do

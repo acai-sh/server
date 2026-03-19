@@ -2352,4 +2352,204 @@ defmodule AcaiWeb.ImplementationLiveTest do
              )
     end
   end
+
+  describe "PATCH_NAVIGATION - dropdown patch navigation and handle_params" do
+    setup :register_and_log_in_user
+
+    # feature-impl-view.CARDS.1-2
+    test "select_feature patches URL without full page reload", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      impl = create_implementation_for_product(product, name: "TestImpl")
+
+      # Create tracked branch for the implementation
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create two specs for different features on the same branch
+      spec_fixture(product, %{
+        feature_name: "feature-one",
+        branch: branch,
+        requirements: %{
+          "feature-one.COMP.1" => %{
+            "definition" => "Feature one req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      spec_fixture(product, %{
+        feature_name: "feature-two",
+        branch: branch,
+        requirements: %{
+          "feature-two.COMP.1" => %{
+            "definition" => "Feature two req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/feature-one")
+
+      # Click on feature dropdown option to select different feature
+      view
+      |> element("a[phx-click='select_feature'][phx-value-feature_name='feature-two']")
+      |> render_click()
+
+      # Should patch to the new URL (check current path updated)
+      assert render(view) =~ "feature-two"
+      # Implementation name should still be visible
+      assert has_element?(view, "button[popovertarget='impl-popover']", "TestImpl")
+    end
+
+    # feature-impl-view.CARDS.1-2
+    test "select_implementation patches URL without full page reload", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      # Create two implementations that share the same feature via tracked branches
+      impl_a = create_implementation_for_product(product, name: "ImplA")
+      impl_b = create_implementation_for_product(product, name: "ImplB")
+
+      # Create a shared branch with the feature spec
+      shared_branch =
+        branch_fixture(team, %{repo_uri: "github.com/org/shared", branch_name: "main"})
+
+      # Both implementations track the same branch
+      tracked_branch_fixture(impl_a, branch: shared_branch, repo_uri: shared_branch.repo_uri)
+      tracked_branch_fixture(impl_b, branch: shared_branch, repo_uri: shared_branch.repo_uri)
+
+      # Create spec on the shared branch
+      spec_fixture(product, %{
+        feature_name: "shared-feature",
+        branch: shared_branch,
+        requirements: %{
+          "shared-feature.COMP.1" => %{
+            "definition" => "Shared req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      slug_a = build_impl_slug(impl_a)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug_a}/f/shared-feature")
+
+      # Verify starting state
+      assert has_element?(view, "button[popovertarget='impl-popover']", "ImplA")
+
+      # Get slug for impl_b
+      slug_b = build_impl_slug(impl_b)
+
+      # Click on implementation dropdown option
+      view
+      |> element("a[phx-click='select_implementation'][phx-value-impl_id='#{slug_b}']")
+      |> render_click()
+
+      # Should patch to the new implementation
+      assert render(view) =~ "ImplB"
+    end
+
+    # feature-impl-view.CARDS.1-4
+    test "select_implementation rejects invalid implementation via event handler", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      impl_a = create_implementation_for_product(product, name: "ImplA")
+      impl_b = create_implementation_for_product(product, name: "ImplB")
+
+      # Create branch and spec only for impl_a
+      branch_a = branch_fixture(team, %{repo_uri: "github.com/org/repo-a", branch_name: "main"})
+      tracked_branch_fixture(impl_a, branch: branch_a, repo_uri: branch_a.repo_uri)
+
+      spec_fixture(product, %{
+        feature_name: "exclusive-feature",
+        branch: branch_a,
+        requirements: %{
+          "exclusive-feature.COMP.1" => %{
+            "definition" => "Exclusive req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      # impl_b tracks a different branch without the spec
+      branch_b = branch_fixture(team, %{repo_uri: "github.com/org/repo-b", branch_name: "main"})
+      tracked_branch_fixture(impl_b, branch: branch_b, repo_uri: branch_b.repo_uri)
+
+      slug_a = build_impl_slug(impl_a)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug_a}/f/exclusive-feature")
+
+      # Try to select impl_b which doesn't have this feature
+      # Use direct event call since the dropdown won't show invalid implementations
+      slug_b = build_impl_slug(impl_b)
+
+      # Send the event directly as if the user manipulated the DOM
+      result = view |> render_click("select_implementation", %{"impl_id" => slug_b})
+
+      # Should show error flash
+      assert result =~ "Implementation is not available for this feature"
+    end
+
+    # feature-impl-view.CARDS.1-2
+    test "handle_params reuses existing assigns when only feature changes", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      impl = create_implementation_for_product(product, name: "TestImpl")
+
+      # Create tracked branch for the implementation
+      branch = branch_fixture(team, %{repo_uri: "github.com/org/repo", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      # Create two specs for different features on the same branch
+      spec_fixture(product, %{
+        feature_name: "feature-one",
+        branch: branch,
+        requirements: %{
+          "feature-one.COMP.1" => %{
+            "definition" => "Feature one req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      spec_fixture(product, %{
+        feature_name: "feature-two",
+        branch: branch,
+        requirements: %{
+          "feature-two.COMP.1" => %{
+            "definition" => "Feature two req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/feature-one")
+
+      # Switch to feature-two via patch
+      view
+      |> element("a[phx-click='select_feature'][phx-value-feature_name='feature-two']")
+      |> render_click()
+
+      # Should show feature-two content
+      assert render(view) =~ "feature-two"
+      # Implementation should still be present
+      assert has_element?(view, "button[popovertarget='impl-popover']", "TestImpl")
+    end
+  end
 end

@@ -104,14 +104,15 @@ defmodule Acai.Specs.FeaturePageQueryCountTest do
       assert length(data.implementations) == 5
 
       # Query budget should be bounded regardless of implementation count
-      # With setup moved outside, the loader uses approximately 9-11 queries:
+      # With setup moved outside, the loader uses approximately 12-14 queries:
       # - 2 for get_specs_by_feature_name (get name + get specs)
       # - 1 for list_features_for_product
       # - 1 for list active implementations
       # - 3 for batch_check_feature_availability (impls, tracked_branches, specs)
       # - 1 for preload products on implementations
       # - 1 for batch_get_feature_impl_state_counts
-      assert stats.total <= 12
+      # - 3 for batch_resolve_canonical_specs (impls, tracked_branches, specs)
+      assert stats.total <= 14
 
       print_stats("cold feature page load", stats)
     end

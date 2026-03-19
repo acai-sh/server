@@ -1,47 +1,55 @@
 defmodule AcaiWeb.ProductLive do
   use AcaiWeb, :live_view
 
-  import Ecto.Query
-
-  alias Acai.Teams
-  alias Acai.Specs
   alias Acai.Products
   alias Acai.Implementations
 
-  # product-view.ROUTING.1
   @impl true
   def mount(%{"team_name" => team_name}, _session, socket) do
-    team = Teams.get_team_by_name!(team_name)
+    # Use non-raising lookup for consistent error handling
+    case Products.get_team_by_name(team_name) do
+      {:error, :not_found} ->
+        {:ok,
+         socket
+         |> put_flash(:error, "Team not found")
+         |> push_navigate(to: ~p"/")}
 
-    # Load all products for the team (for product selector)
-    # product-view.PRODUCT_SELECTOR.1
-    products = Products.list_products(socket.assigns.current_scope, team)
+      {:ok, team} ->
+        # Load all products for the team (for product selector)
+        products = Products.list_products(socket.assigns.current_scope, team)
 
-    socket =
-      socket
-      |> assign(:team, team)
-      |> assign(:products, products)
-      |> assign(:current_path, nil)
+        socket =
+          socket
+          |> assign(:team, team)
+          |> assign(:products, products)
+          |> assign(:current_path, nil)
+          |> assign(:product, nil)
+          |> assign(:product_name, nil)
+          |> assign(:active_implementations, [])
+          |> assign(:empty?, true)
+          |> assign(:no_features?, true)
+          |> assign(:no_implementations?, true)
+          |> stream(:matrix_rows, [])
 
-    {:ok, socket}
+        {:ok, socket}
+    end
   end
 
-  # product-view.ROUTING.2
   # Handle params loads the product data when the URL changes (including from selector)
   @impl true
   def handle_params(params, uri, socket) do
-    %{team: team} = socket.assigns
+    %{team: team, products: products} = socket.assigns
     product_name = params["product_name"]
 
     # Update current_path for navigation highlighting
     socket = assign(socket, :current_path, URI.parse(uri).path)
 
-    # product-view.MATRIX.1-2: Capture direction param for RTL/LTR ordering
+    # Capture direction param for RTL/LTR ordering
     socket = assign(socket, :direction_param, params["dir"])
 
-    case get_product_by_name_case_insensitive(team, product_name) do
-      nil ->
-        # product-view.ROUTING.2: Redirect if product not found
+    # Use already-loaded products list to avoid extra query
+    case Products.get_product_from_list(products, team, product_name) do
+      {:error, :not_found} ->
         socket =
           socket
           |> put_flash(:error, "Product not found")
@@ -49,148 +57,101 @@ defmodule AcaiWeb.ProductLive do
 
         {:noreply, socket}
 
-      product ->
+      {:ok, product} ->
         socket = load_product_data(socket, product)
         {:noreply, socket}
     end
   end
 
-  # Load all product data: specs, implementations, and completion matrix
-  # product-view.ROUTING.2
+  # Load all product data using the consolidated context loader
+  # and stream matrix rows instead of large assign
   defp load_product_data(socket, product) do
-    # Fetch specs and active implementations
-    specs = Specs.list_specs_for_product(product)
-
-    # product-view.MATRIX.1: Active implementations sorted by inheritance order
-    # product-view.MATRIX.1-1: Parentless implementations first, then descendants
-    # product-view.MATRIX.1-2: Direction-aware sorting from URL params or session
     direction = get_direction(socket)
 
-    active_implementations =
-      Implementations.list_active_implementations(product, direction: direction)
+    # Single context call fetches all page data
+    page_data = Products.load_product_page(product, direction: direction)
 
-    # Group specs by feature_name for row headers
-    # product-view.MATRIX.2
-    features_by_name =
-      specs
-      |> Enum.group_by(& &1.feature_name)
-      |> Enum.map(fn {feature_name, feature_specs} ->
-        first_spec = List.first(feature_specs)
-
-        %{
-          name: feature_name,
-          description: first_spec.feature_description,
-          specs: feature_specs
-        }
-      end)
-      |> Enum.sort_by(& &1.name)
-
-    # Fetch per-spec-impl completion data in a single batch query
-    # product-view.ROUTING.2
-    spec_impl_completion =
-      if specs != [] and active_implementations != [] do
-        Specs.batch_get_spec_impl_completion(specs, active_implementations)
-      else
-        %{}
-      end
-
-    # Batch check feature availability for all feature/implementation pairs
-    # product-view.MATRIX.8: Check which features are available for each implementation
-    feature_names = Enum.map(features_by_name, & &1.name)
-
-    feature_availability =
-      if feature_names != [] and active_implementations != [] do
-        Specs.batch_check_feature_availability(feature_names, active_implementations)
-      else
-        %{}
-      end
-
-    # Build matrix rows: each feature has a cell for each implementation
-    # product-view.MATRIX.3, product-view.MATRIX.8
-    matrix_rows =
-      features_by_name
-      |> Enum.map(fn feature ->
-        cells =
-          active_implementations
-          |> Enum.map(fn impl ->
-            # Check if feature is available for this implementation
-            available = Map.get(feature_availability, {feature.name, impl.id}, false)
-
-            # Sum completion across all specs for this feature/implementation pair
-            {completed, total} =
-              feature.specs
-              |> Enum.reduce({0, 0}, fn spec, {acc_completed, acc_total} ->
-                spec_total = map_size(spec.requirements)
-
-                spec_completed =
-                  case Map.get(spec_impl_completion, {spec.id, impl.id}) do
-                    nil -> 0
-                    data -> data.completed
-                  end
-
-                {acc_completed + spec_completed, acc_total + spec_total}
-              end)
-
-            percentage = if total > 0, do: round(completed / total * 100), else: 0
-
-            %{
-              implementation_id: impl.id,
-              implementation_slug: Implementations.implementation_slug(impl),
-              completed: completed,
-              total: total,
-              percentage: percentage,
-              available: available
-            }
-          end)
-
-        %{
-          feature_name: feature.name,
-          feature_description: feature.description,
-          cells: cells
-        }
-      end)
-
-    # Empty state check: product-view.MATRIX.6
-    empty? = features_by_name == [] or active_implementations == []
+    # Build matrix rows for streaming (minimal payload per cell)
+    matrix_rows = build_matrix_rows(page_data, socket.assigns.team)
 
     socket
-    |> assign(:product, product)
-    |> assign(:product_name, product.name)
-    |> assign(:active_implementations, active_implementations)
-    |> assign(:matrix_rows, matrix_rows)
-    |> assign(:empty?, empty?)
-    |> assign(:no_features?, features_by_name == [])
-    |> assign(:no_implementations?, active_implementations == [])
+    |> assign(:product, page_data.product)
+    |> assign(:product_name, page_data.product.name)
+    |> assign(:active_implementations, page_data.active_implementations)
+    |> assign(:empty?, page_data.empty?)
+    |> assign(:no_features?, page_data.no_features?)
+    |> assign(:no_implementations?, page_data.no_implementations?)
+    |> stream(:matrix_rows, matrix_rows, reset: true)
   end
 
-  # Helper to get product by name with case-insensitive matching
-  defp get_product_by_name_case_insensitive(team, name) do
-    Acai.Repo.one(
-      from p in Products.Product,
-        where: p.team_id == ^team.id,
-        where: fragment("lower(?)", p.name) == ^String.downcase(name),
-        limit: 1
-    )
+  # Build matrix rows with minimal per-cell payload
+  # Each cell only needs: impl_id, percentage, completed/total, available flag
+  # The implementation metadata is kept once in @active_implementations
+  defp build_matrix_rows(page_data, team) do
+    %{
+      features_by_name: features_by_name,
+      active_implementations: active_implementations,
+      spec_impl_completion: spec_impl_completion,
+      feature_availability: feature_availability
+    } = page_data
+
+    features_by_name
+    |> Enum.map(fn feature ->
+      cells =
+        active_implementations
+        |> Enum.map(fn impl ->
+          available = Map.get(feature_availability, {feature.name, impl.id}, false)
+
+          # Sum completion across all specs for this feature/implementation pair
+          {completed, total} =
+            feature.specs
+            |> Enum.reduce({0, 0}, fn spec, {acc_completed, acc_total} ->
+              spec_total = map_size(spec.requirements)
+
+              spec_completed =
+                case Map.get(spec_impl_completion, {spec.id, impl.id}) do
+                  nil -> 0
+                  data -> data.completed
+                end
+
+              {acc_completed + spec_completed, acc_total + spec_total}
+            end)
+
+          percentage = if total > 0, do: round(completed / total * 100), else: 0
+
+          # Minimal cell payload - implementation_slug is needed for URL generation
+          %{
+            implementation_id: impl.id,
+            implementation_slug: Implementations.implementation_slug(impl),
+            completed: completed,
+            total: total,
+            percentage: percentage,
+            available: available
+          }
+        end)
+
+      # Each row has a unique DOM id for streaming
+      %{
+        id: "feature-row-#{slugify(feature.name)}",
+        feature_name: feature.name,
+        feature_description: feature.description,
+        team_name: team.name,
+        cells: cells
+      }
+    end)
   end
 
   # Calculate cell color based on completion percentage
-  # product-view.MATRIX.4
   defp completion_color_class(percentage) when percentage <= 50, do: ""
 
   defp completion_color_class(percentage) do
-    # Map 50-100 -> 0-1, apply ease-in (quadratic)
     t = (percentage - 50) / 50
     eased = t * t
-
-    # Interpolate from base text color to saturated green
-    # 50% = no green (text-base-content), 100% = full green
     "color: rgb(34, #{round(100 + eased * 97)}, 34)"
   end
 
   # Get text direction from URL params or session, default to LTR
-  # product-view.MATRIX.1-2: Sorting respects language direction
   defp get_direction(socket) do
-    # Check URL params first for explicit direction override
     case socket.assigns[:direction_param] do
       "rtl" -> :rtl
       "ltr" -> :ltr
@@ -198,12 +159,19 @@ defmodule AcaiWeb.ProductLive do
     end
   end
 
-  # product-view.PRODUCT_SELECTOR.2: Handle product selector change with patch navigation
+  # URL-safe slug for feature names (for DOM IDs)
+  defp slugify(name) do
+    name
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/u, "-")
+    |> String.trim("-")
+  end
+
+  # Handle product selector change with patch navigation
   @impl true
   def handle_event("select_product", %{"product_name" => new_product_name}, socket) do
     %{team: team} = socket.assigns
 
-    # Preserve the dir query param if present
     dir_param = socket.assigns[:direction_param]
 
     path =
@@ -213,7 +181,6 @@ defmodule AcaiWeb.ProductLive do
         ~p"/t/#{team.name}/p/#{new_product_name}"
       end
 
-    # Patch to the new URL without full page reload
     {:noreply, push_patch(socket, to: path)}
   end
 
@@ -227,7 +194,7 @@ defmodule AcaiWeb.ProductLive do
       current_path={@current_path}
     >
       <div class="space-y-6">
-        <%!-- product-view.MAIN.1: Page header with breadcrumb --%>
+        <%!-- Page header with breadcrumb --%>
         <nav class="flex items-center gap-2 text-sm text-base-content/70">
           <.link navigate={~p"/t/#{@team.name}"} class="hover:text-primary flex items-center gap-1">
             <.icon name="hero-home" class="size-4" />
@@ -236,8 +203,7 @@ defmodule AcaiWeb.ProductLive do
           <span class="text-base-content font-medium">{@product_name}</span>
         </nav>
 
-        <%!-- product-view.MAIN.2: Page title with product selector --%>
-        <%!-- product-view.PRODUCT_SELECTOR.1: Dropdown lists all team products --%>
+        <%!-- Page title with product selector --%>
         <div class="flex flex-col sm:flex-row sm:items-center gap-3">
           <span class="text-2xl font-bold">Overview of the</span>
 
@@ -282,14 +248,13 @@ defmodule AcaiWeb.ProductLive do
           <span class="text-2xl font-bold">product</span>
         </div>
 
-        <%!-- product-view.MAIN.3: Implementation count --%>
+        <%!-- Implementation count --%>
         <div class="text-sm text-base-content/60">
           {length(@active_implementations)} active implementation{if length(@active_implementations) !=
                                                                        1, do: "s", else: ""}
         </div>
 
         <%!-- Empty state --%>
-        <%!-- product-view.MATRIX.6 --%>
         <%= if @empty? do %>
           <div class="text-center py-16 bg-base-200/50 rounded-lg border border-base-300">
             <.icon name="hero-table-cells" class="size-16 text-base-content/20 mx-auto mb-4" />
@@ -307,7 +272,6 @@ defmodule AcaiWeb.ProductLive do
           </div>
         <% else %>
           <%!-- Feature × Implementation Matrix --%>
-          <%!-- product-view.MATRIX.1, product-view.MATRIX.2 --%>
           <div class="overflow-x-auto">
             <table class="table w-full border-r-1 border-base-300 border-b-1 rounded-b-lg overflow-hidden">
               <thead>
@@ -344,67 +308,65 @@ defmodule AcaiWeb.ProductLive do
                   <% end %>
                 </tr>
               </thead>
-              <tbody>
-                <%= for row <- @matrix_rows do %>
-                  <tr class="bg-base-100 hover:bg-base-200/50">
-                    <%!-- Feature name cell (row header) --%>
-                    <%!-- product-view.MATRIX.5 --%>
-                    <td class="sticky left-0 bg-base-100 z-10 p-0 border-l-1 border-base-300">
-                      <.link
-                        navigate={"/t/#{@team.name}/f/#{row.feature_name}"}
-                        class="block p-2 lg:p-4 hover:bg-base-200 transition-colors"
-                      >
-                        <div class="flex items-center gap-2">
-                          <.icon
-                            name="hero-cube"
-                            class="size-3 lg:size-4 text-primary flex-shrink-0"
-                          />
-                          <div class="font-medium text-primary hover:underline text-xs lg:text-base">
-                            {row.feature_name}
-                          </div>
+              <tbody id="matrix-rows" phx-update="stream">
+                <tr
+                  :for={{id, row} <- @streams.matrix_rows}
+                  id={id}
+                  class="bg-base-100 hover:bg-base-200/50"
+                >
+                  <%!-- Feature name cell (row header) --%>
+                  <td class="sticky left-0 bg-base-100 z-10 p-0 border-l-1 border-base-300">
+                    <.link
+                      navigate={"/t/#{row.team_name}/f/#{row.feature_name}"}
+                      class="block p-2 lg:p-4 hover:bg-base-200 transition-colors"
+                    >
+                      <div class="flex items-center gap-2">
+                        <.icon
+                          name="hero-cube"
+                          class="size-3 lg:size-4 text-primary flex-shrink-0"
+                        />
+                        <div class="font-medium text-primary hover:underline text-xs lg:text-base">
+                          {row.feature_name}
                         </div>
-                        <%= if row.feature_description do %>
-                          <div class="text-base-content/70 mt-1 line-clamp-2 text-xs">
-                            {row.feature_description}
-                          </div>
-                        <% end %>
-                      </.link>
-                    </td>
-                    <%!-- Completion cells --%>
-                    <%= for cell <- row.cells do %>
-                      <td class="bg-base-100 text-center border-l border-base-300 first:border-l-0 p-0">
-                        <%!-- product-view.MATRIX.8: Unavailable features show n/a --%>
-                        <%= if cell.available do %>
-                          <%!-- product-view.MATRIX.7: Available features show clickable percentage --%>
-                          <.link
-                            navigate={"/t/#{@team.name}/i/#{cell.implementation_slug}/f/#{row.feature_name}"}
-                            class={[
-                              "block py-4 lg:px-2 hover:bg-base-200 transition-colors",
-                              cell.percentage == 100 && "bg-success/3"
-                            ]}
+                      </div>
+                      <%= if row.feature_description do %>
+                        <div class="text-base-content/70 mt-1 line-clamp-2 text-xs">
+                          {row.feature_description}
+                        </div>
+                      <% end %>
+                    </.link>
+                  </td>
+                  <%!-- Completion cells --%>
+                  <%= for {cell, idx} <- Enum.with_index(row.cells) do %>
+                    <td class="bg-base-100 text-center border-l border-base-300 first:border-l-0 p-0">
+                      <%= if cell.available do %>
+                        <.link
+                          navigate={"/t/#{row.team_name}/i/#{cell.implementation_slug}/f/#{row.feature_name}"}
+                          class={[
+                            "block py-4 lg:px-2 hover:bg-base-200 transition-colors",
+                            cell.percentage == 100 && "bg-success/3"
+                          ]}
+                        >
+                          <span
+                            class="font-semibold text-sm"
+                            style={completion_color_class(cell.percentage)}
                           >
-                            <span
-                              class="font-semibold text-sm"
-                              style={completion_color_class(cell.percentage)}
-                            >
-                              {cell.percentage}%
-                            </span>
-                            <%= if cell.total > 0 do %>
-                              <div class="text-xs text-base-content/40 mt-1">
-                                {cell.completed}/{cell.total}
-                              </div>
-                            <% end %>
-                          </.link>
-                        <% else %>
-                          <%!-- product-view.MATRIX.8: Unavailable cells show n/a --%>
-                          <div class="block py-4 lg:px-2 text-base-content/30">
-                            <span class="text-sm">n/a</span>
-                          </div>
-                        <% end %>
-                      </td>
-                    <% end %>
-                  </tr>
-                <% end %>
+                            {cell.percentage}%
+                          </span>
+                          <%= if cell.total > 0 do %>
+                            <div class="text-xs text-base-content/40 mt-1">
+                              {cell.completed}/{cell.total}
+                            </div>
+                          <% end %>
+                        </.link>
+                      <% else %>
+                        <div class="block py-4 lg:px-2 text-base-content/30">
+                          <span class="text-sm">n/a</span>
+                        </div>
+                      <% end %>
+                    </td>
+                  <% end %>
+                </tr>
               </tbody>
             </table>
           </div>
