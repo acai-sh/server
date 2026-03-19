@@ -317,12 +317,11 @@ defmodule AcaiWeb.Live.Components.ImplementationSettingsLive do
       >
         <%!-- Drawer header --%>
         <div class="flex items-center justify-between p-4 border-b border-base-300 flex-shrink-0">
-          <div>
-            <%!-- impl-settings.DRAWER.4: Drawer displays the implementation name and product context in its header --%>
+          <div class="flex items-center gap-3">
+            <.icon name="hero-tag" class="size-6 text-secondary" />
             <h2 id={"#{@id}-title"} class="text-lg font-semibold text-base-content">
-              {@implementation.name}
+              Implementation Settings
             </h2>
-            <p class="text-sm text-base-content/60">{@product.name}</p>
           </div>
           <button
             type="button"
@@ -336,7 +335,25 @@ defmodule AcaiWeb.Live.Components.ImplementationSettingsLive do
         </div>
 
         <%!-- Drawer content --%>
-        <div class="flex-1 overflow-y-auto p-4 space-y-6">
+        <div class="flex-1 overflow-y-auto p-4 space-y-8">
+          <%!-- Info Card --%>
+          <div class="p-4 bg-base-100 border-1 border-base-300 rounded-lg space-y-3">
+            <div class="space-y-1">
+              <p class="text-xs text-base-content/70 uppercase tracking-wider">Product</p>
+              <div class="flex items-center gap-2">
+                <.icon name="custom-boxes" class="size-4 text-accent" />
+                <span class="text-sm font-medium">{@product.name}</span>
+              </div>
+            </div>
+            <div class="space-y-1">
+              <p class="text-xs text-base-content/70 uppercase tracking-wider">Implementation</p>
+              <div class="flex items-center gap-2">
+                <.icon name="hero-tag" class="size-4 text-secondary" />
+                <span class="text-sm font-medium">{@implementation.name}</span>
+              </div>
+            </div>
+          </div>
+
           <%!-- Rename Section --%>
           <.rename_section
             implementation={@implementation}
@@ -344,8 +361,6 @@ defmodule AcaiWeb.Live.Components.ImplementationSettingsLive do
             rename_error={@rename_error}
             target={@myself}
           />
-
-          <div class="divider my-0"></div>
 
           <%!-- Tracked Branches Section --%>
           <.tracked_branches_section
@@ -356,8 +371,6 @@ defmodule AcaiWeb.Live.Components.ImplementationSettingsLive do
             selected_branch_id={@selected_branch_id}
             target={@myself}
           />
-
-          <div class="divider my-0"></div>
 
           <%!-- Delete Section --%>
           <.delete_section
@@ -409,7 +422,7 @@ defmodule AcaiWeb.Live.Components.ImplementationSettingsLive do
     ~H"""
     <div class="space-y-3">
       <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
-        Rename Implementation
+        Implementation Name
       </h3>
 
       <.form
@@ -423,7 +436,6 @@ defmodule AcaiWeb.Live.Components.ImplementationSettingsLive do
         <.input
           field={@rename_form[:name]}
           type="text"
-          label="Implementation name"
           autocomplete="off"
         />
 
@@ -467,7 +479,7 @@ defmodule AcaiWeb.Live.Components.ImplementationSettingsLive do
             phx-target={@target}
             id="show-track-branch-btn"
           >
-            <.icon name="hero-plus" class="size-4 mr-1" /> Track Branch
+            <.icon name="hero-plus" class="size-4 mr-1" /> Add
           </button>
         <% end %>
       </div>
@@ -675,16 +687,16 @@ defmodule AcaiWeb.Live.Components.ImplementationSettingsLive do
         Danger Zone
       </h3>
 
-      <div class="p-4 border border-error/30 rounded-lg bg-error/5">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="font-semibold text-error">Delete Implementation</p>
-            <p class="text-sm text-base-content/60">
-              Permanently delete this implementation and all associated data.
-            </p>
-          </div>
-          <%!-- impl-settings.DELETE.1: Renders a Delete Implementation button with warning styling --%>
-          <%!-- impl-settings.DELETE.2: Button is visually distinct to indicate destructive action --%>
+      <div class="p-4 border border-error/30 rounded-lg bg-error/5 space-y-4">
+        <div class="w-full">
+          <p class="font-semibold text-error">Delete Implementation</p>
+          <p class="text-sm text-base-content/60">
+            Permanently delete this implementation and all associated data.
+          </p>
+        </div>
+        <%!-- impl-settings.DELETE.1: Renders a Delete Implementation button with warning styling --%>
+        <%!-- impl-settings.DELETE.2: Button is visually distinct to indicate destructive action --%>
+        <div class="flex justify-end">
           <.button
             type="button"
             class="btn btn-error btn-sm"
@@ -710,14 +722,10 @@ defmodule AcaiWeb.Live.Components.ImplementationSettingsLive do
     ~H"""
     <div
       class="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center"
-      phx-click="cancel_delete"
+      phx-click-away="cancel_delete"
       phx-target={@target}
     >
-      <div
-        class="relative z-[70] w-full max-w-md mx-4 bg-base-100 rounded-2xl shadow-xl p-6 space-y-5"
-        phx-click-away="cancel_delete"
-        phx-target={@target}
-      >
+      <div class="relative z-[70] w-full max-w-md mx-4 bg-base-100 rounded-2xl shadow-xl p-6 space-y-5">
         <div class="flex items-center justify-between">
           <%!-- impl-settings.DELETE.4_2: Modal displays warning text that deletion is irreversible --%>
           <h3 class="text-lg font-semibold text-error">Delete Implementation?</h3>
@@ -744,18 +752,15 @@ defmodule AcaiWeb.Live.Components.ImplementationSettingsLive do
 
         <%!-- impl-settings.DELETE.4_3: Modal explains that all associated feature states and refs will be cleared --%>
         <%!-- impl-settings.DELETE.4_4: Modal explains that child implementations will lose inherited states and refs --%>
-        <div class="alert alert-error text-sm">
-          <.icon name="hero-exclamation-triangle" class="size-5 shrink-0" />
+        <div class="alert alert-soft text-sm">
+          <.icon name="hero-exclamation-triangle" class="size-5 shrink-0 text-alert" />
           <div>
             <p class="font-semibold">This action is permanent and cannot be undone.</p>
-            <p class="mt-1">This will permanently delete:</p>
-            <ul class="list-disc list-inside mt-1 space-y-0.5">
-              <li>All feature states for this implementation</li>
-              <li>All code reference associations</li>
-              <li>Tracked branch relationships</li>
-            </ul>
-            <p class="mt-2 text-xs">
-              Child implementations will lose inherited states and refs from this implementation.
+            <p class="mt-1">
+              This will permanently delete all feature states (status & comments) applied to it, and they can't be recovered.
+            </p>
+            <p class="mt-2">
+              Child implementations will be preserved, but lose any inherited states and references.
             </p>
           </div>
         </div>

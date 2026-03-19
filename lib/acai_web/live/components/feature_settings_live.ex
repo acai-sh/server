@@ -1,45 +1,7 @@
 defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
   @moduledoc """
   Side drawer component for feature settings.
-
-  feature-settings.DRAWER.1: Renders a settings icon button that opens the drawer
-  feature-settings.DRAWER.2: Drawer opens from the right side of the viewport
-  feature-settings.DRAWER.3: Drawer closes when clicking the close button, clicking outside, or pressing Escape
-  feature-settings.DRAWER.4: Drawer displays the feature name and implementation context in its header
   """
-  # feature-settings.CLEAR_STATES.1: Renders a Clear States button with descriptive label
-  # feature-settings.CLEAR_STATES.2_1: Button is disabled when no feature_impl_states exist for this feature and implementation
-  # feature-settings.CLEAR_STATES.2_2: Button is disabled when all states are inherited from a parent implementation
-  # feature-settings.CLEAR_STATES.3: Clicking the button opens a confirmation modal
-  # feature-settings.CLEAR_STATES.4_1: Confirmation modal displays warning text explaining this will clear all states
-  # feature-settings.CLEAR_STATES.4_2: Confirmation modal renders Cancel and Confirm buttons
-  # feature-settings.CLEAR_STATES.5: On confirmation, all feature_impl_states for this feature are deleted
-  # feature-settings.CLEAR_STATES.6: UI updates immediately after deletion to show no states or inherited states
-  # feature-settings.CLEAR_STATES.7: Modal closes after successful operation
-  # feature-settings.CLEAR_REFS.1: Renders a Clear Code Refs button with descriptive label
-  # feature-settings.CLEAR_REFS.2_1: Button is disabled when no feature_branch_refs exist for any tracked branch
-  # feature-settings.CLEAR_REFS.2_2: Button is disabled when all refs are inherited from a parent implementation
-  # feature-settings.CLEAR_REFS.3: Clicking the button opens a confirmation modal with branch picker
-  # feature-settings.CLEAR_REFS.4: Confirmation modal displays all tracked branches with multi-select checkboxes
-  # feature-settings.CLEAR_REFS.4_1: Each branch displays its full repo_uri and branch name
-  # feature-settings.CLEAR_REFS.4_2: All branches are selected by default
-  # feature-settings.CLEAR_REFS.4_3: User can deselect individual branches to exclude them
-  # feature-settings.CLEAR_REFS.5_1: Confirmation modal renders Cancel and Clear Selected buttons
-  # feature-settings.CLEAR_REFS.5_2: Clear Selected button is disabled if no branches are selected
-  # feature-settings.CLEAR_REFS.6: On confirmation, feature_branch_refs are cleared for all selected branches
-  # feature-settings.CLEAR_REFS.7: UI updates immediately after deletion to show no refs or inherited refs
-  # feature-settings.CLEAR_REFS.8: Modal closes after successful operation
-  # feature-settings.DELETE_SPEC.1: Renders a Delete Spec button with descriptive label
-  # feature-settings.DELETE_SPEC.2: Button is disabled when the target spec is inherited from a parent implementation
-  # feature-settings.DELETE_SPEC.3: Clicking the button opens a confirmation modal
-  # feature-settings.DELETE_SPEC.4_1: Confirmation modal displays warning text explaining this will delete the spec
-  # feature-settings.DELETE_SPEC.4_2: Confirmation modal explains that parent spec requirements will be used if available
-  # feature-settings.DELETE_SPEC.4_3: Confirmation modal renders Cancel and Delete buttons
-  # feature-settings.DELETE_SPEC.5: On confirmation, the target spec for the current tracked branch is deleted
-  # feature-settings.DELETE_SPEC.6_1: If a parent spec exists, UI updates to show parent requirements
-  # feature-settings.DELETE_SPEC.6_2: If no parent spec exists, user is redirected to /p/:product_name
-  # feature-settings.DELETE_SPEC.7: UI gracefully handles partial application of refs and states by ACID
-  # feature-settings.DELETE_SPEC.8: Modal closes after successful operation or redirect
   use AcaiWeb, :live_component
 
   alias Acai.Specs
@@ -117,14 +79,14 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
 
   @impl true
   def handle_event("close", _params, socket) do
-    # feature-settings.DRAWER.3: Drawer closes when clicking the close button, clicking outside, or pressing Escape
+    # feature-settings.DRAWER.3
     send(self(), "feature_settings_closed")
     {:noreply, assign(socket, :visible, false)}
   end
 
   # --- Clear States handlers ---
 
-  # feature-settings.CLEAR_STATES.3: Clicking the button opens a confirmation modal
+  # feature-settings.CLEAR_STATES.3
   def handle_event("show_clear_states_modal", _params, socket) do
     {:noreply, assign(socket, :show_clear_states_modal, true)}
   end
@@ -133,15 +95,15 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
     {:noreply, assign(socket, :show_clear_states_modal, false)}
   end
 
-  # feature-settings.CLEAR_STATES.5: On confirmation, all feature_impl_states for this feature are deleted
+  # feature-settings.CLEAR_STATES.5
   def handle_event("confirm_clear_states", _params, socket) do
     feature_name = socket.assigns.feature_name
     implementation = socket.assigns.implementation
 
     case Specs.delete_feature_impl_state(feature_name, implementation) do
       {:ok, _} ->
-        # feature-settings.CLEAR_STATES.6: UI updates immediately after deletion to show no states or inherited states
-        # feature-settings.CLEAR_STATES.7: Modal closes after successful operation
+        # feature-settings.CLEAR_STATES.6
+        # feature-settings.CLEAR_STATES.7
         send(self(), :feature_states_changed)
 
         {:noreply,
@@ -156,7 +118,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
 
   # --- Clear Refs handlers ---
 
-  # feature-settings.CLEAR_REFS.3: Clicking the button opens a confirmation modal with branch picker
+  # feature-settings.CLEAR_REFS.3
   def handle_event("show_clear_refs_modal", _params, socket) do
     {:noreply, assign(socket, :show_clear_refs_modal, true)}
   end
@@ -169,7 +131,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
      |> assign(:selected_branch_ids, MapSet.new(socket.assigns.branch_ids))}
   end
 
-  # feature-settings.CLEAR_REFS.4_3: User can deselect individual branches to exclude them
+  # feature-settings.CLEAR_REFS.4_3
   def handle_event("toggle_branch_selection", %{"branch_id" => branch_id}, socket) do
     branch_id = branch_id
     current_selection = socket.assigns.selected_branch_ids
@@ -184,7 +146,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
     {:noreply, assign(socket, :selected_branch_ids, new_selection)}
   end
 
-  # feature-settings.CLEAR_REFS.6: On confirmation, feature_branch_refs are cleared for all selected branches
+  # feature-settings.CLEAR_REFS.6
   def handle_event("confirm_clear_refs", _params, socket) do
     feature_name = socket.assigns.feature_name
     selected_branch_ids = MapSet.to_list(socket.assigns.selected_branch_ids)
@@ -192,11 +154,11 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
     if selected_branch_ids == [] do
       {:noreply, socket}
     else
-      # feature-settings.CLEAR_REFS.6: On confirmation, feature_branch_refs are cleared for all selected branches
+      # feature-settings.CLEAR_REFS.6
       {:ok, _} = Specs.delete_feature_branch_refs_for_branches(selected_branch_ids, feature_name)
 
-      # feature-settings.CLEAR_REFS.7: UI updates immediately after deletion to show no refs or inherited refs
-      # feature-settings.CLEAR_REFS.8: Modal closes after successful operation
+      # feature-settings.CLEAR_REFS.7
+      # feature-settings.CLEAR_REFS.8
       send(self(), :feature_refs_changed)
 
       # Check if any local refs remain
@@ -216,7 +178,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
 
   # --- Delete Spec handlers ---
 
-  # feature-settings.DELETE_SPEC.3: Clicking the button opens a confirmation modal
+  # feature-settings.DELETE_SPEC.3
   def handle_event("show_delete_spec_modal", _params, socket) do
     {:noreply, assign(socket, :show_delete_spec_modal, true)}
   end
@@ -225,15 +187,15 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
     {:noreply, assign(socket, :show_delete_spec_modal, false)}
   end
 
-  # feature-settings.DELETE_SPEC.5: On confirmation, the target spec for the current tracked branch is deleted
+  # feature-settings.DELETE_SPEC.5
   def handle_event("confirm_delete_spec", _params, socket) do
     spec = socket.assigns.spec
 
     case Specs.delete_spec(spec) do
       {:ok, _} ->
-        # feature-settings.DELETE_SPEC.6_1: If a parent spec exists, UI updates to show parent requirements
-        # feature-settings.DELETE_SPEC.6_2: If no parent spec exists, user is redirected to /p/:product_name
-        # feature-settings.DELETE_SPEC.8: Modal closes after successful operation or redirect
+        # feature-settings.DELETE_SPEC.6_1
+        # feature-settings.DELETE_SPEC.6_2
+        # feature-settings.DELETE_SPEC.8
         send(self(), :feature_spec_deleted)
 
         {:noreply, assign(socket, :show_delete_spec_modal, false)}
@@ -257,7 +219,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
       phx-target={@myself}
       phx-key="Escape"
     >
-      <%!-- feature-settings.DRAWER.3: Drawer closes when clicking outside --%>
+      <%!-- feature-settings.DRAWER.3 --%>
       <div
         class="fixed inset-0 bg-black/50 transition-opacity"
         phx-click="close"
@@ -265,7 +227,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
         aria-hidden="true"
       />
 
-      <%!-- feature-settings.DRAWER.2: Drawer opens from the right side of the viewport --%>
+      <%!-- feature-settings.DRAWER.2 --%>
       <div
         id={"#{@id}-panel"}
         class={[
@@ -281,12 +243,11 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
       >
         <%!-- Drawer header --%>
         <div class="flex items-center justify-between p-4 border-b border-base-300 flex-shrink-0">
-          <div>
-            <%!-- feature-settings.DRAWER.4: Drawer displays the feature name and implementation context in its header --%>
+          <div class="flex items-center gap-3 shrink-0">
+            <.icon name="hero-cube" class="size-6 text-primary" />
             <h2 id={"#{@id}-title"} class="text-lg font-semibold text-base-content">
-              {@feature_name}
+              Feature Settings
             </h2>
-            <p class="text-sm text-base-content/60">{@implementation.name}</p>
           </div>
           <button
             type="button"
@@ -301,6 +262,33 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
 
         <%!-- Drawer content --%>
         <div class="flex-1 overflow-y-auto p-4 space-y-6">
+          <%!-- Info Card --%>
+          <div class="p-4 border-1 border-base-300 rounded-lg space-y-3">
+            <div class="space-y-1">
+              <p class="text-xs text-base-content/70 uppercase tracking-wider">Product</p>
+              <div class="flex items-center gap-2">
+                <.icon name="custom-boxes" class="size-4 text-accent" />
+                <span class="text-sm font-medium">{@product.name}</span>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs text-base-content/70 uppercase tracking-wider">Implementation</p>
+              <div class="flex items-center gap-2">
+                <.icon name="hero-tag" class="size-4 text-secondary" />
+                <span class="text-sm font-medium">{@implementation.name}</span>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs text-base-content/70 uppercase tracking-wider">Feature</p>
+              <div class="flex items-center gap-2">
+                <.icon name="hero-cube" class="size-4 text-primary" />
+                <span class="text-sm font-medium">{@feature_name}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
           <%!-- Clear States Section --%>
           <.clear_states_section
             has_local_states={@has_local_states}
@@ -308,7 +296,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
             target={@myself}
           />
 
-          <div class="divider my-0"></div>
+          <div class="divider"></div>
 
           <%!-- Clear Refs Section --%>
           <.clear_refs_section
@@ -317,7 +305,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
             target={@myself}
           />
 
-          <div class="divider my-0"></div>
+          <div class="divider"></div>
 
           <%!-- Delete Spec Section --%>
           <.delete_spec_section
@@ -358,10 +346,10 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
   end
 
   # Clear States Section Component
-  # feature-settings.CLEAR_STATES.1: Component for rendering the Clear States button
+  # feature-settings.CLEAR_STATES.1
   defp clear_states_section(assigns) do
-    # feature-settings.CLEAR_STATES.2_1: Button is disabled when no feature_impl_states exist
-    # feature-settings.CLEAR_STATES.2_2: Button is disabled when all states are inherited from a parent implementation
+    # feature-settings.CLEAR_STATES.2_1
+    # feature-settings.CLEAR_STATES.2_2
     disabled = !assigns.has_local_states || assigns.states_inherited
 
     assigns = assign(assigns, :disabled, disabled)
@@ -375,7 +363,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
       <div class="flex items-start justify-between gap-4">
         <div>
           <p class="text-sm text-base-content/80">
-            Clear all requirement states for this feature.
+            Clear all states (status and comments) that have been applied to ACIDs in this feature.
           </p>
           <%= if @states_inherited do %>
             <p class="text-xs text-warning mt-1">
@@ -384,10 +372,10 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
           <% end %>
         </div>
 
-        <%!-- feature-settings.CLEAR_STATES.1: Renders a Clear States button with descriptive label --%>
+        <%!-- feature-settings.CLEAR_STATES.1 --%>
         <button
           type="button"
-          class="btn btn-warning btn-sm"
+          class="btn btn-sm"
           phx-click={if !@disabled, do: "show_clear_states_modal", else: nil}
           phx-target={@target}
           disabled={@disabled}
@@ -426,7 +414,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
           </button>
         </div>
 
-        <%!-- feature-settings.CLEAR_STATES.4_1: Confirmation modal displays warning text explaining this will clear all states --%>
+        <%!-- feature-settings.CLEAR_STATES.4_1 --%>
         <div class="alert alert-warning text-sm">
           <.icon name="hero-exclamation-triangle" class="size-5 shrink-0" />
           <div>
@@ -437,7 +425,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
           </div>
         </div>
 
-        <%!-- feature-settings.CLEAR_STATES.4_2: Confirmation modal renders Cancel and Confirm buttons --%>
+        <%!-- feature-settings.CLEAR_STATES.4_2 --%>
         <div class="flex gap-3 justify-end">
           <.button
             type="button"
@@ -463,10 +451,10 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
   end
 
   # Clear Refs Section Component
-  # feature-settings.CLEAR_REFS.1: Component for rendering the Clear Code Refs button
+  # feature-settings.CLEAR_REFS.1
   defp clear_refs_section(assigns) do
-    # feature-settings.CLEAR_REFS.2_1: Button is disabled when no feature_branch_refs exist
-    # feature-settings.CLEAR_REFS.2_2: Button is disabled when all refs are inherited from a parent implementation
+    # feature-settings.CLEAR_REFS.2_1
+    # feature-settings.CLEAR_REFS.2_2
     disabled = !assigns.has_local_refs || assigns.refs_inherited
 
     assigns = assign(assigns, :disabled, disabled)
@@ -480,7 +468,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
       <div class="flex items-start justify-between gap-4">
         <div>
           <p class="text-sm text-base-content/80">
-            Clear code references from tracked branches.
+            Clear code references that have been pushed from tracked branches.
           </p>
           <%= if @refs_inherited do %>
             <p class="text-xs text-warning mt-1">
@@ -489,10 +477,10 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
           <% end %>
         </div>
 
-        <%!-- feature-settings.CLEAR_REFS.1: Renders a Clear Code Refs button with descriptive label --%>
+        <%!-- feature-settings.CLEAR_REFS.1 --%>
         <button
           type="button"
-          class="btn btn-warning btn-sm"
+          class="btn btn-sm"
           phx-click={if !@disabled, do: "show_clear_refs_modal", else: nil}
           phx-target={@target}
           disabled={@disabled}
@@ -507,7 +495,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
 
   # Clear Refs Modal Component
   defp clear_refs_modal(assigns) do
-    # feature-settings.CLEAR_REFS.5_2: Clear Selected button is disabled if no branches are selected
+    # feature-settings.CLEAR_REFS.5_2
     clear_disabled = MapSet.size(assigns.selected_branch_ids) == 0
 
     assigns =
@@ -543,7 +531,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
           Select branches to clear references from:
         </p>
 
-        <%!-- feature-settings.CLEAR_REFS.4: Confirmation modal displays all tracked branches with multi-select checkboxes --%>
+        <%!-- feature-settings.CLEAR_REFS.4 --%>
         <div class="space-y-2 max-h-48 overflow-y-auto">
           <div
             :for={tracked_branch <- @tracked_branches}
@@ -559,7 +547,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
               id={"clear-refs-branch-#{tracked_branch.branch_id}"}
             />
             <div class="flex-1 min-w-0">
-              <%!-- feature-settings.CLEAR_REFS.4_1: Each branch displays its full repo_uri and branch name --%>
+              <%!-- feature-settings.CLEAR_REFS.4_1 --%>
               <p class="text-sm truncate">{tracked_branch.branch.repo_uri}</p>
               <p class="text-xs text-base-content/60 flex items-center gap-1">
                 <.icon name="custom-git-branch" class="size-3" />
@@ -569,14 +557,14 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
           </div>
         </div>
 
-        <%!-- feature-settings.CLEAR_REFS.4_2: All branches are selected by default --%>
+        <%!-- feature-settings.CLEAR_REFS.4_2 --%>
         <%= if MapSet.size(@selected_branch_ids) < @all_selected_count do %>
           <p class="text-xs text-base-content/50">
             {MapSet.size(@selected_branch_ids)} of {@all_selected_count} branches selected
           </p>
         <% end %>
 
-        <%!-- feature-settings.CLEAR_REFS.5_1: Confirmation modal renders Cancel and Clear Selected buttons --%>
+        <%!-- feature-settings.CLEAR_REFS.5_1 --%>
         <div class="flex gap-3 justify-end">
           <.button
             type="button"
@@ -603,9 +591,9 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
   end
 
   # Delete Spec Section Component
-  # feature-settings.DELETE_SPEC.1: Component for rendering the Delete Spec button
+  # feature-settings.DELETE_SPEC.1
   defp delete_spec_section(assigns) do
-    # feature-settings.DELETE_SPEC.2: Button is disabled when the target spec is inherited from a parent implementation
+    # feature-settings.DELETE_SPEC.2
     disabled = assigns.spec_inherited
 
     assigns = assign(assigns, :disabled, disabled)
@@ -616,21 +604,21 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
         Danger Zone
       </h3>
 
-      <div class="p-4 border border-error/30 rounded-lg bg-error/5">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="font-semibold text-error">Delete Spec</p>
-            <p class="text-sm text-base-content/60">
-              Permanently delete the feature specification.
+      <div class="p-4 border border-error/30 rounded-lg bg-error/5 space-y-4">
+        <div class="w-full">
+          <p class="font-semibold text-error">Delete Spec</p>
+          <p class="text-sm text-base-content/60">
+            Permanently delete the feature specification.
+          </p>
+          <%= if @spec_inherited do %>
+            <p class="text-xs text-warning mt-1">
+              Cannot delete an inherited spec.
             </p>
-            <%= if @spec_inherited do %>
-              <p class="text-xs text-warning mt-1">
-                Cannot delete an inherited spec.
-              </p>
-            <% end %>
-          </div>
+          <% end %>
+        </div>
 
-          <%!-- feature-settings.DELETE_SPEC.1: Renders a Delete Spec button with descriptive label --%>
+        <%!-- feature-settings.DELETE_SPEC.1 --%>
+        <div class="flex justify-end">
           <button
             type="button"
             class="btn btn-error btn-sm"
@@ -679,8 +667,8 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
           </p>
         </div>
 
-        <%!-- feature-settings.DELETE_SPEC.4_1: Confirmation modal displays warning text explaining this will delete the spec --%>
-        <%!-- feature-settings.DELETE_SPEC.4_2: Confirmation modal explains that parent spec requirements will be used if available --%>
+        <%!-- feature-settings.DELETE_SPEC.4_1 --%>
+        <%!-- feature-settings.DELETE_SPEC.4_2 --%>
         <div class="alert alert-error text-sm">
           <.icon name="hero-exclamation-triangle" class="size-5 shrink-0" />
           <div>
@@ -688,7 +676,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
             <p class="mt-1">
               The feature specification will be permanently deleted.
             </p>
-            <%!-- feature-settings.DELETE_SPEC.4_2: Show parent-fallback explanation when deleting a local spec (button only enabled when not inherited) --%>
+            <%!-- feature-settings.DELETE_SPEC.4_2 --%>
             <p class="mt-2 text-xs">
               If a parent spec exists, its requirements will be used instead.
               If no parent spec exists, you will be redirected to the product page.
@@ -696,7 +684,7 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
           </div>
         </div>
 
-        <%!-- feature-settings.DELETE_SPEC.4_3: Confirmation modal renders Cancel and Delete buttons --%>
+        <%!-- feature-settings.DELETE_SPEC.4_3 --%>
         <div class="flex gap-3 justify-end">
           <.button
             type="button"

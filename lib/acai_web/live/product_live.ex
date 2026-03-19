@@ -211,11 +211,11 @@ defmodule AcaiWeb.ProductLive do
           <div class="flex-shrink-0" id="product-selector-container">
             <button
               id="product-selector-trigger"
-              class="btn btn-outline btn-xl flex items-center gap-2 justify-start font-bold lg:text-2xl px-2 border-primary border-dashed"
+              class="btn btn-outline btn-xl flex items-center gap-2 justify-start font-bold lg:text-2xl px-2 border-accent border-dashed"
               popovertarget="product-popover"
               style="anchor-name:--anchor-product"
             >
-              <.icon name="hero-cube" class="size-4 text-primary" />
+              <.icon name="custom-boxes" class="size-4 text-accent" />
               <span class="truncate">{@product_name}</span>
               <.icon name="hero-chevron-down" class="size-4 ml-auto text-base-content/50" />
             </button>
@@ -235,7 +235,7 @@ defmodule AcaiWeb.ProductLive do
                     product.name == @product_name && "active"
                   ]}
                 >
-                  <.icon name="hero-cube" class="size-4 text-primary" />
+                  <.icon name="custom-boxes" class="size-4 text-accent" />
                   <span class="truncate">{product.name}</span>
                   <%= if product.name == @product_name do %>
                     <.icon name="hero-check" class="size-4 ml-auto text-success" />

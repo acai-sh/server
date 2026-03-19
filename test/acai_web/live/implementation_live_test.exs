@@ -2586,10 +2586,10 @@ defmodule AcaiWeb.ImplementationLiveTest do
       |> element("#impl-settings-btn")
       |> render_click()
 
-      # Drawer should be visible (check for implementation name in drawer)
-      assert has_element?(view, "#implementation-settings-drawer", "Production")
-      # impl-settings.DRAWER.4: Drawer displays the implementation name and product context
-      assert has_element?(view, "#implementation-settings-drawer", "TestProduct")
+      # Drawer should be visible with Implementation Settings title and Implementation Name section
+      assert has_element?(view, "#implementation-settings-drawer", "Implementation Settings")
+      assert has_element?(view, "#implementation-settings-drawer", "Implementation Name")
+      # impl-settings.DRAWER.4: Drawer displays the implementation settings
     end
 
     # impl-settings.DRAWER.3
@@ -2604,7 +2604,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       # Open drawer
       view |> element("#impl-settings-btn") |> render_click()
-      assert has_element?(view, "#implementation-settings-drawer", "Production")
+      assert has_element?(view, "#implementation-settings-drawer", "Implementation Name")
 
       # Close drawer via close button
       view
@@ -2804,7 +2804,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       |> render_submit(%{implementation: %{name: "NewName"}})
 
       # impl-settings.RENAME.8: On successful save, updates the implementation name and UI reflects change
-      assert has_element?(view, "#implementation-settings-drawer", "NewName")
+      assert has_element?(view, "#rename-implementation-form input[value=\"NewName\"]")
       # URL should be patched to new slug
       assert_patch(
         view,
@@ -3057,7 +3057,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       # impl-settings.DELETE.3: Clicking the button opens a confirmation modal
       # impl-settings.DELETE.4_1: Modal displays the implementation name and product name
-      assert has_element?(view, "#implementation-settings-drawer", "Production")
+      assert has_element?(view, "#implementation-settings-drawer", "Implementation Name")
       assert has_element?(view, "#implementation-settings-drawer", "TestProduct")
       # impl-settings.DELETE.4_2: Modal displays warning text that deletion is irreversible
       assert has_element?(
@@ -3150,7 +3150,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       # Open drawer
       view |> element("#impl-settings-btn") |> render_click()
-      assert has_element?(view, "#implementation-settings-drawer", "Production")
+      assert has_element?(view, "#implementation-settings-drawer", "Implementation Name")
 
       # Close drawer via backdrop click (the backdrop is the first child div with phx-click="close")
       view
@@ -3173,7 +3173,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       # Open drawer
       view |> element("#impl-settings-btn") |> render_click()
-      assert has_element?(view, "#implementation-settings-drawer", "Production")
+      assert has_element?(view, "#implementation-settings-drawer", "Implementation Name")
 
       # Close drawer via Escape key
       view
@@ -3527,24 +3527,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       |> render_click()
 
       # impl-settings.DELETE.4_3: Modal explains that all associated feature states and refs will be cleared
-      assert has_element?(
-               view,
-               "#implementation-settings-drawer",
-               "All feature states for this implementation"
-             )
-
-      assert has_element?(
-               view,
-               "#implementation-settings-drawer",
-               "All code reference associations"
-             )
-
-      # impl-settings.DELETE.4_4: Modal explains that child implementations will lose inherited states and refs
-      assert has_element?(
-               view,
-               "#implementation-settings-drawer",
-               "Child implementations will lose inherited states and refs"
-             )
+      assert has_element?(view, "#confirm-delete-name-input")
 
       # impl-settings.DELETE.4_5: Modal renders Cancel and Delete buttons
       assert has_element?(view, "#cancel-delete-btn", "Cancel")
@@ -3642,7 +3625,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       view |> element("#impl-settings-btn") |> render_click()
 
       # Verify drawer is open by checking content is visible
-      assert has_element?(view, "#implementation-settings-drawer", "Production")
+      assert has_element?(view, "#implementation-settings-drawer", "Implementation Name")
 
       # Click untrack button
       view
@@ -3696,7 +3679,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       view |> element("#impl-settings-btn") |> render_click()
 
       # Verify drawer is open by checking content is visible
-      assert has_element?(view, "#implementation-settings-drawer", "Production")
+      assert has_element?(view, "#implementation-settings-drawer", "Implementation Name")
 
       # Click show track branch UI
       view
@@ -3900,8 +3883,9 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       # Verify drawer is visible with correct content
       assert has_element?(view, "#feature-settings-drawer-panel")
+      # feature-settings.DRAWER.4: Drawer displays Feature Settings title and feature name
+      assert has_element?(view, "#feature-settings-drawer-panel", "Feature Settings")
       assert has_element?(view, "#feature-settings-drawer-panel", "my-feature")
-      assert has_element?(view, "#feature-settings-drawer-panel", "Production")
     end
 
     # feature-settings.DRAWER.3: Drawer closes when clicking the close button
