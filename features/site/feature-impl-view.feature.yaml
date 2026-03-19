@@ -10,6 +10,13 @@ feature:
         - feature-view
 
 components:
+    MAIN:
+        requirements:
+            1: Renders a 'Feature Settings' button
+            1-1: On click, toggles the feature-settings drawer (see feature-settings.feature.yaml)
+            2: Renders an 'Implementation Settings' button
+            2-1: On click, toggles the impl-settings drawer (see impl-settings.feature.yaml)
+
     CARDS:
         name: Info cards and header content
         requirements:

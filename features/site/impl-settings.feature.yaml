@@ -1,0 +1,85 @@
+feature:
+    name: impl-settings
+    product: site
+    description: |
+        Implementation Settings drawer component that provides administrative actions for
+        managing implementation metadata, tracked branches, and lifecycle operations.
+        Rendered within the feature-impl-view for managing the current implementation.
+
+components:
+    DRAWER:
+        description: The settings drawer container and trigger mechanism
+        requirements:
+            1: Renders a settings icon button that opens the drawer
+            2: Drawer opens from the right side of the viewport
+            3: Drawer closes when clicking the close button, clicking outside, or pressing Escape
+            4: Drawer displays the implementation name and product context in its header
+
+    RENAME:
+        description: Component for renaming the implementation
+        requirements:
+            1: Renders a text input pre-populated with the current implementation name
+            2: Renders a Save button next to the input
+            3: Input supports editing the implementation name
+            4: Save button is disabled when input value matches current name
+            5: Save button is disabled when input is empty or whitespace-only
+            6: On click, validates the new name is unique within the product
+            7_1: On validation failure, displays error message "Implementation name already exists"
+            7_2: Error clears when user modifies the input
+            8: On successful save, updates the implementation name and UI reflects change
+
+    UNTRACK_BRANCH:
+        description: Component for removing tracked branches
+        requirements:
+            1: Renders a list of all currently tracked branches
+            2: Each branch entry displays the full repo_uri and branch name
+            3: Each branch has a delete icon button for removal
+            4_1: Delete button is disabled for the branch containing the target spec
+            4_2: Disabled delete button shows tooltip explaining it is the current feature's branch
+            5: Clicking a delete button opens a confirmation modal
+            6_1: Confirmation modal displays the branch name and repo_uri
+            6_2: Confirmation modal explains that refs may disappear from the feature view
+            6_3: Confirmation modal renders Cancel and Untrack buttons
+            7: On confirmation, removes the branch from tracked branches
+            8: UI updates immediately to reflect the removed branch and any affected refs
+            9: User can re-track the branch later without data loss
+
+    TRACK_BRANCH:
+        description: Component for adding new tracked branches
+        requirements:
+            1: Renders a dropdown or list of trackable branches
+            2: Trackable branches are defined as branches where repo_uri is not already tracked
+            3_1: List excludes branches already tracked by this implementation
+            3_2: List excludes untrackable repos or branches for other teams
+            4: Each option displays full repo_uri plus branch name
+            5: Renders Save and Cancel buttons
+            6: Save button is disabled when no branch is selected
+            7: Cancel button clears the current selection
+            8: On save, adds the selected branch to tracked branches
+            9: UI updates immediately to show the newly tracked branch
+            10: List of trackable branches refreshes to exclude the newly tracked branch
+
+    DELETE:
+        description: Component for deleting the entire implementation
+        requirements:
+            1: Renders a Delete Implementation button with warning styling
+            2: Button is visually distinct to indicate destructive action
+            3: Clicking the button opens a confirmation modal
+            4_1: Modal displays the implementation name and product name
+            4_2: Modal displays warning text that deletion is irreversible
+            4_3: Modal explains that all associated feature states and refs will be cleared
+            4_4: Modal explains that child implementations will lose inherited states and refs
+            4_5: Modal renders Cancel and Delete buttons
+            5: Delete button in modal requires additional confirmation (e.g., type name)
+            6: On confirmation, permanently deletes the implementation
+            7: User is redirected to /p/:product_name after deletion
+
+constraints:
+    DATA_INTEGRITY:
+        description: Data consistency and integrity requirements
+        requirements:
+            1: Untrack operation preserves feature_branch_ref data for potential re-tracking
+            1-note: This should be default behavior, no additional code required
+            2: Delete operation cascades to clear dependent states
+            2-note: This is default behavior via db constraints
+            3: Child implementations are not deleted (see `data-model.IMPLS.7-1`)

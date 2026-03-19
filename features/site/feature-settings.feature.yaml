@@ -1,0 +1,61 @@
+feature:
+    name: feature-settings
+    product: site
+    description: |
+        Feature Settings drawer component that provides administrative actions for managing
+        feature implementation states, code references, and specifications. Rendered within
+        the feature-impl-view for managing the currently viewed feature.
+
+components:
+    DRAWER:
+        description: The settings drawer container and trigger mechanism
+        requirements:
+            1: Renders a settings icon button that opens the drawer
+            2: Drawer opens from the right side of the viewport
+            3: Drawer closes when clicking the close button, clicking outside, or pressing Escape
+            4: Drawer displays the feature name and implementation context in its header
+
+    CLEAR_STATES:
+        description: Component for clearing all feature implementation states
+        requirements:
+            1: Renders a Clear States button with descriptive label
+            2_1: Button is disabled when no feature_impl_states exist for this feature and implementation
+            2_2: Button is disabled when all states are inherited from a parent implementation
+            3: Clicking the button opens a confirmation modal
+            4_1: Confirmation modal displays warning text explaining this will clear all states
+            4_2: Confirmation modal renders Cancel and Confirm buttons
+            5: On confirmation, all feature_impl_states for this feature are deleted
+            6: UI updates immediately after deletion to show no states or inherited states
+            7: Modal closes after successful operation
+
+    CLEAR_REFS:
+        description: Component for clearing code references for tracked branches
+        requirements:
+            1: Renders a Clear Code Refs button with descriptive label
+            2_1: Button is disabled when no feature_branch_refs exist for any tracked branch
+            2_2: Button is disabled when all refs are inherited from a parent implementation
+            3: Clicking the button opens a confirmation modal with branch picker
+            4: Confirmation modal displays all tracked branches with multi-select checkboxes
+            4_1: Each branch displays its full repo_uri and branch name
+            4_2: All branches are selected by default
+            4_3: User can deselect individual branches to exclude them
+            5_1: Confirmation modal renders Cancel and Clear Selected buttons
+            5_2: Clear Selected button is disabled if no branches are selected
+            6: On confirmation, feature_branch_refs are cleared for all selected branches
+            7: UI updates immediately after deletion to show no refs or inherited refs
+            8: Modal closes after successful operation
+
+    DELETE_SPEC:
+        description: Component for deleting the target specification
+        requirements:
+            1: Renders a Delete Spec button with descriptive label
+            2: Button is disabled when the target spec is inherited from a parent implementation
+            3: Clicking the button opens a confirmation modal
+            4_1: Confirmation modal displays warning text explaining this will delete the spec
+            4_2: Confirmation modal explains that parent spec requirements will be used if available
+            4_3: Confirmation modal renders Cancel and Delete buttons
+            5: On confirmation, the target spec for the current tracked branch is deleted
+            6_1: If a parent spec exists, UI updates to show parent requirements
+            6_2: If no parent spec exists, user is redirected to /p/:product_name
+            7: UI gracefully handles partial application of refs and states by ACID
+            8: Modal closes after successful operation or redirect
