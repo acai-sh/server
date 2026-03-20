@@ -336,6 +336,171 @@ defmodule Acai.SpecsTest do
     end
   end
 
+  describe "apply_feature_impl_status_change/4" do
+    # feature-impl-view.LIST.3-2: Deep-merge / apply-status helper tests
+    test "creates new state row when none exists" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      assert {:ok, %FeatureImplState{} = state} =
+               Specs.apply_feature_impl_status_change(
+                 spec.feature_name,
+                 impl,
+                 "test.COMP.1",
+                 "completed"
+               )
+
+      assert state.feature_name == spec.feature_name
+      assert state.implementation_id == impl.id
+      assert state.states["test.COMP.1"]["status"] == "completed"
+      assert state.states["test.COMP.1"]["updated_at"] != nil
+    end
+
+    test "preserves sibling ACIDs when updating one ACID" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      # Create initial state with multiple ACIDs
+      {:ok, _} =
+        Specs.create_feature_impl_state(spec.feature_name, impl, %{
+          states: %{
+            "test.COMP.1" => %{"status" => "completed", "comment" => "First done"},
+            "test.COMP.2" => %{"status" => "assigned", "comment" => "Second in progress"},
+            "test.COMP.3" => %{"status" => "accepted", "comment" => "Third accepted"}
+          }
+        })
+
+      # Update only COMP.2
+      assert {:ok, %FeatureImplState{} = state} =
+               Specs.apply_feature_impl_status_change(
+                 spec.feature_name,
+                 impl,
+                 "test.COMP.2",
+                 "blocked"
+               )
+
+      # All three ACIDs should still exist
+      assert map_size(state.states) == 3
+
+      # COMP.2 should be updated
+      assert state.states["test.COMP.2"]["status"] == "blocked"
+      # Comment should be preserved
+      assert state.states["test.COMP.2"]["comment"] == "Second in progress"
+      # updated_at should be set
+      assert state.states["test.COMP.2"]["updated_at"] != nil
+
+      # COMP.1 and COMP.3 should be unchanged
+      assert state.states["test.COMP.1"]["status"] == "completed"
+      assert state.states["test.COMP.1"]["comment"] == "First done"
+      assert state.states["test.COMP.3"]["status"] == "accepted"
+      assert state.states["test.COMP.3"]["comment"] == "Third accepted"
+    end
+
+    test "preserves existing comment and metadata when updating status" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      # Create initial state with comment and metadata
+      {:ok, _} =
+        Specs.create_feature_impl_state(spec.feature_name, impl, %{
+          states: %{
+            "test.COMP.1" => %{
+              "status" => "assigned",
+              "comment" => "This is a comment",
+              "metadata" => %{"priority" => "high", "assignee" => "alice"}
+            }
+          }
+        })
+
+      # Update status
+      assert {:ok, %FeatureImplState{} = state} =
+               Specs.apply_feature_impl_status_change(
+                 spec.feature_name,
+                 impl,
+                 "test.COMP.1",
+                 "completed"
+               )
+
+      # Status should be updated
+      assert state.states["test.COMP.1"]["status"] == "completed"
+      # Comment should be preserved
+      assert state.states["test.COMP.1"]["comment"] == "This is a comment"
+      # Metadata should be preserved
+      assert state.states["test.COMP.1"]["metadata"]["priority"] == "high"
+      assert state.states["test.COMP.1"]["metadata"]["assignee"] == "alice"
+      # updated_at should be set
+      assert state.states["test.COMP.1"]["updated_at"] != nil
+    end
+
+    test "sets updated_at when status actually changes" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      old_timestamp = "2024-01-01T00:00:00Z"
+
+      {:ok, _} =
+        Specs.create_feature_impl_state(spec.feature_name, impl, %{
+          states: %{
+            "test.COMP.1" => %{"status" => "assigned", "updated_at" => old_timestamp}
+          }
+        })
+
+      assert {:ok, %FeatureImplState{} = state} =
+               Specs.apply_feature_impl_status_change(
+                 spec.feature_name,
+                 impl,
+                 "test.COMP.1",
+                 "completed"
+               )
+
+      # updated_at should be updated to a new value
+      assert state.states["test.COMP.1"]["updated_at"] != old_timestamp
+    end
+
+    test "works correctly when parent has inherited states but child has no local row" do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      # Create parent implementation with states
+      parent_impl = implementation_fixture(product, %{name: "Parent"})
+      _parent_spec = spec_fixture(product, %{feature_name: "inheritance-test"})
+
+      {:ok, _} =
+        Specs.create_feature_impl_state("inheritance-test", parent_impl, %{
+          states: %{
+            "inheritance-test.COMP.1" => %{"status" => "completed", "comment" => "Parent done"},
+            "inheritance-test.COMP.2" => %{
+              "status" => "assigned",
+              "comment" => "Parent in progress"
+            }
+          }
+        })
+
+      # Create child implementation with no local states
+      child_impl =
+        implementation_fixture(product, %{
+          name: "Child",
+          parent_implementation_id: parent_impl.id
+        })
+
+      # Child changes COMP.2 to blocked
+      assert {:ok, %FeatureImplState{} = child_state} =
+               Specs.apply_feature_impl_status_change(
+                 "inheritance-test",
+                 child_impl,
+                 "inheritance-test.COMP.2",
+                 "blocked"
+               )
+
+      # Child's local state should ONLY contain COMP.2
+      assert map_size(child_state.states) == 1
+      assert child_state.states["inheritance-test.COMP.2"]["status"] == "blocked"
+      # Comment from parent should NOT be copied (child started fresh)
+      assert child_state.states["inheritance-test.COMP.2"]["comment"] == nil
+
+      # Parent's state should be unchanged
+      parent_state = Specs.get_feature_impl_state("inheritance-test", parent_impl)
+      assert parent_state.states["inheritance-test.COMP.1"]["status"] == "completed"
+      assert parent_state.states["inheritance-test.COMP.2"]["status"] == "assigned"
+    end
+  end
+
   # --- FeatureBranchRef tests (branch-scoped refs) ---
 
   describe "get_feature_branch_ref/2" do

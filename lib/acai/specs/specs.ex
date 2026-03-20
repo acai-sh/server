@@ -293,6 +293,59 @@ defmodule Acai.Specs do
   end
 
   @doc """
+  Applies a single ACID status change for a feature_name and implementation.
+
+  This function deep-merges the new status into the local feature_impl_states row,
+  preserving sibling ACIDs and existing nested fields (comment, metadata).
+  Only the changed ACID is modified, and inherited states are never copied locally.
+
+  Returns {:ok, feature_impl_state} on success, {:error, changeset} on failure.
+
+  ACIDs:
+  - data-model.FEATURE_IMPL_STATES.4-2: Preserve comment, metadata; update status and updated_at
+  """
+  def apply_feature_impl_status_change(
+        feature_name,
+        %Acai.Implementations.Implementation{} = implementation,
+        acid,
+        new_status
+      ) do
+    # Get ONLY the local states (not inherited) to merge against
+    local_state = get_feature_impl_state(feature_name, implementation)
+
+    # Build the updated state data for this ACID
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    # Get existing data for this ACID from local state only (to preserve comment/metadata)
+    existing_acid_data =
+      case local_state do
+        nil -> %{}
+        %FeatureImplState{states: states} -> Map.get(states, acid, %{})
+      end
+
+    # Merge the new status while preserving existing fields
+    updated_acid_data =
+      existing_acid_data
+      |> Map.put("status", new_status)
+      |> Map.put("updated_at", now)
+
+    # Build the updated states map:
+    # - Start with existing local states (if any)
+    # - Only modify the specific ACID being changed
+    base_states = if local_state, do: local_state.states, else: %{}
+    updated_states = Map.put(base_states, acid, updated_acid_data)
+
+    # Persist the change
+    case local_state do
+      nil ->
+        create_feature_impl_state(feature_name, implementation, %{states: updated_states})
+
+      %FeatureImplState{} = existing_state ->
+        update_feature_impl_state(existing_state, %{states: updated_states})
+    end
+  end
+
+  @doc """
   Upserts a feature_impl_state by (feature_name, implementation_id).
   On conflict, replaces the states JSONB field.
   """
