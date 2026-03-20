@@ -7,6 +7,63 @@ defmodule AcaiWeb.ImplementationLive do
   alias Acai.Specs
   alias Acai.Implementations
 
+  # ============================================================================
+  # CANONICAL STATUS METADATA
+  # ============================================================================
+  # data-model.FEATURE_IMPL_STATES.4-3: Valid status values
+  # Single source of truth for all status-related UI behavior
+
+  @status_metadata %{
+    nil => %{
+      label: "No status",
+      badge_class: "badge-ghost",
+      chip_class: "bg-base-300",
+      sort_rank: 100
+    },
+    "assigned" => %{
+      label: "assigned",
+      badge_class: "badge-warning",
+      chip_class: "bg-warning",
+      sort_rank: 3
+    },
+    "blocked" => %{
+      label: "blocked",
+      badge_class: "badge-error",
+      chip_class: "bg-error",
+      sort_rank: 4
+    },
+    "incomplete" => %{
+      label: "incomplete",
+      badge_class: "badge-neutral",
+      chip_class: "bg-neutral",
+      sort_rank: 5
+    },
+    "completed" => %{
+      label: "completed",
+      badge_class: "badge-info",
+      chip_class: "bg-info",
+      sort_rank: 2
+    },
+    "rejected" => %{
+      label: "rejected",
+      badge_class: "badge-error",
+      chip_class: "bg-error",
+      sort_rank: 6
+    },
+    "accepted" => %{
+      label: "accepted",
+      badge_class: "badge-success",
+      chip_class: "bg-success",
+      sort_rank: 1
+    }
+  }
+
+  # List of valid status strings for dropdowns (excluding nil)
+  @valid_statuses ["assigned", "blocked", "incomplete", "completed", "rejected", "accepted"]
+
+  # List of statuses to display in the legend (in display order)
+  @legend_statuses ["accepted", "completed", "assigned", "blocked", "incomplete", "rejected"]
+
   # feature-impl-view.ROUTING.1
   @impl true
   def mount(
@@ -87,6 +144,8 @@ defmodule AcaiWeb.ImplementationLive do
        ) do
     sort_field = socket.assigns[:sort_field] || :acid
     sort_dir = socket.assigns[:sort_dir] || :asc
+
+    # feature-impl-view.LIST.3-1: Initialize status dropdown state
 
     # data-model.SPECS.11: Requirements are JSONB on the spec
     # data-model.SPECS.12: Preload product association for breadcrumb
@@ -221,6 +280,8 @@ defmodule AcaiWeb.ImplementationLive do
       # feature-settings.DRAWER.3: Drawer closes when clicking the close button, clicking outside, or pressing Escape
       # feature-settings.DRAWER.4: Drawer displays the feature name and implementation context in its header
       |> assign(:feature_settings_visible, false)
+      # feature-impl-view.LIST.3-1: Status dropdown state (nil when closed, acid when open)
+      |> assign(:open_dropdown_acid, nil)
       |> assign(
         :current_path,
         "/t/#{team.name}/i/#{Implementations.implementation_slug(implementation)}/f/#{feature_name}"
@@ -433,12 +494,12 @@ defmodule AcaiWeb.ImplementationLive do
   defp requirement_sort_key(requirement, _sort_field),
     do: requirement_sort_key(requirement, :acid)
 
-  defp status_sort_rank("accepted"), do: 1
-  defp status_sort_rank("completed"), do: 2
-  defp status_sort_rank("assigned"), do: 3
-  defp status_sort_rank("blocked"), do: 4
-  defp status_sort_rank("rejected"), do: 5
-  defp status_sort_rank(_status), do: 6
+  # data-model.FEATURE_IMPL_STATES.4-3: Valid status values for sort ranking
+  defp status_sort_rank(status) do
+    @status_metadata
+    |> Map.get(status, @status_metadata[nil])
+    |> Map.fetch!(:sort_rank)
+  end
 
   defp normalize_sort_field("acid"), do: :acid
   defp normalize_sort_field("status"), do: :status
@@ -620,6 +681,13 @@ defmodule AcaiWeb.ImplementationLive do
     {:noreply, assign(socket, :feature_settings_visible, false)}
   end
 
+  # Handle status cell click - prevents row click propagation
+  # This allows the status dropdown to work without opening the drawer
+  def handle_event("status_cell_clicked", _params, socket) do
+    # Stop propagation - do nothing, the status dropdown will handle the click
+    {:noreply, socket}
+  end
+
   # feature-impl-view.CARDS.1-2: Handle implementation dropdown change with patch navigation
   def handle_event("select_implementation", %{"impl_id" => impl_slug}, socket) do
     %{
@@ -664,6 +732,68 @@ defmodule AcaiWeb.ImplementationLive do
 
     # Patch to the new URL without full page reload
     {:noreply, push_patch(socket, to: ~p"/t/#{team.name}/i/#{impl_slug}/f/#{new_feature_name}")}
+  end
+
+  # Handle open status dropdown event
+  # feature-impl-view.LIST.3-1: On click, the status chip opens a dropdown
+  def handle_event("open_status_dropdown", %{"acid" => acid}, socket) do
+    {:noreply, assign(socket, :open_dropdown_acid, acid)}
+  end
+
+  # Handle close status dropdown event (click-away)
+  # feature-impl-view.LIST.3-3: Clicking away closes the dropdown without applying
+  def handle_event("close_status_dropdown", _params, socket) do
+    {:noreply, assign(socket, :open_dropdown_acid, nil)}
+  end
+
+  # Handle status selection
+  # feature-impl-view.LIST.3-2: Selecting a state from the list will apply it
+  # feature-impl-view.LIST.3-3: Selecting existing state or deselecting avoids applying
+  def handle_event("select_status", %{"acid" => acid, "status" => new_status}, socket) do
+    # Validate ACID is in the resolved requirements list
+    # Reject forged ACIDs that are not part of the current feature's spec
+    valid_acids = Enum.map(socket.assigns.requirements, & &1.acid)
+
+    unless acid in valid_acids do
+      {:noreply,
+       socket
+       |> put_flash(:error, "Invalid requirement")
+       |> assign(:open_dropdown_acid, nil)}
+    else
+      # feature-impl-view.INHERITANCE.2: Use resolved states for read/validation
+      resolved_states = socket.assigns.states
+
+      # Normalize status (empty string becomes nil)
+      normalized_status = if new_status == "", do: nil, else: new_status
+
+      # Get current status for this ACID (considering inheritance)
+      current_state_data = Map.get(resolved_states, acid, %{"status" => nil})
+      current_status = current_state_data["status"]
+
+      # feature-impl-view.LIST.3-3: Reject clear-status action - do not introduce a clear-status path
+      # If current status is non-nil, do not allow selecting "No status" (nil)
+      if is_nil(normalized_status) and not is_nil(current_status) do
+        {:noreply, assign(socket, :open_dropdown_acid, nil)}
+      else
+        # data-model.FEATURE_IMPL_STATES.4-3: Validate status against allowed set
+        # Valid status values are: nil, "assigned", "blocked", "incomplete", "completed", "rejected", "accepted"
+        unless normalized_status in [nil | @valid_statuses] do
+          {:noreply,
+           socket
+           |> put_flash(:error, "Invalid status value")
+           |> assign(:open_dropdown_acid, nil)}
+        else
+          # feature-impl-view.LIST.3-3: No-op if selecting the same status
+          if current_status == normalized_status do
+            {:noreply, assign(socket, :open_dropdown_acid, nil)}
+          else
+            # feature-impl-view.LIST.3-2: Apply change using local-only states
+            # This ensures inherited states are never copied into local override rows
+            apply_status_change(socket, acid, normalized_status)
+          end
+        end
+      end
+    end
   end
 
   # Handle messages from the RequirementDetailsLive component
@@ -913,43 +1043,8 @@ defmodule AcaiWeb.ImplementationLive do
               on_click="open_drawer"
               inherited={@states_inherited}
             />
-            <div class="mt-3 pt-3 border-t border-base-200 flex flex-wrap gap-x-3 gap-y-1 text-xs text-base-content/50">
-              <span class="flex items-center gap-1">
-                <span class={[
-                  "w-2 h-2 rounded-sm",
-                  @states_inherited && "bg-success/30",
-                  !@states_inherited && "bg-success"
-                ]} /> accepted
-              </span>
-              <span class="flex items-center gap-1">
-                <span class={[
-                  "w-2 h-2 rounded-sm",
-                  @states_inherited && "bg-info/30",
-                  !@states_inherited && "bg-info"
-                ]} /> completed
-              </span>
-              <span class="flex items-center gap-1">
-                <span class={[
-                  "w-2 h-2 rounded-sm",
-                  @states_inherited && "bg-warning/30",
-                  !@states_inherited && "bg-warning"
-                ]} /> assigned
-              </span>
-              <span class="flex items-center gap-1">
-                <span class={[
-                  "w-2 h-2 rounded-sm",
-                  @states_inherited && "bg-error/30",
-                  !@states_inherited && "bg-error"
-                ]} /> blocked
-              </span>
-              <span class="flex items-center gap-1">
-                <span class={[
-                  "w-2 h-2 rounded-sm",
-                  @states_inherited && "bg-error/30",
-                  !@states_inherited && "bg-error opacity-60"
-                ]} /> rejected
-              </span>
-            </div>
+            <%!-- data-model.FEATURE_IMPL_STATES.4-3: Status legend using canonical metadata --%>
+            <.status_legend inherited={@states_inherited} />
           </.coverage_section>
 
           <%!-- implementation-view.TEST_COVERAGE: Test coverage grid --%>
@@ -982,6 +1077,7 @@ defmodule AcaiWeb.ImplementationLive do
           inherited={@states_inherited}
           sort_field={@sort_field}
           sort_dir={@sort_dir}
+          open_dropdown_acid={@open_dropdown_acid}
         />
 
         <%!-- Requirement details drawer --%>
@@ -1366,25 +1462,24 @@ defmodule AcaiWeb.ImplementationLive do
   end
 
   # implementation-view.REQ_COVERAGE.2: Chip color based on status
+  # data-model.FEATURE_IMPL_STATES.4-3: Use canonical status metadata
   defp req_chip(assigns) do
+    # Get the chip class from canonical metadata
+    metadata = Map.get(@status_metadata, assigns.requirement.status, @status_metadata[nil])
+    chip_class = metadata.chip_class
+
+    # Apply opacity for inherited states
+    effective_class = if assigns.inherited, do: "#{chip_class}/30", else: chip_class
+
+    assigns = assign(assigns, :effective_class, effective_class)
+
     ~H"""
     <div
       title={@requirement.acid}
-      class={
-        [
-          "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110",
-          # data-model.FEATURE_IMPL_STATES.4-3: Color coding
-          # accepted (green), completed (blue), assigned (gold), blocked/rejected (red), null (gray)
-          # When inherited, use 30% opacity
-          @requirement.status == "accepted" && ((@inherited && "bg-success/30") || "bg-success"),
-          @requirement.status == "completed" && ((@inherited && "bg-info/30") || "bg-info"),
-          @requirement.status == "assigned" && ((@inherited && "bg-warning/30") || "bg-warning"),
-          (@requirement.status == "blocked" || @requirement.status == "rejected") &&
-            ((@inherited && "bg-error/30") || "bg-error"),
-          (@requirement.status == nil || @requirement.status == "") &&
-            ((@inherited && "bg-base-300/30") || "bg-base-300")
-        ]
-      }
+      class={[
+        "w-6 h-6 rounded-sm cursor-pointer transition-all hover:scale-110",
+        @effective_class
+      ]}
     />
     """
   end
@@ -1436,9 +1531,10 @@ defmodule AcaiWeb.ImplementationLive do
   # feature-impl-view.LIST: Requirements table
   # feature-impl-view.LIST.2: Table columns are ACID, Status, Definition, Refs count
   # feature-impl-view.LIST.2-2
+  # feature-impl-view.LIST.3-1: Status column shows interactive dropdown
   defp requirements_table(assigns) do
     ~H"""
-    <div class="card bg-base-100 border border-base-300 shadow-sm">
+    <div class="card bg-base-100 border border-base-300 shadow-sm" id="requirements-table-container">
       <div class="card-body p-0">
         <div class="overflow-x-auto">
           <table class="table" id="requirements-list-table">
@@ -1512,8 +1608,15 @@ defmodule AcaiWeb.ImplementationLive do
                 phx-value-acid={req.acid}
               >
                 <td class="font-mono text-sm">{req.acid}</td>
-                <td>
-                  <.status_badge status={req.status} inherited={@inherited} />
+                <%!-- feature-impl-view.LIST.3-1: Status column shows interactive dropdown --%>
+                <td phx-click="status_cell_clicked" phx-value-acid={req.acid}>
+                  <.status_dropdown
+                    acid={req.acid}
+                    current_status={req.status}
+                    inherited={@inherited}
+                    open_dropdown_acid={@open_dropdown_acid}
+                    myself={nil}
+                  />
                 </td>
                 <td class="max-w-md truncate">{req.definition}</td>
                 <td class="text-center">{req.refs_count}</td>
@@ -1527,32 +1630,183 @@ defmodule AcaiWeb.ImplementationLive do
   end
 
   # Status badge for table
-  # data-model.FEATURE_IMPL_STATES.4-3: Color coding
-  # null (gray), assigned (gold), blocked (red), completed (blue), accepted (green), rejected (red)
+  # data-model.FEATURE_IMPL_STATES.4-3: Color coding using canonical status metadata
   defp status_badge(assigns) do
+    metadata = Map.get(@status_metadata, assigns.status, @status_metadata[nil])
+    badge_class = metadata.badge_class
+    label = metadata.label
+
+    assigns = assign(assigns, :badge_class, badge_class)
+    assigns = assign(assigns, :label, label)
+
     ~H"""
-    <%= if @status do %>
-      <span class={
-        [
-          "badge badge-sm",
-          # Use badge-soft when inherited
-          @inherited && "badge-soft",
-          @status == "accepted" && "badge-success",
-          @status == "completed" && "badge-info",
-          @status == "assigned" && "badge-warning",
-          (@status == "blocked" || @status == "rejected") && "badge-error"
-        ]
-      }>
-        {@status}
-      </span>
-    <% else %>
-      <span class={[
-        "badge badge-sm text-base-content/50",
-        (@inherited && "badge-soft badge-ghost") || "badge-ghost"
-      ]}>
-        No status
-      </span>
-    <% end %>
+    <span class={[
+      "badge badge-sm",
+      @inherited && "badge-soft",
+      @badge_class
+    ]}>
+      {@label}
+    </span>
     """
+  end
+
+  # data-model.FEATURE_IMPL_STATES.4-3: Status legend component using canonical metadata
+  # Renders all non-nil statuses in display order with inherited opacity handling
+  defp status_legend(assigns) do
+    # Use the module attribute for legend statuses
+    legend_statuses = @legend_statuses
+    status_metadata = @status_metadata
+
+    assigns =
+      assigns
+      |> assign(:legend_statuses, legend_statuses)
+      |> assign(:status_metadata, status_metadata)
+
+    ~H"""
+    <div class="mt-3 pt-3 border-t border-base-200 flex flex-wrap gap-x-3 gap-y-1 text-xs text-base-content/50">
+      <%= for status <- @legend_statuses do %>
+        <% metadata = @status_metadata[status] %>
+        <% chip_class = metadata.chip_class %>
+        <% effective_class = if @inherited, do: "#{chip_class}/30", else: chip_class %>
+        <span class="flex items-center gap-1">
+          <span class={["w-2 h-2 rounded-sm", effective_class]} /> {metadata.label}
+        </span>
+      <% end %>
+    </div>
+    """
+  end
+
+  # feature-impl-view.LIST.3-1: Status dropdown component for interactive status selection
+  defp status_dropdown(assigns) do
+    ~H"""
+    <div class="relative inline-block">
+      <% acid_dom = acid_dom_id(@acid) %>
+      <% dropdown_id = "status-dropdown-#{acid_dom}" %>
+      <% trigger_id = "status-trigger-#{acid_dom}" %>
+
+      <%!-- Status trigger button --%>
+      <button
+        type="button"
+        id={trigger_id}
+        class="cursor-pointer hover:opacity-80 transition-opacity"
+        phx-click="open_status_dropdown"
+        phx-value-acid={@acid}
+        phx-target={@myself}
+      >
+        <.status_badge status={@current_status} inherited={@inherited} />
+      </button>
+
+      <%!-- Dropdown menu --%>
+      <%= if @open_dropdown_acid == @acid do %>
+        <div
+          id={dropdown_id}
+          class="absolute z-50 mt-1 w-40 bg-base-100 border border-base-300 rounded-lg shadow-lg py-1"
+          phx-click-away="close_status_dropdown"
+          phx-target={@myself}
+        >
+          <%!-- feature-impl-view.LIST.3-3: Only show "No status" option if current status is nil --}
+          <%!-- Do not introduce a clear-status action per spec: dismiss/click-away is the only non-write path --%>
+          <%= if is_nil(@current_status) do %>
+            <button
+              type="button"
+              class={[
+                "w-full px-3 py-2 text-left text-sm hover:bg-base-200 flex items-center gap-2",
+                is_nil(@current_status) && "bg-base-200"
+              ]}
+              phx-click="select_status"
+              phx-value-acid={@acid}
+              phx-value-status=""
+              phx-target={@myself}
+            >
+              <span class="badge badge-sm badge-ghost text-base-content/50">No status</span>
+            </button>
+          <% end %>
+
+          <%!-- Status options --%>
+          <%= for status <- valid_statuses() do %>
+            <button
+              type="button"
+              class={[
+                "w-full px-3 py-2 text-left text-sm hover:bg-base-200 flex items-center gap-2",
+                @current_status == status && "bg-base-200"
+              ]}
+              phx-target={@myself}
+              phx-click="select_status"
+              phx-value-acid={@acid}
+              phx-value-status={status}
+            >
+              <.status_badge status={status} inherited={false} />
+              <%= if @current_status == status do %>
+                <.icon name="hero-check" class="size-4 ml-auto text-success" />
+              <% end %>
+            </button>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  # feature-impl-view.LIST.3-1: Canonical list of valid status values
+  # data-model.FEATURE_IMPL_STATES.4-3: Valid status values
+  defp valid_statuses, do: @valid_statuses
+
+  # Handle open status dropdown event
+  # feature-impl-view.LIST.3-1: On click, the status chip opens a dropdown
+  # Apply a status change for a specific ACID using local-only states
+  # feature-impl-view.LIST.3-2: Uses Specs.apply_feature_impl_status_change/4
+  # which deep-merges against local-only states, preserving sibling ACIDs and inherited states
+  defp apply_status_change(socket, acid, new_status) do
+    feature_name = socket.assigns.feature_name
+    implementation = socket.assigns.implementation
+
+    # Persist the change using the context helper
+    # This function:
+    # - Loads ONLY local states (not inherited)
+    # - Deep-merges the new status while preserving existing comment/metadata
+    # - Preserves sibling ACIDs in the local row
+    # - Never copies inherited states locally
+    case Specs.apply_feature_impl_status_change(feature_name, implementation, acid, new_status) do
+      {:ok, _state} ->
+        # Close dropdown and refresh data
+        socket = assign(socket, :open_dropdown_acid, nil)
+        refresh_implementation_data(socket)
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to update status")}
+    end
+  end
+
+  # Refresh implementation data after a state change
+  # Uses the existing reload path to keep all UI components aligned
+  defp refresh_implementation_data(socket) do
+    %{team: team, implementation: implementation, feature_name: feature_name} = socket.assigns
+
+    # Reload the implementation to get fresh data
+    implementation = Acai.Repo.preload(implementation, :product, force: true)
+
+    # Preserve drawer states during refresh
+    drawer_visible = socket.assigns[:drawer_visible] || false
+    impl_settings_visible = socket.assigns[:impl_settings_visible] || false
+    feature_settings_visible = socket.assigns[:feature_settings_visible] || false
+
+    # Use reload_implementation_data which preserves existing socket assigns
+    {:ok, new_socket} =
+      reload_implementation_data(
+        socket,
+        team,
+        implementation.product,
+        implementation,
+        feature_name
+      )
+
+    # Restore the visibility states after refresh
+    socket =
+      new_socket
+      |> assign(:drawer_visible, drawer_visible)
+      |> assign(:impl_settings_visible, impl_settings_visible)
+      |> assign(:feature_settings_visible, feature_settings_visible)
+
+    {:noreply, socket}
   end
 end

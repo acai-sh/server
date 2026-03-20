@@ -44,6 +44,9 @@ components:
             2-2: The table columns are sortable.
             2-3: The active table sort order is mirrored by the requirement coverage chip order and the test coverage chip order.
             3: Status column shows state of this implementation, or of the inherited implementation.
+            3-1: On click, the status chip opens a dropdown that renders a list of status options.
+            3-2: Selecting a state from the list will apply it
+            3-3: Selecting the existing state (if it has one) or deselecting (clicking off the dropdown) will avoid applying a new state.
             4: Refs column shows total number of code references across all tracked branches for this implementation.
             5: Clicking a row opens the requirement details drawer for that ACID.
 
