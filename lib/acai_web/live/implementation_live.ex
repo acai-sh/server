@@ -1327,7 +1327,14 @@ defmodule AcaiWeb.ImplementationLive do
               <.icon name="hero-document-text" class="size-3.5" />
               <span>Path</span>
             </div>
-            <span class="text-sm">{@spec.path}</span>
+            <.link
+              href={"#{repo_http_url(@spec.branch.repo_uri)}/blob/#{@spec.branch.branch_name}/#{@spec.path}"}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-sm hover:underline break-all text-base-content/80 hover:text-primary"
+            >
+              {@spec.path}
+            </.link>
           </div>
         </div>
       </div>
@@ -1541,102 +1548,99 @@ defmodule AcaiWeb.ImplementationLive do
   # feature-impl-view.LIST.3-1: Status column shows interactive dropdown
   defp requirements_table(assigns) do
     ~H"""
-    <div class="card bg-base-100 border border-base-300 shadow-sm" id="requirements-table-container">
+    <div
+      class="card bg-base-100 border border-base-300 shadow-sm overflow-hidden"
+      id="requirements-table-container"
+    >
       <div class="card-body p-0">
         <div class="overflow-x-auto">
           <%!-- feature-impl-view.LIST.2-4 --%>
-          <table class="table table-sm" id="requirements-list-table">
-            <thead>
-              <tr>
-                <th class="w-24 sm:w-28 lg:w-32 max-w-24 sm:max-w-28 lg:max-w-32">
-                  <button
-                    id="sort-requirements-acid"
-                    type="button"
-                    phx-click="sort_requirements"
-                    phx-value-field="acid"
-                    class="flex items-center gap-1"
-                  >
-                    <span class="text-xs">ACID</span>
-                    <span class="text-[10px] uppercase text-base-content/40">
-                      {if @sort_field == :acid, do: Atom.to_string(@sort_dir), else: "sort"}
-                    </span>
-                  </button>
-                </th>
-                <th class="w-24 sm:w-28 lg:w-32">
-                  <button
-                    id="sort-requirements-status"
-                    type="button"
-                    phx-click="sort_requirements"
-                    phx-value-field="status"
-                    class="flex items-center gap-2"
-                  >
-                    <span>Status</span>
-                    <span class="text-[10px] uppercase text-base-content/40">
-                      {if @sort_field == :status, do: Atom.to_string(@sort_dir), else: "sort"}
-                    </span>
-                  </button>
-                </th>
-                <th>
-                  <button
-                    id="sort-requirements-requirement"
-                    type="button"
-                    phx-click="sort_requirements"
-                    phx-value-field="requirement"
-                    class="flex items-center gap-2"
-                  >
-                    <span>Requirement</span>
-                    <span class="text-[10px] uppercase text-base-content/40">
-                      {if @sort_field == :requirement, do: Atom.to_string(@sort_dir), else: "sort"}
-                    </span>
-                  </button>
-                </th>
-                <th class="text-center">
-                  <button
-                    id="sort-requirements-refs-count"
-                    type="button"
-                    phx-click="sort_requirements"
-                    phx-value-field="refs_count"
-                    class="inline-flex items-center gap-2"
-                  >
-                    <span>Refs</span>
-                    <span class="text-[10px] uppercase text-base-content/40">
-                      {if @sort_field == :refs_count, do: Atom.to_string(@sort_dir), else: "sort"}
-                    </span>
-                  </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <%!-- feature-impl-view.LIST.5: Clicking a row opens the requirement details drawer --%>
-              <tr
-                :for={req <- @requirements}
-                id={"requirement-row-#{String.replace(req.acid, ".", "-")}"}
-                class="hover:bg-base-200 cursor-pointer"
-                phx-click={@on_row_click}
-                phx-value-acid={req.acid}
-              >
-                <td class="w-24 sm:w-28 lg:w-32 max-w-24 sm:max-w-28 lg:max-w-32 font-mono text-xs">
-                  {display_table_acid(req.acid, @feature_name)}
-                </td>
-                <%!-- feature-impl-view.LIST.3-1: Status column shows interactive dropdown --%>
-                <td
-                  class="w-24 sm:w-28 lg:w-32"
-                  phx-click="status_cell_clicked"
-                  phx-value-acid={req.acid}
+          <div
+            class="grid w-full text-sm leading-5 gap-x-4"
+            id="requirements-list-table"
+            style="grid-template-columns: auto auto 1fr auto;"
+          >
+            <%!-- Header row --%>
+            <div
+              class="grid col-span-full py-2 px-4 border-b border-base-300 font-semibold text-base-content items-center sticky top-0 bg-base-100 z-10"
+              style="grid-template-columns: subgrid"
+            >
+              <div>
+                <button
+                  id="sort-requirements-acid"
+                  type="button"
+                  phx-click="sort_requirements"
+                  phx-value-field="acid"
+                  class="flex items-center gap-1"
                 >
-                  <.status_dropdown
-                    acid={req.acid}
-                    current_status={req.status}
-                    inherited={@inherited}
-                    open_dropdown_acid={@open_dropdown_acid}
-                    myself={nil}
-                  />
-                </td>
-                <td class="max-w-md truncate text-sm">{req.requirement}</td>
-                <td class="text-center">{req.refs_count}</td>
-              </tr>
-            </tbody>
-          </table>
+                  <span class="text-xs">ACID</span>
+                  <.sort_icon sort_field={@sort_field} sort_dir={@sort_dir} column={:acid} />
+                </button>
+              </div>
+              <div>
+                <button
+                  id="sort-requirements-status"
+                  type="button"
+                  phx-click="sort_requirements"
+                  phx-value-field="status"
+                  class="flex items-center gap-2"
+                >
+                  <span>Status</span>
+                  <.sort_icon sort_field={@sort_field} sort_dir={@sort_dir} column={:status} />
+                </button>
+              </div>
+              <div>
+                <button
+                  id="sort-requirements-requirement"
+                  type="button"
+                  phx-click="sort_requirements"
+                  phx-value-field="requirement"
+                  class="flex items-center gap-2"
+                >
+                  <span>Requirement</span>
+                  <.sort_icon sort_field={@sort_field} sort_dir={@sort_dir} column={:requirement} />
+                </button>
+              </div>
+              <div class="text-center">
+                <button
+                  id="sort-requirements-refs-count"
+                  type="button"
+                  phx-click="sort_requirements"
+                  phx-value-field="refs_count"
+                  class="inline-flex items-center gap-2"
+                >
+                  <span>Refs</span>
+                  <.sort_icon sort_field={@sort_field} sort_dir={@sort_dir} column={:refs_count} />
+                </button>
+              </div>
+            </div>
+
+            <%!-- feature-impl-view.LIST.5: Clicking a row opens the requirement details drawer --%>
+            <div
+              :for={req <- @requirements}
+              id={"requirement-row-#{String.replace(req.acid, ".", "-")}"}
+              class="grid col-span-full py-2 px-4 items-center hover:bg-base-200 cursor-pointer transition-colors duration-150"
+              style="grid-template-columns: subgrid"
+              phx-click={@on_row_click}
+              phx-value-acid={req.acid}
+            >
+              <div class="font-mono text-xs truncate">
+                {display_table_acid(req.acid, @feature_name)}
+              </div>
+              <%!-- feature-impl-view.LIST.3-1: Status column shows interactive dropdown --%>
+              <div phx-click="status_cell_clicked" phx-value-acid={req.acid}>
+                <.status_dropdown
+                  acid={req.acid}
+                  current_status={req.status}
+                  inherited={@inherited}
+                  open_dropdown_acid={@open_dropdown_acid}
+                  myself={nil}
+                />
+              </div>
+              <div class="truncate min-w-0 text-xs">{req.requirement}</div>
+              <div class="text-center">{req.refs_count}</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1661,6 +1665,22 @@ defmodule AcaiWeb.ImplementationLive do
     ]}>
       {@label}
     </span>
+    """
+  end
+
+  # Sort direction chevron icon — only visible when this column is the active sort field
+  defp sort_icon(%{sort_field: field, column: field} = assigns) do
+    icon_name = if assigns.sort_dir == :asc, do: "hero-chevron-up", else: "hero-chevron-down"
+
+    assigns = assign(assigns, :icon_name, icon_name)
+
+    ~H"""
+    <.icon name={@icon_name} class="size-3" />
+    """
+  end
+
+  defp sort_icon(assigns) do
+    ~H"""
     """
   end
 

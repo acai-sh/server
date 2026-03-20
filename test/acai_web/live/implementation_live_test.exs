@@ -649,40 +649,25 @@ defmodule AcaiWeb.ImplementationLiveTest do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Check table headers - 4 columns only per spec
-      assert has_element?(view, "th", "ACID")
-      assert has_element?(view, "th", "Status")
-      assert has_element?(view, "th", "Requirement")
-      assert has_element?(view, "th", "Refs")
       assert has_element?(view, "#sort-requirements-acid")
       assert has_element?(view, "#sort-requirements-status")
       assert has_element?(view, "#sort-requirements-requirement")
       assert has_element?(view, "#sort-requirements-refs-count")
-      # Tests column removed per feature-impl-view.LIST.2
-      refute has_element?(view, "th", "Tests")
+
+      # Check header text content
+      html = render(view)
+      assert html =~ ">ACID<"
+      assert html =~ ">Status<"
+      assert html =~ ">Requirement<"
+      assert html =~ ">Refs<"
+      refute html =~ ">Tests<"
 
       # Check row content
-      assert has_element?(view, "#requirement-row-my-feature-COMP-1 td:nth-child(1)", "COMP.1")
-      assert has_element?(view, "td", "Test requirement 1 for my-feature")
-      assert has_element?(view, "#requirements-list-table th:nth-child(1).w-24", "ACID")
-      assert has_element?(view, "#requirements-list-table th:nth-child(2).w-24", "Status")
+      assert has_element?(view, "#requirement-row-my-feature-COMP-1")
+      assert html =~ "Test requirement 1 for my-feature"
 
-      assert has_element?(
-               view,
-               "#requirement-row-my-feature-COMP-1 td:nth-child(1).w-24",
-               "COMP.1"
-             )
-
-      assert has_element?(view, "#requirement-row-my-feature-COMP-1 td:nth-child(2).w-24")
-
-      assert has_element?(
-               view,
-               "#requirement-row-my-feature-COMP-1 td:nth-child(3).text-sm",
-               "Test requirement 1 for my-feature"
-             )
-
-      # Check table has stable DOM ID
+      # Check grid table has stable DOM ID and correct class
       assert has_element?(view, "#requirements-list-table")
-      assert has_element?(view, "#requirements-list-table.table-sm")
     end
 
     # feature-impl-view.LIST.2-2
@@ -739,7 +724,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       assert has_element?(
                view,
-               "#requirements-list-table tbody tr:nth-child(1) td:nth-child(1)",
+               "#requirements-list-table .col-span-full:nth-child(2) > div:first-child",
                "COMP.1"
              )
 
@@ -759,7 +744,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       assert has_element?(
                view,
-               "#requirements-list-table tbody tr:nth-child(1) td:nth-child(1)",
+               "#requirements-list-table .col-span-full:nth-child(2) > div:first-child",
                "COMP.3"
              )
 
@@ -779,7 +764,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       assert has_element?(
                view,
-               "#requirements-list-table tbody tr:nth-child(1) td:nth-child(1)",
+               "#requirements-list-table .col-span-full:nth-child(2) > div:first-child",
                "COMP.2"
              )
 
@@ -799,7 +784,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       assert has_element?(
                view,
-               "#requirements-list-table tbody tr:nth-child(1) td:nth-child(1)",
+               "#requirements-list-table .col-span-full:nth-child(2) > div:first-child",
                "COMP.3"
              )
 
@@ -848,8 +833,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # feature-impl-view.LIST.4: Should show total count 3 (2 non-test + 1 test) in Refs column
       # Use stable DOM selector for the row
       assert has_element?(view, "#requirement-row-my-feature-COMP-1")
-      # The row should contain the refs count in the 4th column
-      assert has_element?(view, "#requirement-row-my-feature-COMP-1 td:nth-child(4)", "3")
+      # The row should contain the refs count in the 4th column (last div child)
+      assert has_element?(view, "#requirement-row-my-feature-COMP-1 > div:last-child", "3")
     end
 
     # implementation-view.TEST_COVERAGE: Tests are still tracked for coverage grid display
@@ -900,7 +885,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       # Click on the table row using acid instead of requirement_id
       view
-      |> element("tr[phx-value-acid='my-feature.COMP.1']")
+      |> element("#requirement-row-my-feature-COMP-1")
       |> render_click()
 
       # Drawer should be visible
@@ -1233,7 +1218,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Should render the child implementation in dropdown button with inherited spec
       assert has_element?(view, "button[popovertarget='impl-popover']", "ChildImpl")
       # Should show requirement from inherited spec
-      assert has_element?(view, "td", "COMP.1")
+      assert has_element?(view, ".col-span-full > div", "COMP.1")
     end
 
     # feature-impl-view.INHERITANCE.2
@@ -1335,8 +1320,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # feature-impl-view.LIST.4: Refs column shows TOTAL count (test + non-test = 2)
       # Use stable DOM selector for the row
       assert has_element?(view, "#requirement-row-inherited-feature-COMP-1")
-      # The row should contain the refs count in the 4th column
-      assert has_element?(view, "#requirement-row-inherited-feature-COMP-1 td:nth-child(4)", "2")
+      # The row should contain the refs count in the 4th column (last div child)
+      assert has_element?(view, "#requirement-row-inherited-feature-COMP-1 > div:last-child", "2")
     end
 
     test "redirects when no spec exists in ancestry", %{conn: conn, user: user} do
@@ -1661,7 +1646,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Should show the implementation name
       assert has_element?(view_a, "button[popovertarget='impl-popover']", "ImplA")
       # Should show the feature requirements
-      assert has_element?(view_a, "td", "Product A only req")
+      assert has_element?(view_a, ".col-span-full > div", "Product A only req")
 
       # impl_b should redirect because the spec belongs to a different product
       slug_b = build_impl_slug(impl_b)
@@ -1856,7 +1841,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       # Verify initial state shows Production
       assert has_element?(view, "button[popovertarget='impl-popover']", "Production")
-      assert has_element?(view, "td", "Production req 1")
+      assert has_element?(view, ".col-span-full > div", "Production req 1")
 
       # Change implementation dropdown
       slug2 = build_impl_slug(impl2)
@@ -1872,8 +1857,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       assert has_element?(view, "button[popovertarget='impl-popover']", "Staging")
 
       # Verify requirements were reloaded for the new implementation
-      assert has_element?(view, "td", "Staging req 1")
-      refute has_element?(view, "td", "Production req 1")
+      assert has_element?(view, ".col-span-full > div", "Staging req 1")
+      refute has_element?(view, ".col-span-full > div", "Production req 1")
 
       # Verify tracked branches were updated (Staging implementation should show its branches)
       assert has_element?(view, ".card", "Tracked Branches")
@@ -1924,7 +1909,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       # Verify initial state shows feature-a
       assert has_element?(view, "button[popovertarget='feature-popover']", "feature-a")
-      assert has_element?(view, "td", "Feature A requirement")
+      assert has_element?(view, ".col-span-full > div", "Feature A requirement")
       assert has_element?(view, ".card", "features/feature-a/spec.yaml")
 
       # Change feature dropdown
@@ -1939,8 +1924,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       assert has_element?(view, "button[popovertarget='feature-popover']", "feature-b")
 
       # Verify requirements were reloaded for the new feature
-      assert has_element?(view, "td", "Feature B requirement")
-      refute has_element?(view, "td", "Feature A requirement")
+      assert has_element?(view, ".col-span-full > div", "Feature B requirement")
+      refute has_element?(view, ".col-span-full > div", "Feature A requirement")
 
       # Verify target spec card shows new feature's spec path
       assert has_element?(view, ".card", "features/feature-b/spec.yaml")
@@ -4005,7 +3990,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
 
       # Verify refs count shows 2 (from both branches)
-      assert has_element?(view, "#requirement-row-my-feature-COMP-1 td:nth-child(4)", "2")
+      assert has_element?(view, "#requirement-row-my-feature-COMP-1 > div:last-child", "2")
 
       # Open drawer
       view |> element("#impl-settings-btn") |> render_click()
@@ -4021,7 +4006,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       |> render_click()
 
       # Verify refs count now shows 1 (only from branch1)
-      assert has_element?(view, "#requirement-row-my-feature-COMP-1 td:nth-child(4)", "1")
+      assert has_element?(view, "#requirement-row-my-feature-COMP-1 > div:last-child", "1")
     end
   end
 
@@ -4891,9 +4876,9 @@ defmodule AcaiWeb.ImplementationLiveTest do
       assert has_element?(view, ".bg-info[title='my-feature.COMP.1']")
 
       # Verify child refs count (3 refs total)
-      assert has_element?(view, "#requirement-row-my-feature-COMP-1 td:nth-child(4)", "1")
-      assert has_element?(view, "#requirement-row-my-feature-COMP-2 td:nth-child(4)", "1")
-      assert has_element?(view, "#requirement-row-my-feature-CHILD-1 td:nth-child(4)", "1")
+      assert has_element?(view, "#requirement-row-my-feature-COMP-1 > div:last-child", "1")
+      assert has_element?(view, "#requirement-row-my-feature-COMP-2 > div:last-child", "1")
+      assert has_element?(view, "#requirement-row-my-feature-CHILD-1 > div:last-child", "1")
 
       # Open feature settings drawer and delete child spec
       view |> element("#feature-settings-btn") |> render_click()
@@ -4911,7 +4896,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Child's COMP.1 state is "completed" (bg-info), NOT parent's "accepted" (bg-success)
       assert has_element?(view, ".bg-info[title='my-feature.COMP.1']")
       # Child's COMP.1 refs should still exist (keyed by feature_name and branch_id)
-      assert has_element?(view, "#requirement-row-my-feature-COMP-1 td:nth-child(4)", "1")
+      assert has_element?(view, "#requirement-row-my-feature-COMP-1 > div:last-child", "1")
 
       # 3. COMP.2: Child had local state "assigned" - this survives spec deletion
       #    and applies because COMP.2 exists in parent spec
@@ -4919,7 +4904,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       # 4. Refs for COMP.2 from child should still exist (they're keyed by feature_name and branch)
       # Since child branch is still tracked, refs remain
-      assert has_element?(view, "#requirement-row-my-feature-COMP-2 td:nth-child(4)", "1")
+      assert has_element?(view, "#requirement-row-my-feature-COMP-2 > div:last-child", "1")
     end
   end
 
@@ -5348,8 +5333,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Sort by status
       view |> element("#sort-requirements-status") |> render_click()
 
-      # Verify sort direction indicator
-      assert has_element?(view, "#sort-requirements-status span", "asc")
+      # Verify sort direction chevron is shown (up for asc)
+      assert has_element?(view, "#sort-requirements-status .hero-chevron-up")
 
       # Change a status
       view |> element("#status-trigger-my-feature-COMP-1") |> render_click()
@@ -5358,8 +5343,8 @@ defmodule AcaiWeb.ImplementationLiveTest do
       |> element("[phx-click='select_status'][phx-value-status='assigned']")
       |> render_click()
 
-      # Verify sort order is still maintained after refresh
-      assert has_element?(view, "#sort-requirements-status span", "asc")
+      # Verify sort direction chevron is still shown after refresh
+      assert has_element?(view, "#sort-requirements-status .hero-chevron-up")
 
       # Verify coverage grids are still aligned with table
       assert has_element?(view, "#requirements-coverage-grid")
