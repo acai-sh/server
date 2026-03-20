@@ -7,6 +7,7 @@
 * [ ] Add max length requirements to core (feature names, impl names, etc)
 * [ ] feature.yaml draft mode — if draft: true, safe to renumber ACIDs. Default draft: false. Warn if draft but ACIDs are detected in codebase.
 * [ ] Show last_used in Access Tokens view
+* [ ] Should add embedded schemas for spec.requirements, feature_impl_state.states, and feature_Branch_ref.refs
 
 ## Prune Concepts
 
@@ -36,6 +37,7 @@ Optionally, if you identify is other debug data worth recording, you can put tha
 You can find the complete openapi.json in `/tmp/openapi.json`
 
 If the api is not accepting your data, and you believe the request is properly formatted, please do not proceed.
+Once the api accepts your push, do not proceed
 
 # Experiment 1 - Net new content
 In this first experiment we simulate pushing 1 brand new spec, for a new product and feature, that has already been completed.
@@ -50,10 +52,14 @@ The imaginary cli call would have looked like this;
 acai push data-model --states '{ ...completed_acids }'
 ```
 
-# Experiment 2 - just state updates
+# Experiment 2 - idempotency test
+Repeat the above, identically
+
+
+# Experiment 3 - just state updates
 ```sh
 # Pushing a key-value map (json format) of ACID keys to state objects
 acai push --states '{ ...acids }'
 ```
 
-# Experiment 3 - branch from parent
+# Experiment 4 - branch from parent

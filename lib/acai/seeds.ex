@@ -55,37 +55,37 @@ defmodule Acai.Seeds do
       raw_content: "# Core API Feature Specification\n# 10 requirements for core functionality",
       requirements: %{
         "core.AUTH.1" => %{
-          definition: "API must support JWT-based authentication",
+          requirement: "API must support JWT-based authentication",
           is_deprecated: false
         },
-        "core.AUTH.2" => %{definition: "Tokens must expire after 24 hours", is_deprecated: false},
+        "core.AUTH.2" => %{requirement: "Tokens must expire after 24 hours", is_deprecated: false},
         "core.RATE.1" => %{
-          definition: "API must enforce rate limiting per client",
+          requirement: "API must enforce rate limiting per client",
           is_deprecated: false
         },
         "core.RATE.2" => %{
-          definition: "Rate limits must be configurable per endpoint",
+          requirement: "Rate limits must be configurable per endpoint",
           is_deprecated: false
         },
-        "core.LOG.1" => %{definition: "All API requests must be logged", is_deprecated: false},
+        "core.LOG.1" => %{requirement: "All API requests must be logged", is_deprecated: false},
         "core.LOG.2" => %{
-          definition: "Logs must include request ID for tracing",
+          requirement: "Logs must include request ID for tracing",
           is_deprecated: false
         },
         "core.HEALTH.1" => %{
-          definition: "Health check endpoint must return 200",
+          requirement: "Health check endpoint must return 200",
           is_deprecated: false
         },
         "core.HEALTH.2" => %{
-          definition: "Health check must verify database connectivity",
+          requirement: "Health check must verify database connectivity",
           is_deprecated: false
         },
         "core.CORS.1" => %{
-          definition: "API must support CORS for browser clients",
+          requirement: "API must support CORS for browser clients",
           is_deprecated: false
         },
         "core.VERSION.1" => %{
-          definition: "API version must be included in response headers",
+          requirement: "API version must be included in response headers",
           is_deprecated: false
         }
       },
@@ -100,61 +100,67 @@ defmodule Acai.Seeds do
       raw_content: "# MCP Feature Specification\n# 20 requirements for MCP service",
       requirements: %{
         "mcp.MAP.1" => %{
-          definition: "MCP must provide read access to map data",
+          requirement: "MCP must provide read access to map data",
           is_deprecated: false
         },
         "mcp.MAP.2" => %{
-          definition: "MCP must provide write access to map data",
+          requirement: "MCP must provide write access to map data",
           is_deprecated: false
         },
         "mcp.MAP.3" => %{
-          definition: "Map data queries must support pagination",
+          requirement: "Map data queries must support pagination",
           is_deprecated: false
         },
         "mcp.MAP.4" => %{
-          definition: "Map data must be filterable by bounding box",
+          requirement: "Map data must be filterable by bounding box",
           is_deprecated: false
         },
-        "mcp.MAP.5" => %{definition: "Map data must support GeoJSON format", is_deprecated: false},
+        "mcp.MAP.5" => %{
+          requirement: "Map data must support GeoJSON format",
+          is_deprecated: false
+        },
         "mcp.FORM.1" => %{
-          definition: "MCP must provide read access to survey form data",
+          requirement: "MCP must provide read access to survey form data",
           is_deprecated: false
         },
         "mcp.FORM.2" => %{
-          definition: "MCP must provide write access to survey form data",
+          requirement: "MCP must provide write access to survey form data",
           is_deprecated: false
         },
-        "mcp.FORM.3" => %{definition: "Form data must support versioning", is_deprecated: false},
-        "mcp.FORM.4" => %{definition: "Form submissions must be validated", is_deprecated: false},
+        "mcp.FORM.3" => %{requirement: "Form data must support versioning", is_deprecated: false},
+        "mcp.FORM.4" => %{requirement: "Form submissions must be validated", is_deprecated: false},
         "mcp.FORM.5" => %{
-          definition: "Form data must support conditional logic",
+          requirement: "Form data must support conditional logic",
           is_deprecated: false
         },
         "mcp.SYNC.1" => %{
-          definition: "MCP must support real-time data synchronization",
+          requirement: "MCP must support real-time data synchronization",
           is_deprecated: false
         },
-        "mcp.SYNC.2" => %{definition: "Sync conflicts must be resolvable", is_deprecated: false},
-        "mcp.SYNC.3" => %{definition: "Offline changes must queue for sync", is_deprecated: false},
+        "mcp.SYNC.2" => %{requirement: "Sync conflicts must be resolvable", is_deprecated: false},
+        "mcp.SYNC.3" => %{
+          requirement: "Offline changes must queue for sync",
+          is_deprecated: false
+        },
         "mcp.PERF.1" => %{
-          definition: "Map queries must complete within 100ms",
+          requirement: "Map queries must complete within 100ms",
           is_deprecated: false
         },
         "mcp.PERF.2" => %{
-          definition: "Form queries must complete within 50ms",
+          requirement: "Form queries must complete within 50ms",
           is_deprecated: false
         },
-        "mcp.AUTH.1" => %{definition: "MCP must validate API tokens", is_deprecated: false},
-        "mcp.AUTH.2" => %{definition: "MCP must enforce role-based access", is_deprecated: false},
+        "mcp.AUTH.1" => %{requirement: "MCP must validate API tokens", is_deprecated: false},
+        "mcp.AUTH.2" => %{requirement: "MCP must enforce role-based access", is_deprecated: false},
         "mcp.CACHE.1" => %{
-          definition: "Frequently accessed maps must be cached",
+          requirement: "Frequently accessed maps must be cached",
           is_deprecated: false
         },
         "mcp.CACHE.2" => %{
-          definition: "Cache invalidation must be supported",
+          requirement: "Cache invalidation must be supported",
           is_deprecated: false
         },
-        "mcp.EXPORT.1" => %{definition: "MCP must support data export", is_deprecated: false}
+        "mcp.EXPORT.1" => %{requirement: "MCP must support data export", is_deprecated: false}
       },
       branch_key: :api_backend_main,
       product_name: "api"
@@ -514,29 +520,29 @@ defmodule Acai.Seeds do
       raw_content: "# Map Editor Feature Specification",
       requirements: %{
         "map-editor.UI.1" => %{
-          definition: "Map editor must display base layer",
+          requirement: "Map editor must display base layer",
           is_deprecated: false
         },
         "map-editor.UI.2" => %{
-          definition: "Map editor must support zoom controls",
+          requirement: "Map editor must support zoom controls",
           is_deprecated: false
         },
         "map-editor.UI.3" => %{
-          definition: "Map editor must support layer toggles",
+          requirement: "Map editor must support layer toggles",
           is_deprecated: false
         },
         "map-editor.DRAW.1" => %{
-          definition: "User can draw polygons on map",
+          requirement: "User can draw polygons on map",
           is_deprecated: false
         },
-        "map-editor.DRAW.2" => %{definition: "User can draw points on map", is_deprecated: false},
+        "map-editor.DRAW.2" => %{requirement: "User can draw points on map", is_deprecated: false},
         "map-editor.EDIT.1" => %{
-          definition: "User can edit existing shapes",
+          requirement: "User can edit existing shapes",
           is_deprecated: false
         },
-        "map-editor.SAVE.1" => %{definition: "Changes must be savable", is_deprecated: false},
+        "map-editor.SAVE.1" => %{requirement: "Changes must be savable", is_deprecated: false},
         "map-editor.EXPORT.1" => %{
-          definition: "Maps must be exportable as images",
+          requirement: "Maps must be exportable as images",
           is_deprecated: false
         }
       },
@@ -552,32 +558,32 @@ defmodule Acai.Seeds do
       raw_content: "# Form Editor Feature Specification v1.0.0",
       requirements: %{
         "form-editor.UI.1" => %{
-          definition: "Form editor must show field palette",
+          requirement: "Form editor must show field palette",
           is_deprecated: false
         },
         "form-editor.UI.2" => %{
-          definition: "Form editor must support drag-drop",
+          requirement: "Form editor must support drag-drop",
           is_deprecated: false
         },
-        "form-editor.FIELD.1" => %{definition: "Support text input fields", is_deprecated: false},
+        "form-editor.FIELD.1" => %{requirement: "Support text input fields", is_deprecated: false},
         "form-editor.FIELD.2" => %{
-          definition: "Support number input fields",
+          requirement: "Support number input fields",
           is_deprecated: false
         },
         "form-editor.FIELD.3" => %{
-          definition: "Support select dropdown fields",
+          requirement: "Support select dropdown fields",
           is_deprecated: false
         },
         "form-editor.LOGIC.1" => %{
-          definition: "Support conditional field visibility",
+          requirement: "Support conditional field visibility",
           is_deprecated: false
         },
         "form-editor.PREVIEW.1" => %{
-          definition: "Form preview must be available",
+          requirement: "Form preview must be available",
           is_deprecated: false
         },
         "form-editor.PUBLISH.1" => %{
-          definition: "Forms must be publishable",
+          requirement: "Forms must be publishable",
           is_deprecated: false
         }
       },
@@ -592,37 +598,40 @@ defmodule Acai.Seeds do
       raw_content: "# Form Editor Feature Specification v1.1.0",
       requirements: %{
         "form-editor.UI.1" => %{
-          definition: "Form editor must show field palette",
+          requirement: "Form editor must show field palette",
           is_deprecated: false
         },
         "form-editor.UI.2" => %{
-          definition: "Form editor must support drag-drop",
+          requirement: "Form editor must support drag-drop",
           is_deprecated: false
         },
-        "form-editor.FIELD.1" => %{definition: "Support text input fields", is_deprecated: false},
+        "form-editor.FIELD.1" => %{requirement: "Support text input fields", is_deprecated: false},
         "form-editor.FIELD.2" => %{
-          definition: "Support number input fields",
+          requirement: "Support number input fields",
           is_deprecated: false
         },
         "form-editor.FIELD.3" => %{
-          definition: "Support select dropdown fields",
+          requirement: "Support select dropdown fields",
           is_deprecated: false
         },
-        "form-editor.FIELD.4" => %{definition: "Support file upload fields", is_deprecated: false},
+        "form-editor.FIELD.4" => %{
+          requirement: "Support file upload fields",
+          is_deprecated: false
+        },
         "form-editor.LOGIC.1" => %{
-          definition: "Support conditional field visibility",
+          requirement: "Support conditional field visibility",
           is_deprecated: false
         },
         "form-editor.PREVIEW.1" => %{
-          definition: "Form preview must be available",
+          requirement: "Form preview must be available",
           is_deprecated: false
         },
         "form-editor.PUBLISH.1" => %{
-          definition: "Forms must be publishable",
+          requirement: "Forms must be publishable",
           is_deprecated: false
         },
         "form-editor.VALIDATE.1" => %{
-          definition: "Custom validation rules supported",
+          requirement: "Custom validation rules supported",
           is_deprecated: false
         }
       },
@@ -637,24 +646,30 @@ defmodule Acai.Seeds do
       path: "specs/ai-chat.feature.yaml",
       raw_content: "# AI Chat Feature Specification",
       requirements: %{
-        "ai-chat.UI.1" => %{definition: "Chat interface must be accessible", is_deprecated: false},
-        "ai-chat.UI.2" => %{definition: "Chat must show message history", is_deprecated: false},
-        "ai-chat.INPUT.1" => %{
-          definition: "User can type natural language queries",
+        "ai-chat.UI.1" => %{
+          requirement: "Chat interface must be accessible",
           is_deprecated: false
         },
-        "ai-chat.INPUT.2" => %{definition: "Voice input must be supported", is_deprecated: false},
+        "ai-chat.UI.2" => %{requirement: "Chat must show message history", is_deprecated: false},
+        "ai-chat.INPUT.1" => %{
+          requirement: "User can type natural language queries",
+          is_deprecated: false
+        },
+        "ai-chat.INPUT.2" => %{requirement: "Voice input must be supported", is_deprecated: false},
         "ai-chat.AI.1" => %{
-          definition: "AI must understand map-related queries",
+          requirement: "AI must understand map-related queries",
           is_deprecated: false
         },
         "ai-chat.AI.2" => %{
-          definition: "AI must provide contextual responses",
+          requirement: "AI must provide contextual responses",
           is_deprecated: false
         },
-        "ai-chat.ACTION.1" => %{definition: "AI can trigger map actions", is_deprecated: false},
-        "ai-chat.ACTION.2" => %{definition: "AI can create survey forms", is_deprecated: false},
-        "ai-chat.FEEDBACK.1" => %{definition: "Users can rate AI responses", is_deprecated: false}
+        "ai-chat.ACTION.1" => %{requirement: "AI can trigger map actions", is_deprecated: false},
+        "ai-chat.ACTION.2" => %{requirement: "AI can create survey forms", is_deprecated: false},
+        "ai-chat.FEEDBACK.1" => %{
+          requirement: "Users can rate AI responses",
+          is_deprecated: false
+        }
       },
       branch_key: :site_frontend_feat_ai,
       product_name: "site"
@@ -668,24 +683,24 @@ defmodule Acai.Seeds do
       raw_content: "# Map Settings Feature Specification v1.0.0",
       requirements: %{
         "map-settings.UI.1" => %{
-          definition: "Settings panel must be accessible",
+          requirement: "Settings panel must be accessible",
           is_deprecated: false
         },
         "map-settings.BASEMAP.1" => %{
-          definition: "User can change basemap style",
+          requirement: "User can change basemap style",
           is_deprecated: false
         },
         "map-settings.LAYERS.1" => %{
-          definition: "User can manage layer visibility",
+          requirement: "User can manage layer visibility",
           is_deprecated: false
         },
-        "map-settings.LAYERS.2" => %{definition: "User can reorder layers", is_deprecated: false},
+        "map-settings.LAYERS.2" => %{requirement: "User can reorder layers", is_deprecated: false},
         "map-settings.PERMISSIONS.1" => %{
-          definition: "Map permissions can be configured",
+          requirement: "Map permissions can be configured",
           is_deprecated: false
         },
         "map-settings.SHARE.1" => %{
-          definition: "Maps can be shared via link",
+          requirement: "Maps can be shared via link",
           is_deprecated: false
         }
       },
@@ -700,28 +715,28 @@ defmodule Acai.Seeds do
       raw_content: "# Map Settings Feature Specification v1.0.1",
       requirements: %{
         "map-settings.UI.1" => %{
-          definition: "Settings panel must be accessible",
+          requirement: "Settings panel must be accessible",
           is_deprecated: false
         },
         "map-settings.BASEMAP.1" => %{
-          definition: "User can change basemap style",
+          requirement: "User can change basemap style",
           is_deprecated: false
         },
         "map-settings.LAYERS.1" => %{
-          definition: "User can manage layer visibility",
+          requirement: "User can manage layer visibility",
           is_deprecated: false
         },
-        "map-settings.LAYERS.2" => %{definition: "User can reorder layers", is_deprecated: false},
+        "map-settings.LAYERS.2" => %{requirement: "User can reorder layers", is_deprecated: false},
         "map-settings.PERMISSIONS.1" => %{
-          definition: "Map permissions can be configured",
+          requirement: "Map permissions can be configured",
           is_deprecated: false
         },
         "map-settings.PERMISSIONS.2" => %{
-          definition: "Team permissions supported",
+          requirement: "Team permissions supported",
           is_deprecated: false
         },
         "map-settings.SHARE.1" => %{
-          definition: "Maps can be shared via link",
+          requirement: "Maps can be shared via link",
           is_deprecated: false
         }
       },

@@ -29,13 +29,13 @@ defmodule AcaiWeb.ImplementationLiveTest do
     requirements =
       Keyword.get(opts, :requirements, %{
         "#{feature_name}.COMP.1" => %{
-          "definition" => "Test requirement 1 for #{feature_name}",
+          "requirement" => "Test requirement 1 for #{feature_name}",
           "note" => "Test note",
           "is_deprecated" => false,
           "replaced_by" => []
         },
         "#{feature_name}.COMP.2" => %{
-          "definition" => "Test requirement 2 for #{feature_name}",
+          "requirement" => "Test requirement 2 for #{feature_name}",
           "is_deprecated" => false,
           "replaced_by" => []
         }
@@ -577,7 +577,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -610,7 +610,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: parent_branch,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -635,8 +635,9 @@ defmodule AcaiWeb.ImplementationLiveTest do
     setup :register_and_log_in_user
 
     # feature-impl-view.LIST.1: Renders requirements list
-    # feature-impl-view.LIST.2: Table columns are ACID, Status, Definition, Refs count
+    # feature-impl-view.LIST.2: Table columns are ACID, Status, Requirement, Refs count
     # feature-impl-view.LIST.2-2
+    # feature-impl-view.LIST.2-4
     test "renders table with correct columns", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "TestProduct")
@@ -650,21 +651,38 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Check table headers - 4 columns only per spec
       assert has_element?(view, "th", "ACID")
       assert has_element?(view, "th", "Status")
-      assert has_element?(view, "th", "Definition")
+      assert has_element?(view, "th", "Requirement")
       assert has_element?(view, "th", "Refs")
       assert has_element?(view, "#sort-requirements-acid")
       assert has_element?(view, "#sort-requirements-status")
-      assert has_element?(view, "#sort-requirements-definition")
+      assert has_element?(view, "#sort-requirements-requirement")
       assert has_element?(view, "#sort-requirements-refs-count")
       # Tests column removed per feature-impl-view.LIST.2
       refute has_element?(view, "th", "Tests")
 
       # Check row content
-      assert has_element?(view, "td", "my-feature.COMP.1")
+      assert has_element?(view, "#requirement-row-my-feature-COMP-1 td:nth-child(1)", "COMP.1")
       assert has_element?(view, "td", "Test requirement 1 for my-feature")
+      assert has_element?(view, "#requirements-list-table th:nth-child(1).w-24", "ACID")
+      assert has_element?(view, "#requirements-list-table th:nth-child(2).w-24", "Status")
+
+      assert has_element?(
+               view,
+               "#requirement-row-my-feature-COMP-1 td:nth-child(1).w-24",
+               "COMP.1"
+             )
+
+      assert has_element?(view, "#requirement-row-my-feature-COMP-1 td:nth-child(2).w-24")
+
+      assert has_element?(
+               view,
+               "#requirement-row-my-feature-COMP-1 td:nth-child(3).text-sm",
+               "Test requirement 1 for my-feature"
+             )
 
       # Check table has stable DOM ID
       assert has_element?(view, "#requirements-list-table")
+      assert has_element?(view, "#requirements-list-table.table-sm")
     end
 
     # feature-impl-view.LIST.2-2
@@ -682,17 +700,17 @@ defmodule AcaiWeb.ImplementationLiveTest do
           for_implementation: impl,
           requirements: %{
             "sort-feature.COMP.1" => %{
-              "definition" => "Zulu requirement",
+              "requirement" => "Zulu requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             },
             "sort-feature.COMP.2" => %{
-              "definition" => "Omega requirement",
+              "requirement" => "Omega requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             },
             "sort-feature.COMP.3" => %{
-              "definition" => "Alpha requirement",
+              "requirement" => "Alpha requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -722,7 +740,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       assert has_element?(
                view,
                "#requirements-list-table tbody tr:nth-child(1) td:nth-child(1)",
-               "sort-feature.COMP.1"
+               "COMP.1"
              )
 
       assert has_element?(
@@ -736,13 +754,13 @@ defmodule AcaiWeb.ImplementationLiveTest do
              )
 
       view
-      |> element("#sort-requirements-definition")
+      |> element("#sort-requirements-requirement")
       |> render_click()
 
       assert has_element?(
                view,
                "#requirements-list-table tbody tr:nth-child(1) td:nth-child(1)",
-               "sort-feature.COMP.3"
+               "COMP.3"
              )
 
       assert has_element?(
@@ -762,7 +780,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       assert has_element?(
                view,
                "#requirements-list-table tbody tr:nth-child(1) td:nth-child(1)",
-               "sort-feature.COMP.2"
+               "COMP.2"
              )
 
       assert has_element?(
@@ -782,7 +800,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       assert has_element?(
                view,
                "#requirements-list-table tbody tr:nth-child(1) td:nth-child(1)",
-               "sort-feature.COMP.3"
+               "COMP.3"
              )
 
       assert has_element?(
@@ -957,7 +975,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
 
       requirements = %{
         "my-feature.COMP.1" => %{
-          "definition" => "My test requirement definition",
+          "requirement" => "My test requirement definition",
           "note" => "Test note",
           "is_deprecated" => false,
           "replaced_by" => []
@@ -1056,7 +1074,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
           branch: parent_branch,
           requirements: %{
             "inherited-feature.COMP.1" => %{
-              "definition" => "Test req",
+              "requirement" => "Test req",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -1159,7 +1177,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch,
         requirements: %{
           "inherited-feature.COMP.1" => %{
-            "definition" => "Local req",
+            "requirement" => "Local req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1195,7 +1213,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: parent_branch,
         requirements: %{
           "inherited-feature.COMP.1" => %{
-            "definition" => "Inherited req",
+            "requirement" => "Inherited req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1215,7 +1233,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Should render the child implementation in dropdown button with inherited spec
       assert has_element?(view, "button[popovertarget='impl-popover']", "ChildImpl")
       # Should show requirement from inherited spec
-      assert has_element?(view, "td", "inherited-feature.COMP.1")
+      assert has_element?(view, "td", "COMP.1")
     end
 
     # feature-impl-view.INHERITANCE.2
@@ -1238,7 +1256,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
           branch: parent_branch,
           requirements: %{
             "inherited-feature.COMP.1" => %{
-              "definition" => "Test req",
+              "requirement" => "Test req",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -1287,7 +1305,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
           branch: parent_branch,
           requirements: %{
             "inherited-feature.COMP.1" => %{
-              "definition" => "Test req",
+              "requirement" => "Test req",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -1360,17 +1378,17 @@ defmodule AcaiWeb.ImplementationLiveTest do
           branch: parent_branch,
           requirements: %{
             "inheritance-test-feature.COMP.1" => %{
-              "definition" => "First requirement",
+              "requirement" => "First requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             },
             "inheritance-test-feature.COMP.2" => %{
-              "definition" => "Second requirement",
+              "requirement" => "Second requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             },
             "inheritance-test-feature.COMP.3" => %{
-              "definition" => "Third requirement",
+              "requirement" => "Third requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -1447,17 +1465,17 @@ defmodule AcaiWeb.ImplementationLiveTest do
           for_implementation: impl,
           requirements: %{
             "incomplete-test-feature.COMP.1" => %{
-              "definition" => "First req",
+              "requirement" => "First req",
               "is_deprecated" => false,
               "replaced_by" => []
             },
             "incomplete-test-feature.COMP.2" => %{
-              "definition" => "Second req",
+              "requirement" => "Second req",
               "is_deprecated" => false,
               "replaced_by" => []
             },
             "incomplete-test-feature.COMP.3" => %{
-              "definition" => "Third req",
+              "requirement" => "Third req",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -1532,7 +1550,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: shared_branch,
         requirements: %{
           "product-a-feature.COMP.1" => %{
-            "definition" => "A req",
+            "requirement" => "A req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1544,7 +1562,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: shared_branch,
         requirements: %{
           "product-b-feature.COMP.1" => %{
-            "definition" => "B req",
+            "requirement" => "B req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1581,7 +1599,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: parent_branch,
         requirements: %{
           "inherited-feature.COMP.1" => %{
-            "definition" => "Inherited req",
+            "requirement" => "Inherited req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1629,7 +1647,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: shared_branch,
         requirements: %{
           "product-a-only-feature.COMP.1" => %{
-            "definition" => "Product A only req",
+            "requirement" => "Product A only req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1692,7 +1710,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch_with_spec,
         requirements: %{
           "test-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1730,7 +1748,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: parent_branch,
         requirements: %{
           "inherited-feature.COMP.1" => %{
-            "definition" => "Inherited req",
+            "requirement" => "Inherited req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1815,7 +1833,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         for_implementation: impl1,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Production req 1",
+            "requirement" => "Production req 1",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1826,7 +1844,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         for_implementation: impl2,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Staging req 1",
+            "requirement" => "Staging req 1",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1881,7 +1899,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         path: "features/feature-a/spec.yaml",
         requirements: %{
           "feature-a.COMP.1" => %{
-            "definition" => "Feature A requirement",
+            "requirement" => "Feature A requirement",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1894,7 +1912,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         path: "features/feature-b/spec.yaml",
         requirements: %{
           "feature-b.COMP.1" => %{
-            "definition" => "Feature B requirement",
+            "requirement" => "Feature B requirement",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1946,7 +1964,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2005,7 +2023,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: parent_branch,
         requirements: %{
           "inherited-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2046,7 +2064,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch1,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2080,7 +2098,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: parent_branch,
         requirements: %{
           "inherited-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2120,7 +2138,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2159,7 +2177,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: parent_branch,
         requirements: %{
           "inherited-feature.COMP.1" => %{
-            "definition" => "Inherited req",
+            "requirement" => "Inherited req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2203,7 +2221,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2241,7 +2259,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2282,7 +2300,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2323,7 +2341,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2352,7 +2370,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch1,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2411,7 +2429,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch1,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2454,7 +2472,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2487,7 +2505,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch1,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test req",
+            "requirement" => "Test req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2534,7 +2552,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch,
         requirements: %{
           "feature-one.COMP.1" => %{
-            "definition" => "Feature one req",
+            "requirement" => "Feature one req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2546,7 +2564,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch,
         requirements: %{
           "feature-two.COMP.1" => %{
-            "definition" => "Feature two req",
+            "requirement" => "Feature two req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2590,7 +2608,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: shared_branch,
         requirements: %{
           "shared-feature.COMP.1" => %{
-            "definition" => "Shared req",
+            "requirement" => "Shared req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2635,7 +2653,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch_a,
         requirements: %{
           "exclusive-feature.COMP.1" => %{
-            "definition" => "Exclusive req",
+            "requirement" => "Exclusive req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2680,7 +2698,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch,
         requirements: %{
           "feature-one.COMP.1" => %{
-            "definition" => "Feature one req",
+            "requirement" => "Feature one req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2692,7 +2710,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: branch,
         requirements: %{
           "feature-two.COMP.1" => %{
-            "definition" => "Feature two req",
+            "requirement" => "Feature two req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2991,7 +3009,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: branch1,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       slug = build_impl_slug(impl)
@@ -3028,7 +3046,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: branch3,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       slug = build_impl_slug(impl)
@@ -3059,7 +3077,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: branch,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       # Create another tracked branch
@@ -3095,7 +3113,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: branch2,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       slug = build_impl_slug(impl)
@@ -3131,7 +3149,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: branch2,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       slug = build_impl_slug(impl)
@@ -3361,7 +3379,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: branch,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       slug = build_impl_slug(impl)
@@ -3398,7 +3416,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: branch2,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       slug = build_impl_slug(impl)
@@ -3443,7 +3461,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: branch2,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       slug = build_impl_slug(impl)
@@ -3490,7 +3508,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: tracked,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       slug = build_impl_slug(impl)
@@ -3570,7 +3588,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: branch,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       slug = build_impl_slug(impl)
@@ -3630,7 +3648,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: tracked,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       slug = build_impl_slug(impl)
@@ -3726,7 +3744,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: tracked,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       slug = build_impl_slug(impl)
@@ -3776,7 +3794,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: branch2,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       slug = build_impl_slug(impl)
@@ -3830,7 +3848,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       spec_fixture(product, %{
         feature_name: "my-feature",
         branch: tracked,
-        requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+        requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
       })
 
       slug = build_impl_slug(impl)
@@ -3894,7 +3912,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: shared_branch,
         requirements: %{
           "shared-feature.COMP.1" => %{
-            "definition" => "Shared req",
+            "requirement" => "Shared req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -3946,7 +3964,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         spec_fixture(product, %{
           feature_name: "my-feature",
           branch: branch1,
-          requirements: %{"my-feature.COMP.1" => %{"definition" => "Test req"}}
+          requirements: %{"my-feature.COMP.1" => %{"requirement" => "Test req"}}
         })
 
       # Create FeatureBranchRefs manually for both branches
@@ -4182,7 +4200,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
           branch: parent_branch,
           requirements: %{
             "inherited-feature.COMP.1" => %{
-              "definition" => "Test req",
+              "requirement" => "Test req",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -4335,7 +4353,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
           branch: parent_branch,
           requirements: %{
             "inherited-feature.COMP.1" => %{
-              "definition" => "Test req",
+              "requirement" => "Test req",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -4423,7 +4441,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
           feature_name: "my-feature",
           branch: branch1,
           requirements: %{
-            "my-feature.COMP.1" => %{"definition" => "Test req"}
+            "my-feature.COMP.1" => %{"requirement" => "Test req"}
           }
         })
 
@@ -4698,12 +4716,12 @@ defmodule AcaiWeb.ImplementationLiveTest do
           branch: child_branch,
           requirements: %{
             "my-feature.COMP.1" => %{
-              "definition" => "Parent requirement",
+              "requirement" => "Parent requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             },
             "my-feature.CHILD.1" => %{
-              "definition" => "Child-only requirement",
+              "requirement" => "Child-only requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -4760,12 +4778,12 @@ defmodule AcaiWeb.ImplementationLiveTest do
           branch: parent_branch,
           requirements: %{
             "my-feature.COMP.1" => %{
-              "definition" => "Parent COMP.1 requirement",
+              "requirement" => "Parent COMP.1 requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             },
             "my-feature.COMP.2" => %{
-              "definition" => "Parent COMP.2 requirement",
+              "requirement" => "Parent COMP.2 requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -4811,17 +4829,17 @@ defmodule AcaiWeb.ImplementationLiveTest do
           branch: child_branch,
           requirements: %{
             "my-feature.COMP.1" => %{
-              "definition" => "Child COMP.1 requirement",
+              "requirement" => "Child COMP.1 requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             },
             "my-feature.COMP.2" => %{
-              "definition" => "Child COMP.2 requirement",
+              "requirement" => "Child COMP.2 requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             },
             "my-feature.CHILD.1" => %{
-              "definition" => "Child-only requirement",
+              "requirement" => "Child-only requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -5030,7 +5048,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
           branch: parent_branch,
           requirements: %{
             "my-feature.COMP.1" => %{
-              "definition" => "Test requirement",
+              "requirement" => "Test requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -5064,7 +5082,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: child_branch,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test requirement",
+            "requirement" => "Test requirement",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -5169,7 +5187,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
           branch: parent_branch,
           requirements: %{
             "my-feature.COMP.1" => %{
-              "definition" => "Test requirement",
+              "requirement" => "Test requirement",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -5202,7 +5220,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
         branch: child_branch,
         requirements: %{
           "my-feature.COMP.1" => %{
-            "definition" => "Test requirement",
+            "requirement" => "Test requirement",
             "is_deprecated" => false,
             "replaced_by" => []
           }

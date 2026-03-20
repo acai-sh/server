@@ -32,12 +32,12 @@ defmodule AcaiWeb.FeatureLiveTest do
     requirements =
       Keyword.get(opts, :requirements, %{
         "#{feature_name}.COMP.1" => %{
-          "definition" => "Test requirement 1",
+          "requirement" => "Test requirement 1",
           "is_deprecated" => false,
           "replaced_by" => []
         },
         "#{feature_name}.COMP.2" => %{
-          "definition" => "Test requirement 2",
+          "requirement" => "Test requirement 2",
           "is_deprecated" => false,
           "replaced_by" => []
         }
@@ -182,7 +182,7 @@ defmodule AcaiWeb.FeatureLiveTest do
       # Create spec on the same branch so implementation can resolve it
       create_spec_for_feature(team, product, "my-feature",
         requirements: %{
-          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+          "my-feature.COMP.1" => %{"requirement" => "Req 1"}
         },
         branch: branch,
         repo_uri: branch.repo_uri
@@ -225,7 +225,7 @@ defmodule AcaiWeb.FeatureLiveTest do
       # Create spec on the same branch so implementation can resolve it
       create_spec_for_feature(team, product, "my-feature",
         requirements: %{
-          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+          "my-feature.COMP.1" => %{"requirement" => "Req 1"}
         },
         branch: branch,
         repo_uri: branch.repo_uri
@@ -257,7 +257,7 @@ defmodule AcaiWeb.FeatureLiveTest do
       # Create spec on the same branch so implementation can resolve it
       create_spec_for_feature(team, product, "my-feature",
         requirements: %{
-          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+          "my-feature.COMP.1" => %{"requirement" => "Req 1"}
         },
         branch: branch,
         repo_uri: branch.repo_uri
@@ -438,7 +438,7 @@ defmodule AcaiWeb.FeatureLiveTest do
       # Create spec on the same branch so implementation can resolve it
       create_spec_for_feature(team, product, "my-feature",
         requirements: %{
-          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+          "my-feature.COMP.1" => %{"requirement" => "Req 1"}
         },
         branch: branch,
         repo_uri: branch.repo_uri
@@ -465,7 +465,7 @@ defmodule AcaiWeb.FeatureLiveTest do
       # Create spec on the same branch so implementation can resolve it
       create_spec_for_feature(team, product, "my-feature",
         requirements: %{
-          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+          "my-feature.COMP.1" => %{"requirement" => "Req 1"}
         },
         branch: branch,
         repo_uri: branch.repo_uri
@@ -490,22 +490,22 @@ defmodule AcaiWeb.FeatureLiveTest do
       # Create spec with 4 requirements on the same branch
       requirements = %{
         "my-feature.COMP.1" => %{
-          "definition" => "Req 1",
+          "requirement" => "Req 1",
           "is_deprecated" => false,
           "replaced_by" => []
         },
         "my-feature.COMP.2" => %{
-          "definition" => "Req 2",
+          "requirement" => "Req 2",
           "is_deprecated" => false,
           "replaced_by" => []
         },
         "my-feature.COMP.3" => %{
-          "definition" => "Req 3",
+          "requirement" => "Req 3",
           "is_deprecated" => false,
           "replaced_by" => []
         },
         "my-feature.COMP.4" => %{
-          "definition" => "Req 4",
+          "requirement" => "Req 4",
           "is_deprecated" => false,
           "replaced_by" => []
         }
@@ -557,12 +557,12 @@ defmodule AcaiWeb.FeatureLiveTest do
 
       requirements = %{
         "my-feature.COMP.1" => %{
-          "definition" => "Req 1",
+          "requirement" => "Req 1",
           "is_deprecated" => false,
           "replaced_by" => []
         },
         "my-feature.COMP.2" => %{
-          "definition" => "Req 2",
+          "requirement" => "Req 2",
           "is_deprecated" => false,
           "replaced_by" => []
         }
@@ -605,7 +605,7 @@ defmodule AcaiWeb.FeatureLiveTest do
 
       requirements = %{
         "my-feature.COMP.1" => %{
-          "definition" => "Req 1",
+          "requirement" => "Req 1",
           "is_deprecated" => false,
           "replaced_by" => []
         }
@@ -685,7 +685,7 @@ defmodule AcaiWeb.FeatureLiveTest do
       # Create spec on the same branch so implementation can resolve it
       create_spec_for_feature(team, product, "my-feature",
         requirements: %{
-          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+          "my-feature.COMP.1" => %{"requirement" => "Req 1"}
         },
         branch: branch,
         repo_uri: branch.repo_uri
@@ -707,7 +707,7 @@ defmodule AcaiWeb.FeatureLiveTest do
 
       create_spec_for_feature(other_team, other_product, "my-feature",
         requirements: %{
-          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+          "my-feature.COMP.1" => %{"requirement" => "Req 1"}
         },
         branch: other_branch,
         repo_uri: other_branch.repo_uri
@@ -738,7 +738,7 @@ defmodule AcaiWeb.FeatureLiveTest do
       # Create spec on the same branch so active implementation can resolve it
       create_spec_for_feature(team, product, "my-feature",
         requirements: %{
-          "my-feature.COMP.1" => %{"definition" => "Req 1"}
+          "my-feature.COMP.1" => %{"requirement" => "Req 1"}
         },
         branch: branch,
         repo_uri: branch.repo_uri
@@ -815,17 +815,17 @@ defmodule AcaiWeb.FeatureLiveTest do
 
       requirements = %{
         "feature-1.COMP.1" => %{
-          "definition" => "Req 1",
+          "requirement" => "Req 1",
           "is_deprecated" => false,
           "replaced_by" => []
         },
         "feature-1.COMP.2" => %{
-          "definition" => "Req 2",
+          "requirement" => "Req 2",
           "is_deprecated" => false,
           "replaced_by" => []
         },
         "feature-1.COMP.3" => %{
-          "definition" => "Req 3",
+          "requirement" => "Req 3",
           "is_deprecated" => false,
           "replaced_by" => []
         }
@@ -881,7 +881,7 @@ defmodule AcaiWeb.FeatureLiveTest do
         repo_uri: branch.repo_uri,
         requirements: %{
           "feature-1.COMP.1" => %{
-            "definition" => "Req 1",
+            "requirement" => "Req 1",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -918,7 +918,7 @@ defmodule AcaiWeb.FeatureLiveTest do
         repo_uri: branch.repo_uri,
         requirements: %{
           "inherited-feature.COMP.1" => %{
-            "definition" => "Req 1",
+            "requirement" => "Req 1",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -960,12 +960,12 @@ defmodule AcaiWeb.FeatureLiveTest do
         repo_uri: branch.repo_uri,
         requirements: %{
           "progress-feature.COMP.1" => %{
-            "definition" => "Req 1",
+            "requirement" => "Req 1",
             "is_deprecated" => false,
             "replaced_by" => []
           },
           "progress-feature.COMP.2" => %{
-            "definition" => "Req 2",
+            "requirement" => "Req 2",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1022,7 +1022,7 @@ defmodule AcaiWeb.FeatureLiveTest do
         feature_name: "hierarchy-feature",
         branch: branch,
         repo_uri: branch.repo_uri,
-        requirements: %{"hierarchy-feature.COMP.1" => %{"definition" => "Req 1"}}
+        requirements: %{"hierarchy-feature.COMP.1" => %{"requirement" => "Req 1"}}
       })
 
       # Create tree: Parent -> Child1 -> GrandChild, Parent -> Child2
@@ -1106,7 +1106,7 @@ defmodule AcaiWeb.FeatureLiveTest do
         feature_name: "depth-feature",
         branch: branch,
         repo_uri: branch.repo_uri,
-        requirements: %{"depth-feature.COMP.1" => %{"definition" => "Req 1"}}
+        requirements: %{"depth-feature.COMP.1" => %{"requirement" => "Req 1"}}
       })
 
       # Create 4-level chain: L1 -> L2 -> L3 -> L4
@@ -1185,7 +1185,7 @@ defmodule AcaiWeb.FeatureLiveTest do
         feature_name: "deep-feature",
         branch: branch,
         repo_uri: branch.repo_uri,
-        requirements: %{"deep-feature.COMP.1" => %{"definition" => "Req 1"}}
+        requirements: %{"deep-feature.COMP.1" => %{"requirement" => "Req 1"}}
       })
 
       # Create 5-level chain: L1 -> L2 -> L3 -> L4 -> L5
@@ -1278,7 +1278,7 @@ defmodule AcaiWeb.FeatureLiveTest do
         feature_name: "indicator-feature",
         branch: branch,
         repo_uri: branch.repo_uri,
-        requirements: %{"indicator-feature.COMP.1" => %{"definition" => "Req 1"}}
+        requirements: %{"indicator-feature.COMP.1" => %{"requirement" => "Req 1"}}
       })
 
       # Create parent and child
@@ -1324,7 +1324,7 @@ defmodule AcaiWeb.FeatureLiveTest do
         feature_name: "orphan-feature",
         branch: branch_with_feature,
         repo_uri: branch_with_feature.repo_uri,
-        requirements: %{"orphan-feature.COMP.1" => %{"definition" => "Req 1"}}
+        requirements: %{"orphan-feature.COMP.1" => %{"requirement" => "Req 1"}}
       })
 
       # Create parent implementation (NO tracked branch = parent doesn't have the feature)
@@ -1382,7 +1382,7 @@ defmodule AcaiWeb.FeatureLiveTest do
         repo_uri: branch1.repo_uri,
         requirements: %{
           "feature-a.COMP.1" => %{
-            "definition" => "Req A1",
+            "requirement" => "Req A1",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1403,7 +1403,7 @@ defmodule AcaiWeb.FeatureLiveTest do
         repo_uri: branch2.repo_uri,
         requirements: %{
           "feature-b.COMP.1" => %{
-            "definition" => "Req B1",
+            "requirement" => "Req B1",
             "is_deprecated" => false,
             "replaced_by" => []
           }

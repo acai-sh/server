@@ -875,7 +875,7 @@ defmodule Acai.SpecsTest do
         repo_uri: "github.com/org/untracked",
         requirements: %{
           "test-feature.COMP.1" => %{
-            "definition" => "Untracked req",
+            "requirement" => "Untracked req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -912,7 +912,7 @@ defmodule Acai.SpecsTest do
           repo_uri: "github.com/org/repo",
           requirements: %{
             "test-feature.COMP.1" => %{
-              "definition" => "Tracked req",
+              "requirement" => "Tracked req",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -950,7 +950,7 @@ defmodule Acai.SpecsTest do
         repo_uri: "github.com/org/untracked",
         requirements: %{
           "test-feature.COMP.1" => %{
-            "definition" => "Untracked req",
+            "requirement" => "Untracked req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -989,7 +989,7 @@ defmodule Acai.SpecsTest do
         repo_uri: "github.com/org/shared",
         requirements: %{
           "shared-feature.COMP.1" => %{
-            "definition" => "Product A req",
+            "requirement" => "Product A req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1030,7 +1030,7 @@ defmodule Acai.SpecsTest do
         repo_uri: "github.com/org/repo",
         requirements: %{
           "inherited-feature.COMP.1" => %{
-            "definition" => "Product A req",
+            "requirement" => "Product A req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1283,7 +1283,7 @@ defmodule Acai.SpecsTest do
         repo_uri: "github.com/org/shared",
         requirements: %{
           "shared-feature.COMP.1" => %{
-            "definition" => "Product A req",
+            "requirement" => "Product A req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1324,7 +1324,7 @@ defmodule Acai.SpecsTest do
         repo_uri: "github.com/org/repo",
         requirements: %{
           "test-feature.COMP.1" => %{
-            "definition" => "Grandparent req",
+            "requirement" => "Grandparent req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1350,7 +1350,7 @@ defmodule Acai.SpecsTest do
           repo_uri: "github.com/org/repo2",
           requirements: %{
             "test-feature.COMP.1" => %{
-              "definition" => "Parent req",
+              "requirement" => "Parent req",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -1389,8 +1389,8 @@ defmodule Acai.SpecsTest do
           branch: parent_branch,
           repo_uri: "github.com/org/repo",
           requirements: %{
-            "test-feature.COMP.1" => %{"definition" => "Req 1"},
-            "test-feature.COMP.2" => %{"definition" => "Req 2"}
+            "test-feature.COMP.1" => %{"requirement" => "Req 1"},
+            "test-feature.COMP.2" => %{"requirement" => "Req 2"}
           }
         })
 
@@ -1437,9 +1437,9 @@ defmodule Acai.SpecsTest do
           branch: grandparent_branch,
           repo_uri: "github.com/org/repo",
           requirements: %{
-            "test-feature.COMP.1" => %{"definition" => "Req 1"},
-            "test-feature.COMP.2" => %{"definition" => "Req 2"},
-            "test-feature.COMP.3" => %{"definition" => "Req 3"}
+            "test-feature.COMP.1" => %{"requirement" => "Req 1"},
+            "test-feature.COMP.2" => %{"requirement" => "Req 2"},
+            "test-feature.COMP.3" => %{"requirement" => "Req 3"}
           }
         })
 
@@ -1494,8 +1494,8 @@ defmodule Acai.SpecsTest do
           branch: parent_branch,
           repo_uri: "github.com/org/repo",
           requirements: %{
-            "test-feature.COMP.1" => %{"definition" => "Req 1"},
-            "test-feature.COMP.2" => %{"definition" => "Req 2"}
+            "test-feature.COMP.1" => %{"requirement" => "Req 1"},
+            "test-feature.COMP.2" => %{"requirement" => "Req 2"}
           }
         })
 
@@ -1548,8 +1548,8 @@ defmodule Acai.SpecsTest do
           branch: parent_branch,
           repo_uri: "github.com/org/repo",
           requirements: %{
-            "test-feature.COMP.1" => %{"definition" => "Req 1"},
-            "test-feature.COMP.2" => %{"definition" => "Req 2"}
+            "test-feature.COMP.1" => %{"requirement" => "Req 1"},
+            "test-feature.COMP.2" => %{"requirement" => "Req 2"}
           }
         })
 
@@ -1601,8 +1601,8 @@ defmodule Acai.SpecsTest do
           branch: grandparent_branch,
           repo_uri: "github.com/org/repo",
           requirements: %{
-            "test-feature.COMP.1" => %{"definition" => "Req 1"},
-            "test-feature.COMP.2" => %{"definition" => "Req 2"}
+            "test-feature.COMP.1" => %{"requirement" => "Req 1"},
+            "test-feature.COMP.2" => %{"requirement" => "Req 2"}
           }
         })
 
@@ -1674,7 +1674,7 @@ defmodule Acai.SpecsTest do
           branch: branch,
           repo_uri: branch.repo_uri,
           requirements: %{
-            "test-feature.COMP.1" => %{"definition" => "Req 1"}
+            "test-feature.COMP.1" => %{"requirement" => "Req 1"}
           }
         })
 
@@ -1702,12 +1702,12 @@ defmodule Acai.SpecsTest do
           repo_uri: branch.repo_uri,
           requirements: %{
             "test-feature.COMP.1" => %{
-              "definition" => "Req 1",
+              "requirement" => "Req 1",
               "is_deprecated" => false,
               "replaced_by" => []
             },
             "test-feature.COMP.2" => %{
-              "definition" => "Req 2",
+              "requirement" => "Req 2",
               "is_deprecated" => false,
               "replaced_by" => []
             }
@@ -1773,7 +1773,7 @@ defmodule Acai.SpecsTest do
         branch: branch,
         repo_uri: branch.repo_uri,
         requirements: %{
-          "test-feature.COMP.1" => %{"definition" => "Req 1"}
+          "test-feature.COMP.1" => %{"requirement" => "Req 1"}
         }
       })
 
@@ -1831,7 +1831,7 @@ defmodule Acai.SpecsTest do
         branch: branch,
         repo_uri: branch.repo_uri,
         requirements: %{
-          "test-feature.COMP.1" => %{"definition" => "Req 1"}
+          "test-feature.COMP.1" => %{"requirement" => "Req 1"}
         }
       })
 
@@ -1873,8 +1873,8 @@ defmodule Acai.SpecsTest do
         branch: branch,
         repo_uri: branch.repo_uri,
         requirements: %{
-          "test-feature.COMP.1" => %{"definition" => "Req 1"},
-          "test-feature.COMP.2" => %{"definition" => "Req 2"}
+          "test-feature.COMP.1" => %{"requirement" => "Req 1"},
+          "test-feature.COMP.2" => %{"requirement" => "Req 2"}
         }
       })
 
@@ -1948,7 +1948,7 @@ defmodule Acai.SpecsTest do
         repo_uri: "github.com/org/shared",
         requirements: %{
           "shared-feature.COMP.1" => %{
-            "definition" => "Product A req",
+            "requirement" => "Product A req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -1981,7 +1981,7 @@ defmodule Acai.SpecsTest do
         branch: branch,
         repo_uri: branch.repo_uri,
         requirements: %{
-          "test-feature.COMP.1" => %{"definition" => "Req 1"}
+          "test-feature.COMP.1" => %{"requirement" => "Req 1"}
         }
       })
 
@@ -2036,7 +2036,7 @@ defmodule Acai.SpecsTest do
         branch: branch,
         repo_uri: branch.repo_uri,
         requirements: %{
-          "test-feature.COMP.1" => %{"definition" => "Req 1"}
+          "test-feature.COMP.1" => %{"requirement" => "Req 1"}
         }
       })
 
@@ -2241,7 +2241,7 @@ defmodule Acai.SpecsTest do
         repo_uri: "github.com/org/shared",
         requirements: %{
           "shared-feature.COMP.1" => %{
-            "definition" => "Product A req",
+            "requirement" => "Product A req",
             "is_deprecated" => false,
             "replaced_by" => []
           }
@@ -2282,7 +2282,7 @@ defmodule Acai.SpecsTest do
         repo_uri: "github.com/org/repo",
         requirements: %{
           "inherited-feature.COMP.1" => %{
-            "definition" => "Product A req",
+            "requirement" => "Product A req",
             "is_deprecated" => false,
             "replaced_by" => []
           }

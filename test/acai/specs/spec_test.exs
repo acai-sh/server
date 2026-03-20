@@ -171,7 +171,7 @@ defmodule Acai.Specs.SpecTest do
         |> Map.merge(%{
           requirements: %{
             "my-feature.COMP.1" => %{
-              "definition" => "First requirement",
+              "requirement" => "First requirement",
               "is_deprecated" => false
             }
           }

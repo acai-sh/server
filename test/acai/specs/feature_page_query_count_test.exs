@@ -221,12 +221,12 @@ defmodule Acai.Specs.FeaturePageQueryCountTest do
       repo_uri: "github.com/org/repo-#{index}",
       requirements: %{
         "#{feature_name}.COMP.1" => %{
-          "definition" => "Requirement 1",
+          "requirement" => "Requirement 1",
           "is_deprecated" => false,
           "replaced_by" => []
         },
         "#{feature_name}.COMP.2" => %{
-          "definition" => "Requirement 2",
+          "requirement" => "Requirement 2",
           "is_deprecated" => false,
           "replaced_by" => []
         }
@@ -260,7 +260,7 @@ defmodule Acai.Specs.FeaturePageQueryCountTest do
       repo_uri: "github.com/org/root",
       requirements: %{
         "#{feature_name}.COMP.1" => %{
-          "definition" => "Req 1",
+          "requirement" => "Req 1",
           "is_deprecated" => false,
           "replaced_by" => []
         }

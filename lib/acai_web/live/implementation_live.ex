@@ -184,7 +184,7 @@ defmodule AcaiWeb.ImplementationLive do
     available_features = Specs.list_features_for_implementation(implementation, product)
 
     # Build requirement rows with status and counts
-    # feature-impl-view.LIST.2: Table columns are ACID, Status, Definition, Refs count
+    # feature-impl-view.LIST.2: Table columns are ACID, Status, Requirement, Refs count
     # feature-impl-view.LIST.4: Refs column shows total number of code references across all tracked branches
     requirement_rows =
       requirements
@@ -210,7 +210,7 @@ defmodule AcaiWeb.ImplementationLive do
         %{
           id: acid,
           acid: acid,
-          definition: req.definition,
+          requirement: req.requirement,
           # feature-impl-view.LIST.3: Status column shows state of this implementation, or inherited
           status: state_data["status"],
           refs_count: refs_count,
@@ -387,7 +387,7 @@ defmodule AcaiWeb.ImplementationLive do
         %{
           id: acid,
           acid: acid,
-          definition: req.definition,
+          requirement: req.requirement,
           status: state_data["status"],
           refs_count: refs_count,
           tests_count: tests_count,
@@ -456,7 +456,7 @@ defmodule AcaiWeb.ImplementationLive do
     |> Enum.map(fn {acid, data} ->
       %{
         acid: acid,
-        definition: Map.get(data, "definition", ""),
+        requirement: Map.get(data, "requirement", Map.get(data, "definition", "")),
         note: Map.get(data, "note"),
         is_deprecated: Map.get(data, "is_deprecated", false),
         replaced_by: Map.get(data, "replaced_by", [])
@@ -476,15 +476,15 @@ defmodule AcaiWeb.ImplementationLive do
   end
 
   defp requirement_sort_key(requirement, :acid) do
-    {String.downcase(requirement.acid), String.downcase(requirement.definition || "")}
+    {String.downcase(requirement.acid), String.downcase(requirement.requirement || "")}
   end
 
   defp requirement_sort_key(requirement, :status) do
     {status_sort_rank(requirement.status), String.downcase(requirement.acid)}
   end
 
-  defp requirement_sort_key(requirement, :definition) do
-    {String.downcase(requirement.definition || ""), String.downcase(requirement.acid)}
+  defp requirement_sort_key(requirement, :requirement) do
+    {String.downcase(requirement.requirement || ""), String.downcase(requirement.acid)}
   end
 
   defp requirement_sort_key(requirement, :refs_count) do
@@ -503,7 +503,8 @@ defmodule AcaiWeb.ImplementationLive do
 
   defp normalize_sort_field("acid"), do: :acid
   defp normalize_sort_field("status"), do: :status
-  defp normalize_sort_field("definition"), do: :definition
+  defp normalize_sort_field("definition"), do: :requirement
+  defp normalize_sort_field("requirement"), do: :requirement
   defp normalize_sort_field("refs_count"), do: :refs_count
   defp normalize_sort_field(_field), do: :acid
 
@@ -517,6 +518,11 @@ defmodule AcaiWeb.ImplementationLive do
   defp next_sort_dir(_current_field, _current_dir, _new_field), do: :asc
 
   defp acid_dom_id(acid), do: String.replace(acid, ".", "-")
+
+  # feature-impl-view.LIST.2-4
+  defp display_table_acid(acid, feature_name) do
+    String.replace_prefix(acid, "#{feature_name}.", "")
+  end
 
   # feature-impl-view.DRAWER.4: Get refs for a specific ACID from aggregated branch refs
   # Returns a map of branch => ref_list
@@ -1075,6 +1081,7 @@ defmodule AcaiWeb.ImplementationLive do
           requirements={@requirements}
           on_row_click="open_drawer"
           inherited={@states_inherited}
+          feature_name={@feature_name}
           sort_field={@sort_field}
           sort_dir={@sort_dir}
           open_dropdown_acid={@open_dropdown_acid}
@@ -1529,7 +1536,7 @@ defmodule AcaiWeb.ImplementationLive do
   end
 
   # feature-impl-view.LIST: Requirements table
-  # feature-impl-view.LIST.2: Table columns are ACID, Status, Definition, Refs count
+  # feature-impl-view.LIST.2: Table columns are ACID, Status, Requirement, Refs count
   # feature-impl-view.LIST.2-2
   # feature-impl-view.LIST.3-1: Status column shows interactive dropdown
   defp requirements_table(assigns) do
@@ -1537,24 +1544,25 @@ defmodule AcaiWeb.ImplementationLive do
     <div class="card bg-base-100 border border-base-300 shadow-sm" id="requirements-table-container">
       <div class="card-body p-0">
         <div class="overflow-x-auto">
-          <table class="table" id="requirements-list-table">
+          <%!-- feature-impl-view.LIST.2-4 --%>
+          <table class="table table-sm" id="requirements-list-table">
             <thead>
               <tr>
-                <th>
+                <th class="w-24 sm:w-28 lg:w-32 max-w-24 sm:max-w-28 lg:max-w-32">
                   <button
                     id="sort-requirements-acid"
                     type="button"
                     phx-click="sort_requirements"
                     phx-value-field="acid"
-                    class="flex items-center gap-2"
+                    class="flex items-center gap-1"
                   >
-                    <span>ACID</span>
+                    <span class="text-xs">ACID</span>
                     <span class="text-[10px] uppercase text-base-content/40">
                       {if @sort_field == :acid, do: Atom.to_string(@sort_dir), else: "sort"}
                     </span>
                   </button>
                 </th>
-                <th>
+                <th class="w-24 sm:w-28 lg:w-32">
                   <button
                     id="sort-requirements-status"
                     type="button"
@@ -1570,15 +1578,15 @@ defmodule AcaiWeb.ImplementationLive do
                 </th>
                 <th>
                   <button
-                    id="sort-requirements-definition"
+                    id="sort-requirements-requirement"
                     type="button"
                     phx-click="sort_requirements"
-                    phx-value-field="definition"
+                    phx-value-field="requirement"
                     class="flex items-center gap-2"
                   >
-                    <span>Definition</span>
+                    <span>Requirement</span>
                     <span class="text-[10px] uppercase text-base-content/40">
-                      {if @sort_field == :definition, do: Atom.to_string(@sort_dir), else: "sort"}
+                      {if @sort_field == :requirement, do: Atom.to_string(@sort_dir), else: "sort"}
                     </span>
                   </button>
                 </th>
@@ -1607,9 +1615,15 @@ defmodule AcaiWeb.ImplementationLive do
                 phx-click={@on_row_click}
                 phx-value-acid={req.acid}
               >
-                <td class="font-mono text-sm">{req.acid}</td>
+                <td class="w-24 sm:w-28 lg:w-32 max-w-24 sm:max-w-28 lg:max-w-32 font-mono text-xs">
+                  {display_table_acid(req.acid, @feature_name)}
+                </td>
                 <%!-- feature-impl-view.LIST.3-1: Status column shows interactive dropdown --%>
-                <td phx-click="status_cell_clicked" phx-value-acid={req.acid}>
+                <td
+                  class="w-24 sm:w-28 lg:w-32"
+                  phx-click="status_cell_clicked"
+                  phx-value-acid={req.acid}
+                >
                   <.status_dropdown
                     acid={req.acid}
                     current_status={req.status}
@@ -1618,7 +1632,7 @@ defmodule AcaiWeb.ImplementationLive do
                     myself={nil}
                   />
                 </td>
-                <td class="max-w-md truncate">{req.definition}</td>
+                <td class="max-w-md truncate text-sm">{req.requirement}</td>
                 <td class="text-center">{req.refs_count}</td>
               </tr>
             </tbody>

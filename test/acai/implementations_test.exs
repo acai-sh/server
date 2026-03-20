@@ -667,7 +667,7 @@ defmodule Acai.ImplementationsTest do
         spec_fixture(product, %{
           feature_name: "test-feature",
           branch: branch,
-          requirements: %{"test-feature.COMP.1" => %{"definition" => "Test"}}
+          requirements: %{"test-feature.COMP.1" => %{"requirement" => "Test"}}
         })
 
       # Create feature_impl_state for this implementation

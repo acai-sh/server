@@ -1068,7 +1068,7 @@ defmodule Acai.SeedsTest do
     end
 
     # Requirement JSON structure test
-    test "specs have correct requirement structure with definition field" do
+    test "specs have correct requirement structure with requirement field" do
       team = Repo.get_by!(Team, name: "mapperoni")
       api_product = Repo.get_by!(Product, team_id: team.id, name: "api")
       # API specs are on the backend repo's main branch (shared with site backend)
@@ -1087,8 +1087,8 @@ defmodule Acai.SeedsTest do
         )
 
       Enum.each(spec.requirements, fn {acid, req} ->
-        assert req["definition"] != nil or req[:definition] != nil,
-               "Requirement #{acid} should have a definition field"
+        assert req["requirement"] != nil or req[:requirement] != nil,
+               "Requirement #{acid} should have a requirement field"
 
         assert req["is_deprecated"] != nil or req[:is_deprecated] != nil,
                "Requirement #{acid} should have is_deprecated field"

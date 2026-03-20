@@ -3,7 +3,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   Side drawer component that displays requirement details.
 
   requirement-details.DRAWER: A side drawer that opens when a requirement is selected,
-  showing the requirement definition, status, and code references.
+  showing the requirement text, status, and code references.
 
   ACIDs:
   - feature-impl-view.DRAWER.4: Lists all refs from feature_branch_refs for this ACID
@@ -92,7 +92,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   defp build_requirement_from_jsonb(acid, nil) do
     %{
       acid: acid,
-      definition: "Definition not available",
+      requirement: "Requirement not available",
       note: nil,
       is_deprecated: false,
       replaced_by: []
@@ -102,7 +102,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   defp build_requirement_from_jsonb(acid, data) do
     %{
       acid: acid,
-      definition: Map.get(data, "definition", "No definition"),
+      requirement: Map.get(data, "requirement", Map.get(data, "definition", "No requirement")),
       note: Map.get(data, "note"),
       is_deprecated: Map.get(data, "is_deprecated", false),
       replaced_by: Map.get(data, "replaced_by", [])
@@ -187,13 +187,13 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
           <div class="flex-1 relative">
             <%!-- Inner scroll container --%>
             <div class="absolute inset-0 overflow-y-auto p-4 space-y-6">
-              <%!-- requirement-details.DRAWER.2: Renders the full requirement definition text --%>
+              <%!-- requirement-details.DRAWER.2: Renders the full requirement text --%>
               <div class="space-y-2">
                 <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
-                  Definition
+                  Requirement
                 </h3>
                 <p class="text-base-content leading-relaxed">
-                  {@requirement.definition}
+                  {@requirement.requirement}
                 </p>
               </div>
 

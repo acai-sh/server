@@ -713,8 +713,8 @@ defmodule AcaiWeb.ProductLiveTest do
           branch: parent_branch,
           repo_uri: "github.com/org/repo",
           requirements: %{
-            "test-feature.COMP.1" => %{"definition" => "Req 1"},
-            "test-feature.COMP.2" => %{"definition" => "Req 2"}
+            "test-feature.COMP.1" => %{"requirement" => "Req 1"},
+            "test-feature.COMP.2" => %{"requirement" => "Req 2"}
           }
         })
 
@@ -767,8 +767,8 @@ defmodule AcaiWeb.ProductLiveTest do
           branch: parent_branch,
           repo_uri: "github.com/org/repo",
           requirements: %{
-            "test-feature.COMP.1" => %{"definition" => "Req 1"},
-            "test-feature.COMP.2" => %{"definition" => "Req 2"}
+            "test-feature.COMP.1" => %{"requirement" => "Req 1"},
+            "test-feature.COMP.2" => %{"requirement" => "Req 2"}
           }
         })
 
@@ -849,7 +849,7 @@ defmodule AcaiWeb.ProductLiveTest do
         branch: branch,
         repo_uri: "github.com/org/repo",
         requirements: %{
-          "test-feature.COMP.1" => %{"definition" => "Req 1"}
+          "test-feature.COMP.1" => %{"requirement" => "Req 1"}
         }
       })
 
@@ -882,8 +882,8 @@ defmodule AcaiWeb.ProductLiveTest do
           branch: parent_branch,
           repo_uri: "github.com/org/repo",
           requirements: %{
-            "test-feature.COMP.1" => %{"definition" => "Req 1"},
-            "test-feature.COMP.2" => %{"definition" => "Req 2"}
+            "test-feature.COMP.1" => %{"requirement" => "Req 1"},
+            "test-feature.COMP.2" => %{"requirement" => "Req 2"}
           }
         })
 

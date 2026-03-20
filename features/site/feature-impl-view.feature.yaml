@@ -43,6 +43,7 @@ components:
             2-1: Renders the next nearest ancestor implementation's requirements if none exists for this impl.
             2-2: The table columns are sortable.
             2-3: The active table sort order is mirrored by the requirement coverage chip order and the test coverage chip order.
+            2-4: The ACID column displays the suffix only, omitting the shared feature prefix, and uses a compact width.
             3: Status column shows state of this implementation, or of the inherited implementation.
             3-1: On click, the status chip opens a dropdown that renders a list of status options.
             3-2: Selecting a state from the list will apply it

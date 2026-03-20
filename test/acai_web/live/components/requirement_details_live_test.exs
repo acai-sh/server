@@ -16,7 +16,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
     # data-model.SPECS.13: Requirements stored as JSONB
     requirements = %{
       "test-feature.COMP.1" => %{
-        "definition" => "Test requirement definition",
+        "requirement" => "Test requirement definition",
         "note" => "Test note",
         "is_deprecated" => false,
         "replaced_by" => []
@@ -126,7 +126,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
       # Create spec with nil note
       requirements = %{
         "test-feature.COMP.1" => %{
-          "definition" => "Test requirement definition",
+          "requirement" => "Test requirement definition",
           "note" => nil,
           "is_deprecated" => false,
           "replaced_by" => []
@@ -242,7 +242,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
 
       requirements = %{
         "test-feature.COMP.1" => %{
-          "definition" => "Test requirement",
+          "requirement" => "Test requirement",
           "note" => nil,
           "is_deprecated" => false,
           "replaced_by" => []
@@ -315,7 +315,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
 
       requirements = %{
         "test-feature.COMP.1" => %{
-          "definition" => "Test requirement",
+          "requirement" => "Test requirement",
           "note" => nil,
           "is_deprecated" => false,
           "replaced_by" => []
@@ -381,7 +381,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
 
       requirements = %{
         "test-feature.COMP.1" => %{
-          "definition" => "Test requirement",
+          "requirement" => "Test requirement",
           "note" => nil,
           "is_deprecated" => false,
           "replaced_by" => []
@@ -757,7 +757,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
 
       requirements = %{
         "test-feature.COMP.1" => %{
-          "definition" => "Test requirement",
+          "requirement" => "Test requirement",
           "note" => nil,
           "is_deprecated" => false,
           "replaced_by" => []
@@ -818,7 +818,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
 
       requirements = %{
         "test-feature.COMP.1" => %{
-          "definition" => "Test requirement",
+          "requirement" => "Test requirement",
           "note" => nil,
           "is_deprecated" => false,
           "replaced_by" => []
@@ -878,7 +878,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
 
       requirements = %{
         "test-feature.COMP.1" => %{
-          "definition" => "Test requirement",
+          "requirement" => "Test requirement",
           "note" => nil,
           "is_deprecated" => false,
           "replaced_by" => []
@@ -938,7 +938,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
 
       requirements = %{
         "test-feature.COMP.1" => %{
-          "definition" => "Test requirement",
+          "requirement" => "Test requirement",
           "note" => nil,
           "is_deprecated" => false,
           "replaced_by" => []
@@ -1001,7 +1001,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
 
       requirements = %{
         "test-feature.COMP.1" => %{
-          "definition" => "Test requirement",
+          "requirement" => "Test requirement",
           "note" => nil,
           "is_deprecated" => false,
           "replaced_by" => []

@@ -823,9 +823,19 @@ defmodule Acai.Services.Push do
     |> Enum.map(fn {acid, defn} ->
       defn_map =
         case defn do
-          %{} = map -> map
-          req when is_binary(req) -> %{requirement: req}
-          _ -> %{requirement: ""}
+          %{} = map ->
+            requirement_text = Map.get(map, :requirement) || Map.get(map, "requirement")
+            definition_text = Map.get(map, :definition) || Map.get(map, "definition")
+
+            map
+            |> Map.drop([:definition, "definition"])
+            |> Map.put_new(:requirement, requirement_text || definition_text || "")
+
+          req when is_binary(req) ->
+            %{requirement: req}
+
+          _ ->
+            %{requirement: ""}
         end
 
       {acid, defn_map}
