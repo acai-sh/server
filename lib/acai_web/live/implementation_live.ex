@@ -1342,11 +1342,11 @@ defmodule AcaiWeb.ImplementationLive do
   end
 
   # Helper to get inheritance message based on section title
-  defp inheritance_message("Requirements Coverage"), do: "states have been added"
+  defp inheritance_message("Status"), do: "states have been added"
   defp inheritance_message("Test Coverage"), do: "refs have been pushed"
   defp inheritance_message(_), do: "items have been added"
 
-  # implementation-view.REQ_COVERAGE: Requirements coverage grid
+  # implementation-view.REQ_COVERAGE: status grid
   # feature-impl-view.LIST.2-3
   defp req_coverage_grid(assigns) do
     ~H"""

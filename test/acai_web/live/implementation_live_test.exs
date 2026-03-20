@@ -261,7 +261,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
     end
   end
 
-  describe "REQ_COVERAGE - requirements coverage grid" do
+  describe "REQ_COVERAGE - status grid" do
     setup :register_and_log_in_user
 
     # implementation-view.REQ_COVERAGE.1
