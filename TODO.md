@@ -9,6 +9,8 @@
       - No validation exists because there are no specs to validate against
       - States get written to the wrong implementation - silent data corruption
 * [ ] Requirement string can be empty/optional (to support deprecated: true standalone)
+* [ ] Support `deprecated: true` at the Component level as well
+
 # Other TODOs
 
 * [ ] acai-ignore line to deal with ACID clashes? Or a configurable prefix to decrease the likelihood?

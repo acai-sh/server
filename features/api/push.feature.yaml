@@ -2,7 +2,7 @@ feature:
     name: push
     description: |
         The push endpoint is the primary write API for the acai CLI.
-        It ingests multiple specs, code references, states, and git metadata in a single json payload.
+        It ingests multiple specs, code references, and git metadata in a single json payload.
         It can be used to update existing product implementations (for example, updates to Production when specs change or code has been refactored).
         It can also be used to create a new implementation, with inheritance semantics (for example, when branching from Staging to work on a new spec or fix an existing one).
     version: 1.0.0
@@ -30,7 +30,9 @@ components:
             4-2: Each requires `requirements` object (see SPEC_REQS)
             4-3: Each requires `meta` object (see FEAT_META)
             5: Accepts optional `references` map (see REFS)
-            6: Accepts optional `states` map (see STATES)
+            6:
+                requirement: Accepts optional `states` map (see STATES)
+                deprecated: true
             7: Accepts optional `target_impl_name` string
             7-note: When provided, all specs in the push must belong to the same product as the target implementation. Resolved within the product determined by the pushed specs.
             8: Accepts optional `parent_impl_name` string
@@ -81,6 +83,7 @@ components:
             6: When override is true, all existing refs for each touched feature + branch bucket are replaced entirely
 
     STATES:
+        deprecated: true
         description: The `states` top level property. States are stored per feature + implementation since they represent acceptance progress for an environment.
         requirements:
             1: Accepts optional `override` boolean, default false, which indicates if the states should override rather than merge
@@ -102,7 +105,7 @@ components:
             2-note: Implementation and product fields are null when the push did not involve an implementation (e.g. refs-only push to an untracked branch).
             3: "The `data` object includes `specs_created` (integer) and `specs_updated` (integer) counts"
             3-note: Both counts may be zero on idempotent re-pushes where spec content is unchanged.
-            4: "The `data` object includes a `warnings` list of human-readable strings for non-fatal issues (e.g. dangling states)"
+            4: "The `data` object includes a `warnings` list of human-readable strings for non-fatal issues"
             5: "On validation error, returns HTTP 422 with an `errors` object containing a `detail` string"
             6: "On auth error, returns HTTP 401 with an `errors` object containing a `detail` string"
             7: "On scope/permission error, returns HTTP 403 with an `errors` object containing a `detail` string"
@@ -127,10 +130,10 @@ components:
             1: Refs are grouped by feature_name (derived from the ACID prefix) and written to feature_branch_ref rows keyed by (branch_id, feature_name)
             2: The system silently allows dangling refs (e.g. ACIDs that don't map to an actual spec)
             3: Refs are written to the branch even if the branch is not tracked by any implementation
-            3-note: If another part of the same push causes a rejection (e.g. states without an implementation), atomicity applies and nothing is written (see TX.1).
             4: The top-level commit_hash is stored on each feature_branch_ref record as the commit field
 
     WRITE_STATES:
+        deprecated: true
         description: When states are written or inherited
         requirements:
             1: States can only be written when the branch is tracked by an implementation (states require an implementation to attach to)
@@ -144,8 +147,8 @@ components:
     PERMANENCE:
         description: Semantics for what can be undone and what can not
         requirements:
-            1: If I accidentally overwrite a spec (e.g. if I accidentally copy paste a feature name), related states and refs are not destroyed
-            2: State and ref overwrites and deletions are permanent and do not have any explicit undo semantics
+            1: If I accidentally overwrite a spec (e.g. if I accidentally copy paste a feature name), related refs are not destroyed
+            2: Ref overwrites and deletions are permanent and do not have any explicit undo semantics
             2-note: For refs and specs you can just re-push since they are derived from your codebase
 
     NEW_IMPLS:
@@ -158,8 +161,9 @@ components:
             1: Creates a new implementation when specs are pushed, and the branch is not yet tracked by any implementation
             1-1: Names the implementation after the `target_impl_name`, falling back to `branch_name`
             1-note: Exception for linking when the target_impl_name resolves to an existing implementation in the same product (see LINK_IMPLS)
-            2: Rejects push with a helpful error if states are provided without specs and the branch is not tracked by any implementation
-            2-note: A push with only refs (no states, no specs) succeeds on untracked branches (see WRITE_REFS.3). Only states require an implementation.
+            2:
+                requirement: Rejects push with a helpful error if states are provided without specs and the branch is not tracked by any implementation
+                deprecated: true
             3: Creates a new `product` record for each spec that contains a never-before-seen `feature.product` value
             4: Rejects the push if specs span multiple products
             4-note: The CLI should split multi-product pushes into separate requests, one per product
@@ -172,13 +176,13 @@ components:
             This is useful if I've spun up a new repo (backend, microservice, etc) and am integrating it into a product for the first time.
         requirements:
             1: A branch is linked to an existing implementation only when all of the following are true - the branch is not already tracked by any implementation, the `target_impl_name` matches an existing implementation within the same product, that implementation does not already track a branch in this `repo_uri`, and all pushed specs belong to that implementation's product
-            2: On successful link, specs, refs, and states are written to the linked implementation as normal
+            2: On successful link, specs and refs are written to the linked implementation as normal
             3: If `target_impl_name` matches an existing implementation but that implementation already tracks a branch in this repo_uri, the push is rejected with a helpful error
 
     EXISTING_IMPLS:
-        description: In most cases we are pushing refs, or states, or spec changes to an existing implementation (Prod, Staging, etc)
+        description: In most cases we are pushing refs or spec changes to an existing implementation (Prod, Staging, etc)
         requirements:
-            1: When the branch is already tracked by an implementation, all specs, refs, and states are written to that implementation
+            1: When the branch is already tracked by an implementation, all specs and refs are written to that implementation
             2: If the branch is tracked by multiple implementations and no `target_impl_name` is provided, the push is rejected with a helpful error listing the implementation names
             3: If the branch is tracked by multiple implementations and `target_impl_name` is provided, the push targets only that implementation
             4: If the branch is already tracked by implementation X and `target_impl_name` resolves to a different implementation Y, the push is rejected with a helpful error
@@ -202,7 +206,9 @@ components:
         requirements:
             1: Pushing the same spec content multiple times is a no-op after the first
             2: Pushing with inheritance, then pushing without inheritance, keeps the parent unchanged (parent is immutable via push after creation)
-            3: Forgotten states can be added in subsequent pushes via the states map
+            3:
+                requirement: Forgotten states can be added in subsequent pushes via the states map
+                deprecated: true
             4: Forgotten refs can be added in subsequent pushes via the references map
 
 constraints:
@@ -213,7 +219,9 @@ constraints:
             2: Token scopes must include specs:write for spec pushes
             3: Token scopes must include refs:write for reference pushes
             4: Token scopes must include impls:write for creating or linking implementations
-            5: Token scopes must include states:write for state pushes
+            5:
+                requirement: Token scopes must include states:write for state pushes
+                deprecated: true
             6: The token's team_id determines ownership of all created resources
             7: All implementation, product, and branch lookups are scoped to the token's team_id
 
@@ -221,7 +229,7 @@ constraints:
         name: Transaction guarantees
         requirements:
             1: All operations within a push are atomic; any failure rolls back the entire push
-            1-note: If any part of the push is rejected (e.g. states without an implementation), nothing is written — including refs and specs.
+            1-note: Any rejection causes nothing to be written — including refs and specs.
             2: Concurrent pushes to the same implementation use last-write-wins semantics
 
     VALIDATION:
