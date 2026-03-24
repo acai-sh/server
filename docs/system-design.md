@@ -3,19 +3,18 @@ This document provides an overview of key system design decisions for acai.sh, a
 
 ## Product Overview
 
-Acai.sh is a set of tools, including a webapp and JSON REST API (both in this Elixir Phoenix app), and a CLI (separate repo). The tools are used to support a spec-driven software development workflow.
-- Write requirements and acceptance criteria in `feature.yaml` spec files, following a standard spec format we've invented.
-- Run a CLI command to extract the specs and push them to the server. The CLI also looks for references to requirement IDs in your codebase, and records those as well.
-- Use the dashboard to see a cross-sectional view of your products, features, and implementations. Drill down to see whether a requirement is represented in tests or application code.
-- Annotate your projects with states (e.g. "assigned", "completed", "accepted") and comments, to empower collaboration and coordination and to effectively manage your software projects.
+Acai.sh is a set of tools including a server (a containerized web app and JSON REST API) and a CLI. The tools support a spec-driven software development workflow:
 
-The result: AI agents can use the CLI to query and search requirements, specs, states, and code references across repos and implementations. This enables them to self-assign work and stay on-track. Humans can use the dashboard to monitor progress, report issues, or mark requirements as "accepted".
+1. Write requirements and acceptance criteria in `feature.yaml` spec files, following a standard spec format. The spec serves as the central source of truth for feature functionality and for what constitutes acceptable implementation in code.
+2. Run a CLI command to extract the specs and push them to the server. The CLI also scans for references to requirement IDs in your codebase and records those as well.
+3. Spec requirements can be annotated with states (comment notes and status tags, e.g. `assigned`, `completed`, `accepted`).
+4. Humans can view the dashboard and agents can query the server (via CLI commands). This provides a cross-sectional view of your products, features, and implementations — useful for QA assessment of AI-generated code and for enabling agents to self-assign work, respond to spec changes, and coordinate across large, ambitious, long-running projects.
 
 ## Data Model
 
 ### What is a Spec?
 
-A spec is a file like `my-feature.feature.yaml` that defines `feature.name`, `feature.product`, and a list of requirements.
+A spec is a file like `my-feature.feature.yaml` that defines `feature.name`, `feature.product`, and a list of requirements. A spec always belongs to a product, e.g. `mobile-app`, `web-app`, `api`, `cli`.
 
 ```yaml
 feature:
@@ -29,7 +28,7 @@ components:
         1-1: The requirement ID for this sub-requirement is 'my-feature.EXAMPLE.1-1'
 ```
 
-The `specs` table maintains one row per branch-local spec identity: `branch_id` + `feature_name`. A spec is inserted when:
+The `specs` table maintains one row per branch-local spec identity: `branch_id` + `feature_name`. A spec row is inserted when:
 - A feature is first pushed to a branch
 - A feature is renamed, creating a new `feature_name` on that branch
 
@@ -45,22 +44,22 @@ Examples:
 - `experiment-1` tracks `frontend/experiment` and `backend/dev`, parent is `Staging`
 
 Core constraint:
-- An implementation cannot track two branches in the same repo
+- An implementation cannot track two branches from the same repo
 
-The `branches` table stores stable rows per `(team_id, repo_uri, branch_name)`, enabling branch renames without breaking foreign keys. The `tracked_branches` join table associates implementations with branches they track.
+The `branches` table stores stable rows per `(team_id, repo_uri, branch_name)`, enabling branch renames without breaking foreign keys. The `tracked_branches` join table associates implementations with the branches they track.
 
 ### Implementation Inheritance
 
 Supported via optional `parent_implementation_id` with `ON DELETE SET NULL`.
 
 Inheritance behavior differs by data type:
-- Specs are resolved across tracked branches, with the child's spec taking precedence when both parent and child have the same feature
-- States are snapshotted from the parent on the first push for a given `(implementation_id, feature_name)`; later parent changes do not affect the child
-- Code references are aggregated across tracked branches, walking up the parent chain when needed
+- **Specs** are resolved across tracked branches, with the child's spec taking precedence when both parent and child track the same feature.
+- **States** are snapshotted from the parent on the first push for a given `(implementation_id, feature_name)`; later parent changes do not affect the child.
+- **Code references** are aggregated across tracked branches, walking up the parent chain when needed.
 
-New implementations are created automatically when specs are pushed to an untracked branch, and the default implementation name is the branch name.
+New implementations are created automatically when specs are pushed to an untracked branch; the default implementation name is the branch name.
 
-## Data Model
+## Schema
 
 This section summarizes the schema implemented in `priv/repo/migrations/20260308000000_setup_database.exs`.
 
@@ -81,23 +80,23 @@ This section summarizes the schema implemented in `priv/repo/migrations/20260308
 
 Both `feature_impl_states` and `feature_branch_refs` are keyed by `feature_name` (the requirement ID prefix), not `spec_id`. This allows pushing states and code references without a local spec file, which is useful for monorepos where specs live in a different repo than the implementing code.
 
-`access_tokens.scopes` is stored as a non-null JSONB field in the database. Default scopes are assigned by application code rather than by a database default.
+`access_tokens.scopes` is stored as a non-null JSONB field. Default scopes are assigned by application code rather than by a database default.
 
 ### Standard Fields
 
-All tables described by this data model include `created_at` and `updated_at` timestamps. Primary keys are stored in `uuid` columns and generated as UUIDv7 values by the application, except `user_team_roles`, which has no `id` primary key.
+All tables include `created_at` and `updated_at` timestamps. Primary keys are `uuid` columns generated as UUIDv7 values by the application, except `user_team_roles`, which has no `id` primary key.
 
 ## CLI (MVP)
 
-Most use-cases are covered by `acai push`:
+Most use cases are covered by `acai push`:
 - `acai push`: Git-aware push of changed specs and code references only
-- `acai push --all`: Full repo scan and push (useful for setup or major drift)
+- `acai push --all`: Full repo scan and push (useful for initial setup or after significant drift)
 
 ## API (MVP)
 
 ### POST /api/v1/push
 
-**Authentication**: Bearer token with vanilla access token generated in UI.
+**Authentication**: Bearer token using a vanilla access token generated in the UI.
 
 **Key Behaviors**:
 - All operations are atomic; any failure rolls back the entire push
@@ -107,15 +106,15 @@ Most use-cases are covered by `acai push`:
 
 **Common Rejection Scenarios**:
 - Multi-product push
-- States without implementation
+- States submitted without an implementation
 - Implementation name collision
-- Branch tracked by different implementation
+- Branch already tracked by a different implementation when pushing states without a target_impl_name
 
 ## Key User Journeys
 
 All journeys work locally, on CI (GitHub Actions), or via git hooks:
-- Update existing spec
-- Add new spec
+- Update an existing spec
+- Add a new spec
 - Delete or rename a feature or product
 - Edit code or tests, creating new code references
 - Change implementation state
@@ -126,7 +125,7 @@ All journeys work locally, on CI (GitHub Actions), or via git hooks:
 | Case | Behavior | Note |
 |------|----------|------|
 | Orphaned states | Retained for reinstatement | Retained data |
-| Dangling code references | Allowed, persisted if format valid | Valid reference shape only |
+| Dangling code references | Allowed; persisted if format is valid | Valid reference shape only |
 | Spec rename | New spec created; old preserved | New feature identity |
 | Parent deleted | Child survives | `ON DELETE SET NULL` |
 | First state write | Snapshot from parent, then merge | Copy-on-first-write |
