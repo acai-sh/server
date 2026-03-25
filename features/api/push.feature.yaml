@@ -33,9 +33,11 @@ components:
                 requirement: Accepts optional `states` map (see STATES)
                 deprecated: true
             7: Accepts optional `target_impl_name` string
-            7-note: When provided, all specs in the push must belong to the same product as the target implementation. Resolved within the product determined by the pushed specs.
+            7-note: When provided, all specs in the push must belong to the same product as the target implementation. Resolved within the request product, which comes from pushed specs when present or `product_name` when specs are absent.
             8: Accepts optional `parent_impl_name` string
-            8-note: When provided, all specs in the push must belong to the same product as the parent implementation. Resolved within the product determined by the pushed specs.
+            8-note: When provided, all specs in the push must belong to the same product as the parent implementation. Resolved within the request product, which comes from pushed specs when present or `product_name` when specs are absent.
+            9: Accepts optional `product_name` string
+            9-note: Required for refs-only pushes that create or link an implementation because refs do not identify a product.
 
     FEAT:
         description: The shape of the `feature` object contained in a spec object
@@ -106,8 +108,11 @@ components:
             3-note: Both counts may be zero on idempotent re-pushes where spec content is unchanged.
             4: "The `data` object includes a `warnings` list of human-readable strings for non-fatal issues"
             5: "On validation error, returns HTTP 422 with an `errors` object containing a `detail` string"
+            5-1: "Requests that exceed configured semantic caps are validation errors and return HTTP 422"
             6: "On auth error, returns HTTP 401 with an `errors` object containing a `detail` string"
             7: "On scope/permission error, returns HTTP 403 with an `errors` object containing a `detail` string"
+            8: "On oversized request body, returns HTTP 413 with an `errors` object containing a `detail` string"
+            9: "When the push rate limit is exceeded, returns HTTP 429 with an `errors` object containing a `detail` string"
 
     INSERT_SPEC:
         description: When new spec records are created
@@ -153,7 +158,8 @@ components:
     NEW_IMPLS:
         description: |
             Semantics for when implementations (and products) are created.
-            Implementation creation requires specs -- the product is always derived from the pushed specs.
+            The push request always targets exactly one product.
+            That product comes from pushed specs when specs are present, or from `product_name` when specs are absent.
             To keep this simple for MVP, re-linking, changing inheritance, and other mutations are done via the frontend only.
             There is no auto-inheritance for MVP -- it must be specified.
         requirements:
@@ -167,6 +173,9 @@ components:
             4: Rejects the push if specs span multiple products
             4-note: The CLI should split multi-product pushes into separate requests, one per product
             5: Implementation names are scoped to a product. If the auto-generated name (from branch_name) collides with an existing implementation in the same product, the push is rejected with a helpful error suggesting the user provide a `target_impl_name`
+            6: Creates a new implementation from a refs-only push when the branch is not yet tracked by any implementation and `product_name`, `target_impl_name`, and `parent_impl_name` are all provided
+            6-1: A refs-only implementation creation always creates a new child implementation and never links the branch to an existing implementation
+            6-2: The new child implementation belongs to `product_name` and inherits from `parent_impl_name`
 
     LINK_IMPLS:
         description: |
@@ -177,10 +186,13 @@ components:
             1: |
                 A branch is linked to an existing implementation only when all of the following are true;
                 1. the branch is not already tracked by any implementation
-                2. specs were included in the payload
-                3. the `target_impl_name` matches an existing implementation within the same product, that implementation does not already track a branch in this `repo_uri`
+                2. the request product is known from pushed specs or explicit `product_name`
+                3. the `target_impl_name` matches an existing implementation within that product
+                4. that implementation does not already track a branch in this `repo_uri`
+                5. `parent_impl_name` is not provided
             2: On successful link, specs and refs are written to the linked implementation as normal
             3: If `target_impl_name` matches an existing implementation but that implementation already tracks a branch in this repo_uri, the push is rejected with a helpful error
+            4: If `parent_impl_name` is provided for an untracked branch, the push never links to an existing implementation and instead follows the new child implementation rules in NEW_IMPLS
 
     EXISTING_IMPLS:
         description: In most cases we are pushing refs or spec changes to an existing implementation (Prod, Staging, etc)
@@ -197,7 +209,7 @@ components:
             For MVP, parent can only be set at creation time. Updating an existing implementation's parent is done via the frontend only.
         requirements:
             1: If a push creates a new implementation (see NEW_IMPLS), the user can provide a `parent_impl_name` to configure inheritance
-            1-note: The parent_impl_name is resolved within the same product as the pushed specs
+            1-note: The parent_impl_name is resolved within the request product, which comes from pushed specs when present or `product_name` when specs are absent
             2: If `parent_impl_name` is not provided, new implementations will not inherit (there is no auto-inheritance heuristic)
             3: If `parent_impl_name` is provided but does not resolve to an existing implementation within the same product, the push is rejected with a helpful error
 
@@ -245,3 +257,29 @@ constraints:
             3: If `target_impl_name` is provided, all specs must belong to the same product as the target implementation
             4: If `parent_impl_name` is provided, all specs must belong to the same product as the parent implementation
             5: Implementation names are unique within a product (scoped to product_id, not team-wide)
+            6: If specs are present and `product_name` is also provided, `product_name` must match the shared `feature.product` value from the pushed specs
+            7: A refs-only push that creates or links an implementation requires explicit `product_name`
+            8: A refs-only push that creates a new child implementation requires explicit `target_impl_name` and `parent_impl_name`
+
+    ABUSE:
+        name: Abuse protection and operational limits
+        requirements:
+            1: The push endpoint rejects request bodies that exceed a configured maximum byte size
+            1-1: Oversized request bodies return HTTP 413 before any push data is written
+            2: The push endpoint rejects requests that exceed configured semantic caps with a helpful HTTP 422 error
+            2-1: The default maximum number of specs per push is 100
+            2-2: The default maximum number of reference entries per push is 10000
+            2-3: The default maximum number of requirements in one spec is 200
+            2-4: The default maximum length of `meta.raw_content` is 100 KB
+            2-5: The default maximum length of one requirement string is 2000 characters
+            2-6: The default maximum length of one feature description string is 5000 characters
+            2-7: The default maximum length of `meta.path` is 1024 characters
+            2-8: The default maximum length of `repo_uri` is 2048 characters
+            3: Request body and semantic caps are configurable by environment
+            4: The push endpoint is rate-limited per access token
+            4-1: Requests that exceed the configured push rate limit return HTTP 429
+            4-2: The push rate limit is configurable by environment
+            5: Rejected abuse attempts are emitted as structured application logs
+            5-1: Abuse rejection logs include a safe summary of the request such as `request_id`, endpoint, rejection reason, request size, and payload counts when known
+            5-2: Abuse rejection logs include `team_id` and a non-secret token identifier when authentication has already succeeded
+            5-3: Abuse rejection logs never include the raw bearer token or full push payload

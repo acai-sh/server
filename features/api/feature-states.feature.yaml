@@ -48,8 +48,11 @@ components:
             4: "The `data` object includes a `warnings` list of human-readable strings for non-fatal issues such as dangling states"
             5: "If the product, implementation, or feature cannot be resolved, returns HTTP 404 with an `errors` object containing a `detail` string"
             6: "On validation error, returns HTTP 422 with an `errors` object containing a `detail` string"
+            6-1: "Requests that exceed configured semantic caps are validation errors and return HTTP 422"
             7: "On auth error, returns HTTP 401 with an `errors` object containing a `detail` string"
             8: "On scope or permission error, returns HTTP 403 with an `errors` object containing a `detail` string"
+            9: "On oversized request body, returns HTTP 413 with an `errors` object containing a `detail` string"
+            10: "When the state-write rate limit is exceeded, returns HTTP 429 with an `errors` object containing a `detail` string"
 
 constraints:
     AUTH:
@@ -68,3 +71,19 @@ constraints:
             1: "`product_name`, `feature_name`, `implementation_name`, and `states` are required"
             2: All write ACIDs must be full ACID strings
             3: Valid status values are `null`, `assigned`, `blocked`, `incomplete`, `completed`, `rejected`, and `accepted`
+
+    ABUSE:
+        requirements:
+            1: The feature-states endpoint rejects request bodies that exceed a configured maximum byte size
+            1-1: Oversized request bodies return HTTP 413 before any state data is written
+            2: The feature-states endpoint rejects requests that exceed configured semantic caps with a helpful HTTP 422 error
+            2-1: The default maximum number of ACIDs in one state-write request is 500
+            2-2: The default maximum length of one state comment string is 2000 characters
+            3: Request body and semantic caps are configurable by environment
+            4: The feature-states endpoint is rate-limited per access token
+            4-1: Requests that exceed the configured state-write rate limit return HTTP 429
+            4-2: The state-write rate limit is configurable by environment
+            5: Rejected abuse attempts are emitted as structured application logs
+            5-1: Abuse rejection logs include a safe summary of the request such as `request_id`, endpoint, rejection reason, request size, and state-entry counts when known
+            5-2: Abuse rejection logs include `team_id` and a non-secret token identifier when authentication has already succeeded
+            5-3: Abuse rejection logs never include the raw bearer token or full request payload

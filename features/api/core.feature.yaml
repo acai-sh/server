@@ -18,3 +18,8 @@ constraints:
         6: The :api router pipeline is strictly stateless (must not contain fetch_session or fetch_flash)
         7: namespaces all endpoints under /api/v1
         8: All routes and resources are default private, require Authorization header with Bearer token unless otherwise specified
+
+    OPERATIONS:
+        1: Cross-cutting API abuse protections and limits are configurable at runtime via environment-specific configuration
+        2: Security and abuse rejections are emitted through the application logger as structured logs
+        3: Structured abuse logs include safe request metadata and identifiers needed for investigation without logging secret credentials or full request payloads
