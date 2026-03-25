@@ -721,7 +721,7 @@ defmodule Acai.Services.Push do
         )
 
       not is_nil(product_name) and not is_nil(target_impl_name) ->
-        handle_untracked_branch_link_or_create_push(
+        handle_untracked_refs_only_link_push(
           token,
           team_id,
           branch,
@@ -939,6 +939,40 @@ defmodule Acai.Services.Push do
     maybe_track_branch(implementation, branch)
 
     {product, implementation, []}
+  end
+
+  # push.LINK_IMPLS.5, push.VALIDATION.9
+  defp handle_untracked_refs_only_link_push(
+         token,
+         team_id,
+         branch,
+         product_name,
+         target_impl_name,
+         params
+       ) do
+    product = ensure_product!(team_id, product_name)
+
+    {target_impl, _parent_impl} =
+      fetch_implementations_consolidated(team_id, product, branch, target_impl_name, nil)
+
+    case target_impl do
+      nil ->
+        {:error, reason} =
+          reject_push_request(
+            token,
+            "Refs-only pushes with product_name and target_impl_name must resolve to an existing implementation unless parent_impl_name is also provided.",
+            params,
+            branch_name: branch.branch_name,
+            product_name: product_name,
+            target_impl_name: target_impl_name
+          )
+
+        throw({:error, reason})
+
+      implementation ->
+        maybe_track_branch(implementation, branch)
+        {product, implementation, []}
+    end
   end
 
   # Handle push when branch is not tracked and the request may link to an existing implementation.

@@ -12,7 +12,7 @@ defmodule Acai.Services.PushTest do
   - push.ABUSE.2-5 - Semantic caps and rejection logging
   - push.AUTH.4 - Refs-only implementation scope enforcement
   - push.NEW_IMPLS.1-5 - New implementation creation
-  - push.LINK_IMPLS.1-3 - Linking to existing implementations
+  - push.LINK_IMPLS.1-5 - Linking to existing implementations
   - push.EXISTING_IMPLS.1-4 - Existing implementation handling
   - push.PARENTS.1-3 - Parent implementation handling
   - push.IDEMPOTENCY.1-4 - Idempotency guarantees
@@ -1127,6 +1127,33 @@ defmodule Acai.Services.PushTest do
         )
 
       assert ref
+    end
+
+    # push.LINK_IMPLS.5, push.VALIDATION.9
+    test "rejects refs-only push with product_name and target_impl_name when target is missing",
+         %{token: token} do
+      refs_only_params = %{
+        repo_uri: "github.com/test-org/new-repo",
+        branch_name: "new-branch",
+        commit_hash: "abc123",
+        product_name: "test-product",
+        target_impl_name: "missing-impl",
+        references: %{
+          data: %{
+            "some-feature.REQ.1" => [
+              %{path: "lib/test.ex:42", is_test: false}
+            ]
+          }
+        }
+      }
+
+      assert {:error, reason} = Push.execute(token, refs_only_params)
+      assert reason =~ "existing implementation"
+
+      assert Repo.one(
+               from i in Implementation,
+                 where: i.team_id == ^token.team_id and i.name == "missing-impl"
+             ) == nil
     end
 
     # push.NEW_IMPLS.6, push.NEW_IMPLS.6-1, push.NEW_IMPLS.6-2

@@ -8,6 +8,7 @@ defmodule AcaiWeb.Api.PushControllerTest do
   - push.ENDPOINT.3 - Requires Authorization Bearer token header
   - push.REQUEST.9 - Accepts optional `product_name` string
   - push.AUTH.4 - Refs-only implementation scope enforcement
+  - push.LINK_IMPLS.5 - Rejects incomplete refs-only link requests
   - core.ENG.1 - API router pipeline includes OpenApiSpex.Plug.CastAndValidate
   - core.ENG.3 - OpenApi route documentation is defined inline in controllers
   - core.ENG.5 - Controllers use action_fallback for unified error handling
@@ -394,6 +395,35 @@ defmodule AcaiWeb.Api.PushControllerTest do
 
       assert json_response(conn, 422)
       assert conn.resp_body =~ "rule set"
+    end
+
+    # push.LINK_IMPLS.5, push.VALIDATION.9
+    test "returns 422 when refs-only product_name and target_impl_name do not resolve to an existing implementation",
+         %{conn: conn, token: token} do
+      invalid_params = %{
+        repo_uri: "github.com/test-org/new-repo",
+        branch_name: "feature-branch",
+        commit_hash: "abc123def456",
+        references: %{
+          data: %{
+            "some-feature.REQ.1" => [
+              %{path: "lib/test.ex:42", is_test: false}
+            ]
+          }
+        },
+        product_name: "test-product",
+        target_impl_name: "missing-impl"
+      }
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
+        |> post(~p"/api/v1/push", invalid_params)
+
+      assert json_response(conn, 422)
+      assert conn.resp_body =~ "existing implementation"
     end
 
     test "returns 422 when request body fails OpenAPI validation", %{conn: conn, token: token} do
