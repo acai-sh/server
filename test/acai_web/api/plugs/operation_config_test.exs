@@ -66,9 +66,7 @@ defmodule AcaiWeb.Api.Plugs.OperationConfigTest do
     assert log =~ "request_size_cap"
   end
 
-  test "halts oversized requests based on the parsed body size even without content-length", %{
-    conn: conn
-  } do
+  test "halts oversized requests based on content-length before controller work", %{conn: conn} do
     Application.put_env(:acai, :api_operations, %{
       default: %{
         request_size_cap: 1,
@@ -79,8 +77,8 @@ defmodule AcaiWeb.Api.Plugs.OperationConfigTest do
 
     conn =
       %{conn | request_path: "/api/v1/push", method: "POST"}
-      |> Plug.Conn.assign(:raw_body, "1234")
       |> Plug.Conn.put_private(:phoenix_format, "json")
+      |> Plug.Conn.put_req_header("content-length", "4")
       |> Plug.Conn.put_req_header("x-request-id", "req-body-sized")
 
     conn = OperationConfig.call(conn, [])

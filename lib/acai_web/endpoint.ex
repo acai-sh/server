@@ -43,10 +43,9 @@ defmodule AcaiWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
-  plug Plug.Parsers,
+  plug AcaiWeb.Api.Plugs.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
-    body_reader: {AcaiWeb.Api.Plugs.RawBodyReader, :read_body, []},
     json_decoder: Phoenix.json_library()
 
   plug Plug.MethodOverride

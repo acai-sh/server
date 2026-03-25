@@ -15,9 +15,6 @@ defmodule AcaiWeb.Api.Controller do
       use AcaiWeb, :controller
       use OpenApiSpex.ControllerSpecs
 
-      # core.ENG.1 - Cast and validate each controller action against its own OpenAPI operation.
-      plug OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true
-
       # core.ENG.5 - Use action_fallback for unified error handling
       action_fallback AcaiWeb.Api.FallbackController
 

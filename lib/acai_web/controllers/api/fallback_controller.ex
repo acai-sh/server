@@ -65,10 +65,20 @@ defmodule AcaiWeb.Api.FallbackController do
   end
 
   defp render_error(conn, status, detail) do
+    conn = ensure_json_format(conn)
+
     conn
     |> put_status(status)
     |> put_view(json: AcaiWeb.Api.ErrorJSON)
     |> render(:error, status: status, detail: detail)
+  end
+
+  defp ensure_json_format(%{params: %{"_format" => _}} = conn), do: conn
+
+  defp ensure_json_format(conn) do
+    conn = Plug.Conn.fetch_query_params(conn)
+
+    %{conn | params: Map.put(conn.params, "_format", "json")}
   end
 
   defp format_error({msg, opts}) do

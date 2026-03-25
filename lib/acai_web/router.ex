@@ -22,6 +22,9 @@ defmodule AcaiWeb.Router do
   pipeline :api_authenticated do
     # core.ENG.8 - All routes require Authorization header with Bearer token
     plug AcaiWeb.Api.Plugs.BearerAuth
+    # core.ENG.1
+    plug AcaiWeb.Api.Plugs.ControllerAction
+    plug OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true
     # core.OPERATIONS.1 - Load runtime API operation config and enforce shared request-size caps.
     plug AcaiWeb.Api.Plugs.OperationConfig
   end
