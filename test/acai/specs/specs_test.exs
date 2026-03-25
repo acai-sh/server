@@ -2,8 +2,10 @@ defmodule Acai.SpecsTest do
   use Acai.DataCase, async: true
 
   import Acai.DataModelFixtures
+  import Ecto.Query
 
   alias Acai.Specs
+  alias Acai.Repo
   alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
 
   # Shared setup: team -> product -> spec -> implementation
@@ -13,6 +15,128 @@ defmodule Acai.SpecsTest do
     spec = spec_fixture(product)
     impl = implementation_fixture(product)
     %{team: team, product: product, spec: spec, impl: impl}
+  end
+
+  # implementation-features.DISCOVERY.1, implementation-features.DISCOVERY.2, implementation-features.DISCOVERY.3, implementation-features.DISCOVERY.4, implementation-features.DISCOVERY.5, implementation-features.RESPONSE.3
+  defp implementation_features_setup(team) do
+    product = product_fixture(team, %{name: "worklist-product"})
+
+    parent = implementation_fixture(product, %{name: "Parent"})
+
+    child =
+      implementation_fixture(product, %{
+        name: "Child",
+        parent_implementation_id: parent.id
+      })
+
+    branch_a = branch_fixture(team, %{repo_uri: "github.com/acai/worklist-a", branch_name: "aaa"})
+    branch_z = branch_fixture(team, %{repo_uri: "github.com/acai/worklist-b", branch_name: "zzz"})
+
+    parent_branch =
+      branch_fixture(team, %{repo_uri: "github.com/acai/worklist-parent", branch_name: "parent"})
+
+    tracked_branch_fixture(child, %{branch: branch_a})
+    tracked_branch_fixture(child, %{branch: branch_z})
+    tracked_branch_fixture(parent, %{branch: parent_branch})
+
+    alpha_a =
+      spec_fixture(product, %{
+        feature_name: "alpha",
+        branch: branch_a,
+        repo_uri: branch_a.repo_uri,
+        last_seen_commit: "alpha-commit-a",
+        feature_description: "Alpha from branch A",
+        requirements: %{
+          "alpha.REQ.1" => %{requirement: "Alpha one"},
+          "alpha.REQ.2" => %{requirement: "Alpha two"}
+        }
+      })
+
+    alpha_z =
+      spec_fixture(product, %{
+        feature_name: "alpha",
+        branch: branch_z,
+        repo_uri: branch_z.repo_uri,
+        last_seen_commit: "alpha-commit-z",
+        feature_description: "Alpha from branch Z",
+        requirements: %{
+          "alpha.REQ.1" => %{requirement: "Alpha one"},
+          "alpha.REQ.2" => %{requirement: "Alpha two"}
+        }
+      })
+
+    parent_beta =
+      spec_fixture(product, %{
+        feature_name: "beta",
+        branch: parent_branch,
+        repo_uri: parent_branch.repo_uri,
+        last_seen_commit: "beta-parent-commit",
+        feature_description: "Beta inherited from parent",
+        requirements: %{
+          "beta.REQ.1" => %{requirement: "Beta one"}
+        }
+      })
+
+    _ =
+      Repo.update_all(
+        from(s in Spec, where: s.id == ^alpha_a.id),
+        set: [updated_at: ~U[2025-03-25 00:00:00Z]]
+      )
+
+    _ =
+      Repo.update_all(
+        from(s in Spec, where: s.id == ^alpha_z.id),
+        set: [updated_at: ~U[2025-03-25 00:00:00Z]]
+      )
+
+    {:ok, _} =
+      Specs.create_feature_impl_state("alpha", child, %{
+        states: %{
+          "alpha.REQ.1" => %{"status" => "completed"},
+          "alpha.REQ.2" => %{"status" => "accepted"}
+        }
+      })
+
+    {:ok, _} =
+      Specs.create_feature_impl_state("beta", parent, %{
+        states: %{
+          "beta.REQ.1" => %{"status" => "completed"}
+        }
+      })
+
+    feature_branch_ref_fixture(branch_a, "alpha", %{
+      refs: %{
+        "alpha.REQ.1" => [%{"path" => "lib/alpha_a.ex:1", "is_test" => false}]
+      },
+      commit: "alpha-ref-a"
+    })
+
+    feature_branch_ref_fixture(branch_z, "alpha", %{
+      refs: %{
+        "alpha.REQ.2" => [%{"path" => "test/alpha_z_test.exs:1", "is_test" => true}]
+      },
+      commit: "alpha-ref-z"
+    })
+
+    feature_branch_ref_fixture(parent_branch, "beta", %{
+      refs: %{
+        "beta.REQ.1" => [%{"path" => "lib/beta.ex:1", "is_test" => false}]
+      },
+      commit: "beta-ref-parent"
+    })
+
+    %{
+      team: team,
+      product: product,
+      parent: parent,
+      child: child,
+      branch_a: branch_a,
+      branch_z: branch_z,
+      parent_branch: parent_branch,
+      alpha_a: alpha_a,
+      alpha_z: alpha_z,
+      parent_beta: parent_beta
+    }
   end
 
   describe "list_specs/2" do
@@ -2501,6 +2625,105 @@ defmodule Acai.SpecsTest do
       assert_raise Ecto.NoResultsError, fn ->
         Specs.get_spec!(spec.id)
       end
+    end
+  end
+
+  describe "load_implementation_features/4" do
+    # implementation-features.RESPONSE.1, implementation-features.RESPONSE.2, implementation-features.RESPONSE.3, implementation-features.RESPONSE.4, implementation-features.RESPONSE.5, implementation-features.RESPONSE.6, implementation-features.RESPONSE.7, implementation-features.DISCOVERY.1, implementation-features.DISCOVERY.2, implementation-features.DISCOVERY.3, implementation-features.DISCOVERY.4, implementation-features.DISCOVERY.5
+    test "returns canonical feature summaries with inheritance and tie-breaking" do
+      team = team_fixture()
+      ctx = implementation_features_setup(team)
+
+      assert {:ok, data} =
+               Specs.load_implementation_features(team, ctx.product.name, ctx.child.name)
+
+      assert data.product_name == ctx.product.name
+      assert data.implementation_name == ctx.child.name
+      assert data.implementation_id == ctx.child.id
+      assert Enum.map(data.features, & &1.feature_name) == ["alpha", "beta"]
+
+      alpha = Enum.find(data.features, &(&1.feature_name == "alpha"))
+      beta = Enum.find(data.features, &(&1.feature_name == "beta"))
+
+      assert alpha.description == "Alpha from branch A"
+      assert alpha.completed_count == 2
+      assert alpha.total_count == 2
+      assert alpha.refs_count == 1
+      assert alpha.test_refs_count == 1
+      assert alpha.has_local_spec == true
+      assert alpha.has_local_states == true
+      assert alpha.spec_last_seen_commit == "alpha-commit-a"
+      assert alpha.states_inherited == false
+      assert alpha.refs_inherited == false
+
+      assert beta.description == "Beta inherited from parent"
+      assert beta.completed_count == 1
+      assert beta.total_count == 1
+      assert beta.refs_count == 1
+      assert beta.test_refs_count == 0
+      assert beta.has_local_spec == false
+      assert beta.has_local_states == false
+      assert beta.spec_last_seen_commit == "beta-parent-commit"
+      assert beta.states_inherited == true
+      assert beta.refs_inherited == true
+    end
+
+    # implementation-features.DISCOVERY.6, implementation-features.REQUEST.3, implementation-features.REQUEST.3-1
+    test "filters features by resolved statuses including null" do
+      team = team_fixture()
+      product = product_fixture(team, %{name: "status-worklist"})
+      impl = implementation_fixture(product, %{name: "Status Impl"})
+      branch = branch_fixture(team, %{repo_uri: "github.com/acai/status", branch_name: "main"})
+
+      tracked_branch_fixture(impl, %{branch: branch})
+
+      spec_fixture(product, %{
+        feature_name: "completed-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{
+          "completed-feature.REQ.1" => %{requirement: "Done"}
+        }
+      })
+
+      spec_fixture(product, %{
+        feature_name: "null-feature",
+        branch: branch,
+        repo_uri: branch.repo_uri,
+        requirements: %{
+          "null-feature.REQ.1" => %{requirement: "Unset"}
+        }
+      })
+
+      {:ok, _} =
+        Specs.create_feature_impl_state("completed-feature", impl, %{
+          states: %{
+            "completed-feature.REQ.1" => %{"status" => "completed"}
+          }
+        })
+
+      assert {:ok, data} =
+               Specs.load_implementation_features(team, product.name, impl.name,
+                 statuses: ["null", "completed"]
+               )
+
+      assert Enum.map(data.features, & &1.feature_name) == ["completed-feature", "null-feature"]
+      assert Enum.find(data.features, &(&1.feature_name == "null-feature")).total_count == 1
+      assert Enum.find(data.features, &(&1.feature_name == "null-feature")).completed_count == 0
+    end
+
+    # implementation-features.DISCOVERY.7
+    test "filters by changed_since_commit using the selected canonical spec" do
+      team = team_fixture()
+      ctx = implementation_features_setup(team)
+
+      assert {:ok, data} =
+               Specs.load_implementation_features(team, ctx.product.name, ctx.child.name,
+                 changed_since_commit: "beta-parent-commit"
+               )
+
+      assert Enum.map(data.features, & &1.feature_name) == ["alpha"]
+      assert hd(data.features).spec_last_seen_commit == "alpha-commit-a"
     end
   end
 end

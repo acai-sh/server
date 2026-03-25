@@ -32,6 +32,10 @@ defmodule AcaiWeb.Api.Operations do
   def endpoint_key(%Plug.Conn{request_path: "/api/v1/push"}), do: :push
   def endpoint_key(%Plug.Conn{request_path: "/api/v1/implementations"}), do: :implementations
   def endpoint_key(%Plug.Conn{request_path: "/api/v1/feature-context"}), do: :feature_context
+
+  def endpoint_key(%Plug.Conn{request_path: "/api/v1/implementation-features"}),
+    do: :implementation_features
+
   def endpoint_key(%Plug.Conn{request_path: "/api/v1/feature-states"}), do: :feature_states
   def endpoint_key(_conn), do: @default_endpoint
 
@@ -42,6 +46,7 @@ defmodule AcaiWeb.Api.Operations do
       "push" -> :push
       "implementations" -> :implementations
       "feature-context" -> :feature_context
+      "implementation-features" -> :implementation_features
       "feature-states" -> :feature_states
       "default" -> @default_endpoint
       _other -> @default_endpoint

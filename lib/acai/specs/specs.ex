@@ -9,6 +9,8 @@ defmodule Acai.Specs do
   alias Acai.Teams.Team
   alias Acai.Products.Product
 
+  @valid_statuses [nil, "assigned", "blocked", "incomplete", "completed", "rejected", "accepted"]
+
   # --- Specs ---
 
   @doc """
@@ -1225,6 +1227,83 @@ defmodule Acai.Specs do
     end
   end
 
+  @doc """
+  Loads the summary worklist for all features visible to one implementation.
+
+  ACIDs:
+  - implementation-features.ENDPOINT.1: Read the implementation features worklist
+  - implementation-features.DISCOVERY.1: Lists features that resolve for the selected implementation, including inherited features
+  - implementation-features.DISCOVERY.2: Each feature is represented once using its canonical spec for that implementation
+  - implementation-features.DISCOVERY.3: Newest updated_at wins on local tracked branches
+  - implementation-features.DISCOVERY.4: Completion counts use resolved states for that implementation
+  - implementation-features.DISCOVERY.5: Ref counts aggregate refs across tracked branches and fall back to the nearest ancestor implementation only when no refs exist locally
+  - implementation-features.DISCOVERY.6: Status filters keep only features with at least one matching resolved ACID
+  - implementation-features.DISCOVERY.7: changed_since_commit compares against the selected canonical spec
+  - implementation-features.DISCOVERY.8: Ties on updated_at prefer the lexicographically smallest branch name
+  - implementation-features.RESPONSE.1: Successful reads return a data payload
+  - implementation-features.RESPONSE.2: Response includes product and implementation identifiers
+  - implementation-features.RESPONSE.3: Features are returned in stable name order
+  - implementation-features.RESPONSE.4: Feature entries include summary counts
+  - implementation-features.RESPONSE.5: Feature entries include ref and local-source flags
+  - implementation-features.RESPONSE.6: Feature entries include the canonical spec commit marker
+  - implementation-features.RESPONSE.7: Feature entries include inheritance flags
+  """
+  def load_implementation_features(%Team{} = team, product_name, implementation_name, opts \\ []) do
+    statuses = Keyword.get(opts, :statuses)
+    changed_since_commit = Keyword.get(opts, :changed_since_commit)
+
+    with {:ok, normalized_statuses} <- normalize_status_filter(statuses),
+         {:ok, context} <- load_feature_context_context(team, product_name, implementation_name) do
+      features =
+        list_features_for_implementation(context.implementation, context.product)
+        |> Enum.map(fn {feature_name, _feature_name} ->
+          build_implementation_feature_entry(
+            feature_name,
+            context,
+            normalized_statuses,
+            changed_since_commit
+          )
+        end)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.sort_by(& &1.feature_name)
+
+      {:ok,
+       %{
+         product_name: context.product.name,
+         implementation_name: context.implementation.name,
+         implementation_id: context.implementation.id,
+         features: features
+       }}
+    else
+      {:error, :not_found} -> {:error, :not_found}
+      {:error, reason} -> {:error, reason}
+      nil -> {:error, :not_found}
+    end
+  end
+
+  defp normalize_status_filter(nil), do: {:ok, nil}
+
+  defp normalize_status_filter(status) when is_binary(status),
+    do: normalize_status_filter([status])
+
+  defp normalize_status_filter(statuses) when is_list(statuses) do
+    normalized =
+      Enum.map(statuses, fn
+        nil -> nil
+        "null" -> nil
+        status when is_binary(status) -> String.trim(status)
+        status -> to_string(status)
+      end)
+
+    if Enum.all?(normalized, &(&1 in @valid_statuses)) do
+      {:ok, normalized}
+    else
+      {:error, "statuses contains an invalid value"}
+    end
+  end
+
+  defp normalize_status_filter(_), do: {:error, "statuses must be a list"}
+
   # feature-context.RESOLUTION.1, feature-context.RESOLUTION.2, feature-context.RESOLUTION.3, feature-context.RESOLUTION.4, feature-context.RESOLUTION.5, feature-context.RESOLUTION.6
   # feature-context.RESPONSE.2, feature-context.RESPONSE.3, feature-context.RESPONSE.4, feature-context.RESPONSE.5
   defp build_feature_context_payload(
@@ -1327,6 +1406,83 @@ defmodule Acai.Specs do
          all_branch_ids: all_branch_ids
        }}
     end
+  end
+
+  # implementation-features.DISCOVERY.2, implementation-features.DISCOVERY.3, implementation-features.DISCOVERY.8
+  defp build_implementation_feature_entry(
+         feature_name,
+         context,
+         statuses,
+         changed_since_commit
+       ) do
+    case resolve_canonical_spec_with_context(feature_name, context) do
+      {nil, nil} ->
+        nil
+
+      {spec, spec_source} ->
+        {states_row, states_source_impl_id} =
+          get_feature_impl_state_with_context(feature_name, context)
+
+        {aggregated_refs, refs_source_impl_id} =
+          get_aggregated_refs_with_context(feature_name, context)
+
+        feature_statuses = feature_acid_statuses(spec, states_row)
+
+        if include_feature_in_worklist?(feature_statuses, spec, statuses, changed_since_commit) do
+          {refs_count, test_refs_count} = count_feature_refs(aggregated_refs)
+
+          %{
+            feature_name: feature_name,
+            description: spec.feature_description,
+            completed_count: count_completed_acids(feature_statuses),
+            total_count: map_size(spec.requirements),
+            refs_count: refs_count,
+            test_refs_count: test_refs_count,
+            has_local_spec: not spec_source.is_inherited,
+            has_local_states: not is_nil(states_row) and is_nil(states_source_impl_id),
+            spec_last_seen_commit: spec.last_seen_commit,
+            states_inherited: not is_nil(states_source_impl_id),
+            refs_inherited: not is_nil(refs_source_impl_id)
+          }
+        else
+          nil
+        end
+    end
+  end
+
+  defp include_feature_in_worklist?(_feature_statuses, spec, statuses, changed_since_commit)
+       when statuses in [nil, []] do
+    is_nil(changed_since_commit) or spec.last_seen_commit != changed_since_commit
+  end
+
+  defp include_feature_in_worklist?(feature_statuses, spec, statuses, changed_since_commit)
+       when is_list(statuses) do
+    status_filter_match? = Enum.any?(feature_statuses, &(&1 in statuses))
+
+    commit_filter_match? =
+      is_nil(changed_since_commit) or spec.last_seen_commit != changed_since_commit
+
+    status_filter_match? and commit_filter_match?
+  end
+
+  defp feature_acid_statuses(spec, states_row) do
+    Enum.map(spec.requirements, fn {acid, _requirement} ->
+      state_for_acid(states_row, acid).status
+    end)
+  end
+
+  defp count_completed_acids(feature_statuses) do
+    Enum.count(feature_statuses, &(&1 in ["completed", "accepted"]))
+  end
+
+  defp count_feature_refs(aggregated_refs) do
+    Enum.reduce(aggregated_refs, {0, 0}, fn {_branch, refs_map}, {refs_acc, tests_acc} ->
+      Enum.reduce(refs_map, {refs_acc, tests_acc}, fn {_acid, ref_list}, {r_acc, t_acc} ->
+        ref_count = Enum.count(ref_list, fn ref -> not Map.get(ref, "is_test", false) end)
+        test_count = Enum.count(ref_list, fn ref -> Map.get(ref, "is_test", false) end)
+        {r_acc + ref_count, t_acc + test_count}
+      end)
+    end)
   end
 
   defp build_ancestor_chain(implementation_id, implementations_by_id) do

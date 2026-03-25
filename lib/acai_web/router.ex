@@ -65,6 +65,11 @@ defmodule AcaiWeb.Router do
     # feature-context.ENDPOINT.1 - GET /api/v1/feature-context
     # feature-context.ENDPOINT.2 - Requires Authorization Bearer token header
     get "/feature-context", FeatureContextController, :show
+
+    # implementation-features.ENDPOINT.1 - GET /api/v1/implementation-features
+    # implementation-features.ENDPOINT.2 - Requires Authorization Bearer token header
+    # This route stays in the authenticated API scope because it summarizes team-scoped feature data.
+    get "/implementation-features", ImplementationFeaturesController, :index
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

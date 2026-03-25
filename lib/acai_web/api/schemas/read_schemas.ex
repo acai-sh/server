@@ -232,4 +232,74 @@ defmodule AcaiWeb.Api.Schemas.ReadSchemas do
       }
     })
   end
+
+  defmodule ImplementationFeatureEntry do
+    @moduledoc false
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "ImplementationFeatureEntry",
+      type: :object,
+      required: [
+        :feature_name,
+        :description,
+        :completed_count,
+        :total_count,
+        :refs_count,
+        :test_refs_count,
+        :has_local_spec,
+        :has_local_states,
+        :spec_last_seen_commit,
+        :states_inherited,
+        :refs_inherited
+      ],
+      properties: %{
+        feature_name: %OpenApiSpex.Schema{type: :string},
+        description: %OpenApiSpex.Schema{type: :string, nullable: true},
+        completed_count: %OpenApiSpex.Schema{type: :integer},
+        total_count: %OpenApiSpex.Schema{type: :integer},
+        refs_count: %OpenApiSpex.Schema{type: :integer},
+        test_refs_count: %OpenApiSpex.Schema{type: :integer},
+        has_local_spec: %OpenApiSpex.Schema{type: :boolean},
+        has_local_states: %OpenApiSpex.Schema{type: :boolean},
+        spec_last_seen_commit: %OpenApiSpex.Schema{type: :string, nullable: true},
+        states_inherited: %OpenApiSpex.Schema{type: :boolean},
+        refs_inherited: %OpenApiSpex.Schema{type: :boolean}
+      }
+    })
+  end
+
+  defmodule ImplementationFeaturesData do
+    @moduledoc false
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "ImplementationFeaturesData",
+      type: :object,
+      required: [:product_name, :implementation_name, :implementation_id, :features],
+      properties: %{
+        product_name: %OpenApiSpex.Schema{type: :string},
+        implementation_name: %OpenApiSpex.Schema{type: :string},
+        implementation_id: %OpenApiSpex.Schema{type: :string},
+        features: %OpenApiSpex.Schema{
+          type: :array,
+          items: %OpenApiSpex.Schema{allOf: [ImplementationFeatureEntry.schema()]}
+        }
+      }
+    })
+  end
+
+  defmodule ImplementationFeaturesResponse do
+    @moduledoc false
+    require OpenApiSpex
+
+    OpenApiSpex.schema(%{
+      title: "ImplementationFeaturesResponse",
+      type: :object,
+      required: [:data],
+      properties: %{
+        data: %OpenApiSpex.Schema{allOf: [ImplementationFeaturesData.schema()]}
+      }
+    })
+  end
 end
