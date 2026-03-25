@@ -24,10 +24,6 @@ defmodule AcaiWeb.Router do
     plug AcaiWeb.Api.Plugs.BearerAuth
     # core.OPERATIONS.1 - Load runtime API operation config and enforce shared request-size caps.
     plug AcaiWeb.Api.Plugs.OperationConfig
-    # core.ENG.1 - Shared authenticated API flow validates controller requests once.
-    plug OpenApiSpex.Plug.CastAndValidate,
-      json_render_error_v2: true,
-      operation_id: "AcaiWeb.Api.PushController.create"
   end
 
   scope "/", AcaiWeb do

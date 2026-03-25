@@ -52,17 +52,27 @@ defmodule AcaiWeb.Api.Plugs.OperationConfig do
   end
 
   defp oversized_request?(conn, config) do
+    with cap when is_integer(cap) <- config[:request_size_cap],
+         request_size when is_integer(request_size) <- raw_request_size(conn),
+         true <- request_size > cap do
+      {true, request_size, cap}
+    else
+      _ -> false
+    end
+  end
+
+  defp raw_request_size(%{assigns: %{raw_body: raw_body}}) when is_binary(raw_body),
+    do: byte_size(raw_body)
+
+  defp raw_request_size(conn) do
     case List.first(get_req_header(conn, "content-length")) do
       nil ->
-        false
+        nil
 
       value ->
-        with {request_size, ""} <- Integer.parse(value),
-             cap when is_integer(cap) <- config[:request_size_cap],
-             true <- request_size > cap do
-          {true, request_size, cap}
-        else
-          _ -> false
+        case Integer.parse(value) do
+          {request_size, ""} -> request_size
+          _ -> nil
         end
     end
   end

@@ -14,11 +14,15 @@ defmodule AcaiWeb.Api.RateLimiter do
              window_seconds > 0 do
     ensure_table!()
 
-    bucket = current_bucket(window_seconds)
+    now = System.system_time(:second)
+    prune_expired!(now)
+
+    bucket = current_bucket(window_seconds, now)
+    expires_at = (bucket + 1) * window_seconds
     key = {endpoint, token_id || :anonymous, bucket}
 
     request_count =
-      :ets.update_counter(@table, key, {2, 1}, {key, 0})
+      :ets.update_counter(@table, key, {2, 1}, {key, 0, expires_at})
 
     if request_count > requests do
       {:error, :rate_limited, request_count}
@@ -29,9 +33,23 @@ defmodule AcaiWeb.Api.RateLimiter do
 
   def allow?(_endpoint, _token_id, _rate_limit), do: {:ok, 0}
 
-  defp current_bucket(window_seconds) do
-    System.system_time(:second)
+  defp current_bucket(window_seconds, now) do
+    now
     |> div(window_seconds)
+  end
+
+  defp prune_expired!(now) do
+    # core.OPERATIONS.1
+    @table
+    |> :ets.tab2list()
+    |> Enum.reduce(0, fn {key, _request_count, expires_at}, deleted_count ->
+      if expires_at <= now do
+        :ets.delete(@table, key)
+        deleted_count + 1
+      else
+        deleted_count
+      end
+    end)
   end
 
   defp ensure_table! do
