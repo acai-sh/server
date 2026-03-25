@@ -182,6 +182,46 @@ defmodule AcaiWeb.Api.PushControllerTest do
       assert conn.resp_body =~ "impls:write"
     end
 
+    # push.AUTH.4
+    test "returns 200 for tracked spec updates with specs:write without impls:write", %{
+      conn: conn,
+      team: team,
+      user: user,
+      token: token
+    } do
+      assert json_response(
+               conn
+               |> put_req_header("authorization", "Bearer #{token.raw_token}")
+               |> put_req_header("content-type", "application/json")
+               |> put_req_header("accept", "application/json")
+               |> post(~p"/api/v1/push", @valid_push_params),
+               200
+             )
+
+      {:ok, limited_token} =
+        Teams.generate_token(
+          %{user: user},
+          team,
+          %{name: "Specs Only", scopes: ["specs:write"]}
+        )
+
+      tracked_spec_update_params =
+        @valid_push_params
+        |> Map.update!(:specs, fn [spec | rest] ->
+          [Map.update!(spec, :meta, &Map.put(&1, :last_seen_commit, "def789ghi012")) | rest]
+        end)
+        |> Map.put(:commit_hash, "def789ghi012")
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{limited_token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
+        |> post(~p"/api/v1/push", tracked_spec_update_params)
+
+      assert json_response(conn, 200)
+    end
+
     test "returns 429 when the shared rate limit is exceeded", %{conn: conn, token: token} do
       Application.put_env(:acai, :api_operations, %{
         default: %{

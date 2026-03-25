@@ -361,7 +361,7 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
         target_impl_name: %OpenApiSpex.Schema{
           type: :string,
           description:
-            "Name of the implementation (deployment environment) to associate this branch with. An implementation represents a deployable instance of your product (e.g., 'production', 'staging', 'mobile-app-v2'). When provided, the branch will be linked to this implementation for tracking. If the implementation doesn't exist, it will be auto-created within the product"
+            "Name of the implementation (deployment environment) to associate this branch with. An implementation represents a deployable instance of your product (e.g., 'production', 'staging', 'mobile-app-v2'). For spec-push creation flows, a missing implementation may be auto-created within the product. For refs-only pushes, `product_name` + `target_impl_name` must resolve to an existing implementation unless `parent_impl_name` is also provided to create a new child implementation."
         },
         parent_impl_name: %OpenApiSpex.Schema{
           type: :string,

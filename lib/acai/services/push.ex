@@ -147,6 +147,8 @@ defmodule Acai.Services.Push do
     refs_only_impl_request? =
       refs != nil and has_specs == false and refs_only_impl_context_requested?(params)
 
+    tracked_branch_specs_only? = has_specs and branch_is_already_tracked?(token.team_id, params)
+
     # If pushing specs, need specs:write
     cond do
       has_specs and not scope_map["specs:write"] ->
@@ -162,7 +164,7 @@ defmodule Acai.Services.Push do
       refs_only_impl_request? and not scope_map["impls:write"] ->
         {:error, {:forbidden, "Token missing required scope: impls:write"}}
 
-      has_specs and not scope_map["impls:write"] ->
+      has_specs and not tracked_branch_specs_only? and not scope_map["impls:write"] ->
         {:error, {:forbidden, "Token missing required scope: impls:write"}}
 
       true ->
@@ -182,6 +184,27 @@ defmodule Acai.Services.Push do
   defp refs_only_impl_context_requested?(params) do
     not is_nil(params[:product_name]) and
       (not is_nil(params[:target_impl_name]) or not is_nil(params[:parent_impl_name]))
+  end
+
+  # push.AUTH.4
+  defp branch_is_already_tracked?(team_id, params) do
+    case {params[:repo_uri], params[:branch_name]} do
+      {repo_uri, branch_name} when is_binary(repo_uri) and is_binary(branch_name) ->
+        Repo.one(
+          from b in Branch,
+            join: tb in TrackedBranch,
+            on: tb.branch_id == b.id,
+            where:
+              b.team_id == ^team_id and
+                b.repo_uri == ^repo_uri and
+                b.branch_name == ^branch_name,
+            select: tb.branch_id,
+            limit: 1
+        ) != nil
+
+      _ ->
+        false
+    end
   end
 
   # push.REQUEST.10, push.VALIDATION.6, push.ABUSE.2

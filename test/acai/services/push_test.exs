@@ -29,6 +29,22 @@ defmodule Acai.Services.PushTest do
   alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
   alias Acai.Products.Product
 
+  defp implementation_for_branch(team_id, repo_uri, branch_name) do
+    Repo.one(
+      from i in Implementation,
+        join: tb in TrackedBranch,
+        on: tb.implementation_id == i.id,
+        join: b in Branch,
+        on: tb.branch_id == b.id,
+        where:
+          b.team_id == ^team_id and
+            b.repo_uri == ^repo_uri and
+            b.branch_name == ^branch_name,
+        select: i,
+        distinct: true
+    )
+  end
+
   @valid_push_params %{
     repo_uri: "github.com/test-org/test-repo",
     branch_name: "main",
@@ -713,7 +729,7 @@ defmodule Acai.Services.PushTest do
       assert {:error, reason} = Push.execute(token, changed_parent_params)
       assert reason =~ "Parent implementation cannot be changed"
 
-      impl = Repo.one(from i in Implementation, where: i.name == "main")
+      impl = implementation_for_branch(token.team_id, "github.com/test-org/test-repo", "main")
       assert impl.parent_implementation_id == parent_impl.id
       assert Repo.get(Implementation, other_parent.id)
     end
@@ -827,6 +843,33 @@ defmodule Acai.Services.PushTest do
 
       assert {:error, {:forbidden, reason}} = Push.execute(limited_token, @valid_push_params)
       assert reason =~ "specs:write"
+    end
+
+    # push.AUTH.4
+    test "allows tracked spec updates with specs:write without impls:write", %{
+      team: team,
+      user: user,
+      token: token
+    } do
+      {:ok, _} = Push.execute(token, @valid_push_params)
+
+      {:ok, limited_token} =
+        Teams.generate_token(
+          %{user: user},
+          team,
+          %{name: "Specs Only", scopes: ["specs:write"]}
+        )
+
+      tracked_spec_update_params =
+        @valid_push_params
+        |> Map.update!(:specs, fn [spec | rest] ->
+          [Map.update!(spec, :meta, &Map.put(&1, :last_seen_commit, "def789ghi012")) | rest]
+        end)
+        |> Map.put(:commit_hash, "def789ghi012")
+
+      {:ok, result} = Push.execute(limited_token, tracked_spec_update_params)
+
+      assert result.specs_updated == 1
     end
 
     # push.AUTH.6, push.AUTH.7 - Team scoping
@@ -1276,7 +1319,7 @@ defmodule Acai.Services.PushTest do
 
       {:ok, _} = Push.execute(token, states_params)
 
-      impl = Repo.one(from i in Implementation, where: i.name == "main")
+      impl = implementation_for_branch(token.team_id, "github.com/test-org/test-repo", "main")
 
       state =
         Repo.one(
@@ -1319,7 +1362,7 @@ defmodule Acai.Services.PushTest do
 
       {:ok, _} = Push.execute(token, states_params2)
 
-      impl = Repo.one(from i in Implementation, where: i.name == "main")
+      impl = implementation_for_branch(token.team_id, "github.com/test-org/test-repo", "main")
 
       state =
         Repo.one(
@@ -1363,7 +1406,7 @@ defmodule Acai.Services.PushTest do
 
       {:ok, _} = Push.execute(token, states_params2)
 
-      impl = Repo.one(from i in Implementation, where: i.name == "main")
+      impl = implementation_for_branch(token.team_id, "github.com/test-org/test-repo", "main")
 
       state =
         Repo.one(
@@ -1562,7 +1605,7 @@ defmodule Acai.Services.PushTest do
 
       {:ok, _} = Push.execute(token, multi_spec_params)
 
-      impl = Repo.one(from i in Implementation, where: i.name == "main")
+      impl = implementation_for_branch(token.team_id, "github.com/test-org/test-repo", "main")
 
       # Now push states for both features
       multi_feature_states = %{
