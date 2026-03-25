@@ -1145,6 +1145,309 @@ defmodule Acai.Specs do
     end
   end
 
+  @doc """
+  Loads the canonical feature context for one implementation.
+
+  ACIDs:
+  - feature-context.RESOLUTION.1: Resolves exactly one canonical spec
+  - feature-context.RESOLUTION.2: Newest updated_at wins on local tracked branches
+  - feature-context.RESOLUTION.3: Falls back to nearest ancestor with a local spec
+  - feature-context.RESOLUTION.4: States inherit from the nearest ancestor row
+  - feature-context.RESOLUTION.5: Refs aggregate locally, then fall back to parent
+  - feature-context.RESOLUTION.6: Empty local state rows stop inheritance
+  - feature-context.RESPONSE.1: Successful read returns a data payload
+  """
+  def get_feature_context(
+        %Team{} = team,
+        product_name,
+        feature_name,
+        implementation_name,
+        opts \\ []
+      ) do
+    include_refs = Keyword.get(opts, :include_refs, false)
+    include_dangling_states = Keyword.get(opts, :include_dangling_states, false)
+    include_deprecated = Keyword.get(opts, :include_deprecated, false)
+    statuses = Keyword.get(opts, :statuses)
+
+    with {:ok, product} <- Acai.Products.get_product_by_team_and_name(team, product_name),
+         {:ok, implementation} <-
+           Acai.Implementations.get_implementation_by_team_and_product_name(
+             team,
+             product,
+             implementation_name
+           ),
+         {:ok, payload} <-
+           build_feature_context_payload(
+             product,
+             feature_name,
+             implementation,
+             include_refs,
+             include_dangling_states,
+             include_deprecated,
+             statuses
+           ) do
+      {:ok, payload}
+    else
+      {:error, :not_found} -> {:error, :not_found}
+      {:error, reason} -> {:error, reason}
+      nil -> {:error, :not_found}
+    end
+  end
+
+  defp build_feature_context_payload(
+         %Product{} = product,
+         feature_name,
+         %Implementation{} = implementation,
+         include_refs,
+         include_dangling_states,
+         include_deprecated,
+         statuses
+       ) do
+    case resolve_canonical_spec(feature_name, implementation.id) do
+      {nil, nil} ->
+        {:error, :not_found}
+
+      {spec, spec_source} ->
+        {states_row, states_source_impl_id} =
+          get_feature_impl_state_with_inheritance(feature_name, implementation.id)
+
+        {aggregated_refs, refs_source_impl_id} =
+          Acai.Implementations.get_aggregated_refs_with_inheritance(
+            feature_name,
+            implementation.id
+          )
+
+        spec_source_payload =
+          build_spec_source_payload(feature_name, implementation, spec_source)
+
+        states_source_payload =
+          build_states_source_payload(implementation, states_row, states_source_impl_id)
+
+        refs_source_payload =
+          build_refs_source_payload(implementation, aggregated_refs, refs_source_impl_id)
+
+        acids =
+          spec.requirements
+          |> Enum.map(fn {acid, requirement} ->
+            build_acid_entry(acid, requirement, states_row, aggregated_refs, include_refs)
+          end)
+          |> Enum.reject(fn acid_entry ->
+            include_deprecated == false and Map.get(acid_entry, :deprecated, false)
+          end)
+          |> maybe_filter_by_statuses(statuses)
+          |> Enum.sort_by(& &1.acid)
+
+        resolved_acid_set =
+          MapSet.new(Enum.map(spec.requirements, fn {acid, _requirement} -> acid end))
+
+        dangling_states =
+          if include_dangling_states do
+            build_dangling_states(states_row, resolved_acid_set)
+          else
+            []
+          end
+
+        warnings = build_feature_context_warnings(dangling_states)
+
+        summary = build_summary(acids)
+
+        {:ok,
+         %{
+           product_name: product.name,
+           feature_name: feature_name,
+           implementation_name: implementation.name,
+           implementation_id: implementation.id,
+           spec_source: spec_source_payload,
+           states_source: states_source_payload,
+           refs_source: refs_source_payload,
+           summary: summary,
+           acids: acids,
+           warnings: warnings
+         }
+         |> maybe_put_dangling_states(dangling_states, include_dangling_states)}
+    end
+  end
+
+  defp maybe_put_dangling_states(payload, _dangling_states, false), do: payload
+
+  defp maybe_put_dangling_states(payload, dangling_states, true),
+    do: Map.put(payload, :dangling_states, dangling_states)
+
+  defp build_spec_source_payload(feature_name, implementation, spec_source) do
+    source_impl_id = spec_source.source_implementation_id || implementation.id
+
+    source_implementation =
+      if source_impl_id == implementation.id do
+        implementation
+      else
+        Repo.get(Implementation, source_impl_id)
+      end
+
+    branch_names = local_spec_branch_names(feature_name, source_impl_id)
+
+    %{
+      source_type: if(spec_source.is_inherited, do: "inherited", else: "local"),
+      implementation_name: source_implementation && source_implementation.name,
+      branch_names: branch_names
+    }
+  end
+
+  defp build_states_source_payload(implementation, states_row, states_source_impl_id) do
+    source_impl =
+      cond do
+        not is_nil(states_row) and is_nil(states_source_impl_id) ->
+          implementation
+
+        is_nil(states_source_impl_id) ->
+          nil
+
+        true ->
+          Repo.get(Implementation, states_source_impl_id)
+      end
+
+    %{
+      source_type:
+        cond do
+          not is_nil(states_row) and is_nil(states_source_impl_id) -> "local"
+          is_nil(states_source_impl_id) -> "none"
+          true -> "inherited"
+        end,
+      implementation_name: source_impl && source_impl.name
+    }
+  end
+
+  defp build_refs_source_payload(implementation, aggregated_refs, refs_source_impl_id) do
+    source_impl =
+      cond do
+        aggregated_refs == [] and is_nil(refs_source_impl_id) -> nil
+        is_nil(refs_source_impl_id) -> implementation
+        true -> Repo.get(Implementation, refs_source_impl_id)
+      end
+
+    %{
+      source_type:
+        cond do
+          aggregated_refs == [] and is_nil(refs_source_impl_id) -> "none"
+          is_nil(refs_source_impl_id) -> "local"
+          true -> "inherited"
+        end,
+      implementation_name: source_impl && source_impl.name,
+      branch_names: Enum.map(aggregated_refs, fn {branch, _refs} -> branch.branch_name end)
+    }
+  end
+
+  defp build_acid_entry(acid, requirement, states_row, aggregated_refs, include_refs) do
+    state_data = state_for_acid(states_row, acid)
+    acid_refs = Acai.Implementations.get_refs_for_acid(aggregated_refs, acid)
+
+    ref_entries =
+      if include_refs do
+        Enum.flat_map(acid_refs, fn {branch, ref_list} ->
+          Enum.map(ref_list, fn ref ->
+            %{
+              path: ref["path"],
+              is_test: Map.get(ref, "is_test", false),
+              repo_uri: branch.repo_uri,
+              branch_name: branch.branch_name
+            }
+          end)
+        end)
+      else
+        []
+      end
+
+    %{
+      acid: acid,
+      requirement: requirement["requirement"] || requirement[:requirement],
+      note: requirement["note"] || requirement[:note],
+      deprecated: Map.get(requirement, "deprecated", Map.get(requirement, :deprecated, false)),
+      replaced_by: requirement["replaced_by"] || requirement[:replaced_by],
+      state: state_data,
+      refs_count:
+        Enum.reduce(acid_refs, 0, fn {_branch, ref_list}, acc -> acc + length(ref_list) end),
+      test_refs_count:
+        Enum.reduce(acid_refs, 0, fn {_branch, ref_list}, acc ->
+          acc + Enum.count(ref_list, fn ref -> Map.get(ref, "is_test", false) end)
+        end)
+    }
+    |> maybe_put_refs(ref_entries, include_refs)
+  end
+
+  defp maybe_put_refs(acid_entry, refs, true), do: Map.put(acid_entry, :refs, refs)
+  defp maybe_put_refs(acid_entry, _refs, false), do: acid_entry
+
+  defp state_for_acid(nil, _acid), do: %{status: nil}
+
+  defp state_for_acid(%FeatureImplState{} = state_row, acid) do
+    case Map.get(state_row.states || %{}, acid) do
+      nil -> %{status: nil}
+      acid_state -> normalize_state_payload(acid_state)
+    end
+  end
+
+  defp normalize_state_payload(state_map) when is_map(state_map) do
+    %{
+      status: Map.get(state_map, "status"),
+      comment: Map.get(state_map, "comment"),
+      updated_at: Map.get(state_map, "updated_at")
+    }
+  end
+
+  defp build_dangling_states(nil, _resolved_acids), do: []
+
+  defp build_dangling_states(%FeatureImplState{} = state_row, resolved_acids) do
+    state_row.states
+    |> Enum.reject(fn {acid, _state} -> MapSet.member?(resolved_acids, acid) end)
+    |> Enum.map(fn {acid, state} -> %{acid: acid, state: normalize_state_payload(state)} end)
+    |> Enum.sort_by(& &1.acid)
+  end
+
+  defp build_feature_context_warnings(dangling_states) do
+    if dangling_states == [] do
+      []
+    else
+      ["Dangling states found for #{length(dangling_states)} ACIDs"]
+    end
+  end
+
+  defp build_summary(acids) do
+    status_counts =
+      Enum.reduce(acids, %{}, fn acid, acc ->
+        key = status_key(acid.state.status)
+        Map.update(acc, key, 1, &(&1 + 1))
+      end)
+
+    %{total_acids: length(acids), status_counts: status_counts}
+  end
+
+  defp status_key(nil), do: "null"
+  defp status_key(status), do: status
+
+  defp maybe_filter_by_statuses(acids, nil), do: acids
+  defp maybe_filter_by_statuses(acids, []), do: acids
+
+  defp maybe_filter_by_statuses(acids, statuses) when is_list(statuses) do
+    Enum.filter(acids, fn acid -> acid.state.status in statuses end)
+  end
+
+  defp local_spec_branch_names(feature_name, implementation_id) do
+    Repo.all(
+      from s in Spec,
+        join: b in assoc(s, :branch),
+        where:
+          s.feature_name == ^feature_name and
+            s.product_id == ^Repo.get!(Implementation, implementation_id).product_id and
+            s.branch_id in subquery(
+              from tb in Acai.Implementations.TrackedBranch,
+                where: tb.implementation_id == ^implementation_id,
+                select: tb.branch_id
+            ),
+        order_by: [asc: b.branch_name],
+        select: b.branch_name,
+        distinct: true
+    )
+  end
+
   # Get all spec IDs accessible to an implementation (tracked branches + inheritance)
   defp get_all_accessible_spec_ids(implementation_id, visited \\ MapSet.new()) do
     if MapSet.member?(visited, implementation_id) do
@@ -1562,10 +1865,12 @@ defmodule Acai.Specs do
           if branch_ids != [] do
             Repo.one(
               from s in Spec,
+                join: b in assoc(s, :branch),
                 where:
                   s.feature_name == ^feature_name and
                     s.branch_id in ^branch_ids and
                     s.product_id == ^product_id,
+                order_by: [desc: s.updated_at, asc: b.branch_name, asc: s.id],
                 preload: [:product, :branch],
                 limit: 1
             )

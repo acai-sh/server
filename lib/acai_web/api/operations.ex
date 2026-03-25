@@ -30,6 +30,8 @@ defmodule AcaiWeb.Api.Operations do
 
   @spec endpoint_key(Plug.Conn.t()) :: atom()
   def endpoint_key(%Plug.Conn{request_path: "/api/v1/push"}), do: :push
+  def endpoint_key(%Plug.Conn{request_path: "/api/v1/implementations"}), do: :implementations
+  def endpoint_key(%Plug.Conn{request_path: "/api/v1/feature-context"}), do: :feature_context
   def endpoint_key(%Plug.Conn{request_path: "/api/v1/feature-states"}), do: :feature_states
   def endpoint_key(_conn), do: @default_endpoint
 
@@ -38,6 +40,8 @@ defmodule AcaiWeb.Api.Operations do
   defp normalize_endpoint(endpoint) when is_binary(endpoint) do
     case endpoint do
       "push" -> :push
+      "implementations" -> :implementations
+      "feature-context" -> :feature_context
       "feature-states" -> :feature_states
       "default" -> @default_endpoint
       _other -> @default_endpoint

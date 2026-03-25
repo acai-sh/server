@@ -7,6 +7,7 @@ defmodule Acai.Implementations do
   alias Acai.Repo
   alias Acai.Implementations.{Implementation, Branch, TrackedBranch}
   alias Acai.Products.Product
+  alias Acai.Teams.Team
   alias Acai.Specs.FeatureImplState
 
   # --- Implementations ---
@@ -16,6 +17,82 @@ defmodule Acai.Implementations do
   """
   def list_implementations(%Product{} = product) do
     Repo.all(from i in Implementation, where: i.product_id == ^product.id)
+  end
+
+  @doc """
+  Gets an implementation by team, product, and name.
+
+  ACIDs:
+  - implementations.FILTERS.1: Lists implementations only within the requested product and token team
+  - feature-context.RESPONSE.13: Implementation lookup is part of canonical feature resolution
+  """
+  def get_implementation_by_team_and_product_name(%Team{} = team, %Product{} = product, name) do
+    normalized_name = String.downcase(String.trim(name || ""))
+
+    case Repo.one(
+           from i in Implementation,
+             where:
+               i.team_id == ^team.id and
+                 i.product_id == ^product.id and
+                 fragment("lower(?)", i.name) == ^normalized_name,
+             limit: 1
+         ) do
+      nil -> {:error, :not_found}
+      implementation -> {:ok, implementation}
+    end
+  end
+
+  @doc """
+  Lists implementations for API reads within a team and product.
+
+  Supports optional exact branch filtering and feature availability filtering.
+
+  ACIDs:
+  - implementations.FILTERS.1: Lists implementations only within the requested product and token team
+  - implementations.FILTERS.2: Exact branch filter returns only implementations tracking that branch
+  - implementations.FILTERS.3: branch_name without repo_uri is rejected by the caller
+  - implementations.FILTERS.4: repo_uri without branch_name is rejected by the caller
+  - implementations.FILTERS.5: feature_name filter excludes implementations that cannot resolve the feature
+  - implementations.FILTERS.6: Feature availability uses canonical spec resolution rules
+  - implementations.RESPONSE.6: Results are sorted by implementation_name
+  """
+  def list_api_implementations(%Team{} = team, %Product{} = product, opts \\ []) do
+    branch_filter = Keyword.get(opts, :branch_filter)
+    feature_name = Keyword.get(opts, :feature_name)
+
+    implementations =
+      case branch_filter do
+        {repo_uri, branch_name} ->
+          Repo.all(
+            from i in Implementation,
+              join: tb in TrackedBranch,
+              on: tb.implementation_id == i.id,
+              join: b in Branch,
+              on: b.id == tb.branch_id,
+              where: i.team_id == ^team.id and i.product_id == ^product.id,
+              where: b.repo_uri == ^repo_uri and b.branch_name == ^branch_name,
+              order_by: [asc: i.name]
+          )
+          |> Enum.uniq_by(& &1.id)
+
+        nil ->
+          Repo.all(
+            from i in Implementation,
+              where: i.team_id == ^team.id and i.product_id == ^product.id,
+              order_by: [asc: i.name]
+          )
+      end
+
+    if is_binary(feature_name) and feature_name != "" do
+      Enum.filter(implementations, fn implementation ->
+        case Acai.Specs.resolve_canonical_spec(feature_name, implementation.id) do
+          {nil, nil} -> false
+          {_spec, _source} -> true
+        end
+      end)
+    else
+      implementations
+    end
   end
 
   @doc """

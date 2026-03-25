@@ -15,6 +15,7 @@ defmodule AcaiWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+    plug :fetch_query_params
     # core.ENG.6 - API pipeline is strictly stateless (no session/flash)
     plug OpenApiSpex.Plug.PutApiSpec, module: AcaiWeb.Api.ApiSpec
   end
@@ -50,6 +51,14 @@ defmodule AcaiWeb.Router do
     # push.ENDPOINT.2 - Content-Type application/json (handled by pipeline)
     # push.ENDPOINT.3 - Requires Authorization Bearer token header (handled by BearerAuth plug)
     post "/push", PushController, :create
+
+    # implementations.ENDPOINT.1 - GET /api/v1/implementations
+    # implementations.ENDPOINT.2 - Requires Authorization Bearer token header
+    get "/implementations", ImplementationsController, :index
+
+    # feature-context.ENDPOINT.1 - GET /api/v1/feature-context
+    # feature-context.ENDPOINT.2 - Requires Authorization Bearer token header
+    get "/feature-context", FeatureContextController, :show
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

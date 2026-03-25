@@ -20,6 +20,16 @@ defmodule AcaiWeb.Api.Plugs.ControllerAction do
         |> put_private(:phoenix_controller, AcaiWeb.Api.PushController)
         |> put_private(:phoenix_action, :create)
 
+      :implementations ->
+        conn
+        |> put_private(:phoenix_controller, AcaiWeb.Api.ImplementationsController)
+        |> put_private(:phoenix_action, :index)
+
+      :feature_context ->
+        conn
+        |> put_private(:phoenix_controller, AcaiWeb.Api.FeatureContextController)
+        |> put_private(:phoenix_action, :show)
+
       _other ->
         conn
     end
