@@ -11,7 +11,7 @@ defmodule Acai.DataModelFixtures do
   alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
   alias Acai.Implementations.{Implementation, Branch, TrackedBranch}
 
-  def unique_team_name, do: "team-#{System.unique_integer([:positive])}"
+  def unique_team_name, do: "team-#{Ecto.UUID.generate()}"
   def unique_product_name, do: "product-#{System.unique_integer([:positive])}"
   def unique_feature_name, do: "feature-#{System.unique_integer([:positive])}"
 

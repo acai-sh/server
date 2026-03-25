@@ -122,6 +122,42 @@ defmodule AcaiWeb.Api.ImplementationsControllerTest do
       assert [%{"implementation_name" => "Main"}] = data["implementations"]
     end
 
+    # implementations.FILTERS.5, implementations.FILTERS.6
+    test "includes inherited feature matches without local specs", %{
+      conn: conn,
+      token: token,
+      team: team
+    } do
+      product = product_fixture(team, %{name: "api"})
+
+      parent = implementation_fixture(product, %{name: "Parent", is_active: true})
+
+      child =
+        implementation_fixture(product, %{
+          name: "Child",
+          is_active: true,
+          parent_implementation_id: parent.id
+        })
+
+      branch = branch_fixture(team, %{repo_uri: "github.com/acai/api", branch_name: "main"})
+      tracked_branch_fixture(parent, %{branch: branch})
+      tracked_branch_fixture(child, %{branch: branch})
+
+      feature_name = "inherited-feature"
+      spec_fixture(product, %{feature_name: feature_name, branch: branch})
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> get("/api/v1/implementations", %{
+          "product_name" => "api",
+          "feature_name" => feature_name
+        })
+
+      assert %{"data" => data} = json_response(conn, 200)
+      assert Enum.map(data["implementations"], & &1["implementation_name"]) == ["Child", "Parent"]
+    end
+
     # implementations.RESPONSE.7
     test "returns an empty list when nothing matches", %{conn: conn, token: token, team: team} do
       _product = product_fixture(team, %{name: "api"})

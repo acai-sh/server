@@ -9,6 +9,7 @@ defmodule Acai.Implementations do
   alias Acai.Products.Product
   alias Acai.Teams.Team
   alias Acai.Specs.FeatureImplState
+  alias Acai.Specs
 
   # --- Implementations ---
 
@@ -84,11 +85,11 @@ defmodule Acai.Implementations do
       end
 
     if is_binary(feature_name) and feature_name != "" do
+      # implementations.FILTERS.5, implementations.FILTERS.6
+      availability = Specs.batch_check_feature_availability([feature_name], implementations)
+
       Enum.filter(implementations, fn implementation ->
-        case Acai.Specs.resolve_canonical_spec(feature_name, implementation.id) do
-          {nil, nil} -> false
-          {_spec, _source} -> true
-        end
+        availability[{feature_name, implementation.id}] == true
       end)
     else
       implementations
