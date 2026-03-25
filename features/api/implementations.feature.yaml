@@ -1,0 +1,62 @@
+feature:
+    name: implementations
+    product: api
+    version: 1.0.0
+    description: |
+        The implementations endpoint lists and filters implementations.
+        It is used by the CLI to resolve which implementation or implementations are relevant to a branch before read or write operations that need an implementation context.
+
+components:
+    ENDPOINT:
+        description: HTTP interface
+        requirements:
+            1: "GET /api/v1/implementations"
+            2: Requires Authorization Bearer token header
+
+    REQUEST:
+        description: Query parameters for implementation lookup
+        requirements:
+            1: Requires `product_name` string
+            2: Accepts optional `repo_uri` string
+            3: Accepts optional `branch_name` string
+            4: Accepts optional `feature_name` string
+            4-note: When provided, returned implementations are filtered to only those that can resolve that feature within the given product
+
+    FILTERS:
+        description: How implementation filtering behaves
+        requirements:
+            1: Lists implementations only within the requested product and the token's team
+            2: When `repo_uri` and `branch_name` are provided, only implementations tracking that exact branch are returned
+            3: "`branch_name` without `repo_uri` is rejected"
+            4: "`repo_uri` without `branch_name` is rejected"
+            5: When `feature_name` is provided, implementations that cannot resolve that feature are excluded
+            6: Implementations inherit feature availability using the same canonical spec resolution rules as the implementation view
+
+    RESPONSE:
+        description: The response shape for implementation discovery
+        requirements:
+            1: "On success, returns HTTP 200 with a JSON body containing a `data` object"
+            2: "The `data` object includes `product_name`"
+            3: When branch filters are provided, the `data` object includes `repo_uri` and `branch_name`
+            4: "The `data` object includes an `implementations` list"
+            5: Each implementation entry includes `implementation_name` and `implementation_id`
+            6: The implementations list is sorted by implementation_name
+            7: The implementations list is empty when no matching implementation exists
+            8: "On validation error, returns HTTP 422 with an `errors` object containing a `detail` string"
+            9: "On auth error, returns HTTP 401 with an `errors` object containing a `detail` string"
+            10: "On scope or permission error, returns HTTP 403 with an `errors` object containing a `detail` string"
+
+constraints:
+    AUTH:
+        requirements:
+            1: Requires a valid, non-expired, non-revoked API token
+            2: Token scopes must include `impls:read`
+            3: If `feature_name` is provided, token scopes must also include `specs:read`
+            4: All lookups are scoped to the token's team_id
+
+    VALIDATION:
+        requirements:
+            1: "`product_name` is required"
+            2: "`repo_uri` and `branch_name` are optional as a pair"
+            3: "`feature_name` is optional"
+            4: The endpoint is read-only and never mutates products, implementations, branches, specs, refs, or states

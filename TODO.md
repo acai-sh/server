@@ -155,3 +155,24 @@ Below, I ran through the core journeys I could think of to make sure they are we
 - Update states specs and remove them
 - Document these journeys in the CLI repo
 - Make sure the API handles these journeys appropriately
+
+--- 
+/acids
+
+Your task is to help me write a new feature spec (following acai conventions) for the `/acids` endpoint.
+We are in the process of a refactor, so here is some background and context.
+First, the `states` were included as part of the `/push` endpoint request body, allowing the user to write to the `feature_impl_states` alongside pushing new specs/requirements and code references. We decided this adds too much complexity because `/push` can touch many implementations (e.g. pushing from a branch that is tracked by several impls already), while states only ever apply to one specific implementation.
+We are we are currently in the process of planning our migration and refactor. The `/push` spec has already been updated, but not the code. I will resolve this once I am happy that the requirements in the new specs are satisfactory.
+
+None of these products are in production yet, so we do not need to worry about migration pain or versioning.
+
+Now, I am thinking that a `/acids` endpoint kills two birds with one stone. It can expose the actual acceptance criteria (requirements) for a specific implementation's spec, which is useful for AI agents to self assign work.
+It can also pull in any states related to that, and allow agents to write states as well. It would support inheritance, where an implementation may not have it's own spec or states or refs, but inherits some or all of these from a parent, similar to how our `implementation` UI works.
+
+This endpoint will power AI agents to read the status of a feature's implementation e.g. "tell me which ACIDs have not yet been completed for the `Staging` implementation of the `scan` feature in the `cli` product".
+It will also power them to update status when work is completed (typically, marking a batch of ACIDs as "completed").
+For now, we will only allow query on a single feature + implementation + product at a time. If multiple implementations are tracking the user's working branch, they will need to do separate queries for each (out of scope for this task).
+
+I before settling on `/acids` I did start drafting `/docs/states.old.yaml`, and it does include some key decisions around how we handle dangling states etc. I would read to answer key questions and capture the key behavior but don't treat it as a template (it's missing a lot).
+
+Start by reading `system-design.md` and `push.feature.yaml` and `/docs/states.old.yaml`, evaluating our data model, and then asking key questions to help fill in any ambiguities. Once those questions are answered, you will write a beautiful, simple, readable `acids.feature.yaml` that describes the key behavior and acceptance criteria of our new API endpoint-- including supported filters, required params, known cases to handle,and key engineering constraints, etc.

@@ -1,13 +1,12 @@
 feature:
     name: push
+    product: api
     description: |
         The push endpoint is the primary write API for the acai CLI.
         It ingests multiple specs, code references, and git metadata in a single json payload.
         It can be used to update existing product implementations (for example, updates to Production when specs change or code has been refactored).
         It can also be used to create a new implementation, with inheritance semantics (for example, when branching from Staging to work on a new spec or fix an existing one).
     version: 1.0.0
-    product: api
-    draft: true
 
 components:
     ENDPOINT:

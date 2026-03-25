@@ -52,7 +52,8 @@ The `branches` table stores stable rows per `(team_id, repo_uri, branch_name)`, 
 Supported via optional `parent_implementation_id` with `ON DELETE SET NULL`.
 
 Inheritance behavior:
-- **Specs** are resolved across tracked branches, with the child's spec taking precedence when both parent and child track the same feature.
+- **Specs** are resolved across the implementation's tracked branches first. If multiple tracked branches contain the same feature, the spec row with the most recent `updated_at` timestamp wins. If no local spec is found, resolution walks the parent chain.
+- **States** are resolved per feature + implementation, walking up the parent chain only when no local `feature_impl_states` row exists.
 - **Code references** are aggregated across tracked branches, walking up the parent chain when needed.
 
 New implementations are created automatically when specs are pushed to an untracked branch; the default implementation name is the branch name. Parent must be explicitly specified at creation time via `parent_impl_name` — there is no auto-inheritance.
@@ -86,9 +87,12 @@ All tables include `created_at` and `updated_at` timestamps. Primary keys are `u
 
 ## CLI
 
-Most use cases are covered by `acai push`:
+The MVP CLI separates branch-derived sync from implementation status updates:
 - `acai push`: Git-aware push of changed specs and code references only
-- `acai push --all`: Full repo scan and push (useful for initial setup or after significant drift)
+- `acai push --all`: Full repo scan and push
+- `acai feature <feature-name>`: Read canonical feature context for one implementation
+- `acai work`: Read a lightweight worklist of features for one implementation
+- `acai set-status <json>`: Write requirement states for one feature in one implementation
 
 ### Multi-Product Push (Monorepo)
 
@@ -130,11 +134,30 @@ Fewer specs/refs included in the payload. Note: work on one feature can cause re
 - Branch already tracked by a different implementation than the given target
 - `parent_impl_name` provided on an existing tracked branch (parent is immutable after creation)
 
+### GET /api/v1/implementations
+
+Lists implementations within one product, with optional filtering by `repo_uri` + `branch_name` and optional `feature_name`.
+
+### GET /api/v1/implementation-features
+
+Returns a lightweight feature worklist for one implementation, including completion counts, ref counts, and spec commit metadata.
+
+### GET /api/v1/feature-context
+
+Returns the canonical requirements, resolved states, and optional refs for one feature in one implementation.
+
+### PATCH /api/v1/feature-states
+
+Writes states for one feature in one implementation. On first write for a feature + implementation, states are snapshotted from the parent implementation if one exists, then merged with the incoming state map.
+
 ## Key User Journeys
 
 All journeys work locally, on CI (GitHub Actions), or via git hooks:
 - Update an existing spec
 - Add a new spec
+- Query which implementation a branch maps to
+- Read the canonical context for a feature before implementation work
+- Record progress for a batch of ACIDs on one feature
 - Delete or rename a feature or product
 - Edit code or tests, creating new code references
 - Push specs and code references in a single call
@@ -148,6 +171,7 @@ All journeys work locally, on CI (GitHub Actions), or via git hooks:
 | Parent deleted | Child survives | `ON DELETE SET NULL` |
 | Override mode | Replace entire bucket | Full bucket replacement |
 | Concurrent pushes | Last-write-wins | Latest successful write |
+| Same spec on multiple tracked branches | Most recent `updated_at` wins at read time | e.g. `frontend/main` and `backend/main` both push `important-feature` |
 
 ## Decisions
 

@@ -1,0 +1,58 @@
+feature:
+    name: push
+    product: cli
+    version: 1.0.0
+    draft: true
+    description: |
+        The `acai push` command scans the local repo for specs and ACID references, builds one payload per product,
+        and syncs that branch-derived truth to the API.
+
+components:
+    MAIN:
+        description: Primary command behavior
+        requirements:
+            1: Exposes `acai push`
+            2: Accepts optional feature argument to limit scanning to one feature
+            3: Accepts `--all` to scan all eligible spec and source files from repo root
+            4: Accepts optional `--target` selector for naming or linking implementations
+            5: Accepts optional `--parent` selector for establishing inheritance when a new implementation is created
+            6: Reads the current repo remote and branch name from git
+            7: Scans local spec files and code references from repo root
+            8: Groups outgoing payloads by product because the API accepts one product per push request
+
+    SCAN:
+        description: Spec and ref collection
+        requirements:
+            1: Parses feature specs from local files
+            2: Extracts full ACID references from code and tests
+            3: Associates each discovered spec with its path and last modified commit
+            4: Omits products that produced neither specs nor refs for the current scan
+
+    API:
+        description: Interaction with the push API
+        requirements:
+            1: Sends one `POST /api/v1/push` request per product discovered during the scan
+            2: Namespaced `--target product/impl` and `--parent product/impl` values are split by product before the API call
+            3: If a feature argument is provided, only matching specs and refs are included in each per-product payload
+            4: API failures for one product do not silently mask the result for another product
+
+    OUTPUT:
+        description: Human and machine readable results
+        requirements:
+            1: Prints one result block per product
+            2: Each result block includes the resolved implementation name when available
+            3: Each result block includes specs created and specs updated counts
+            4: Warnings returned by the API are surfaced to the user
+            5: Supports `--json` output for machine consumption
+
+constraints:
+    SAFETY:
+        requirements:
+            1: "`acai push` never scans or sends states"
+            2: Each outgoing API payload uses the product name parsed from the specs included in that payload
+            3: The command exits non-zero when any per-product push fails
+
+    UX:
+        requirements:
+            1: The command works in non-interactive environments such as CI and git hooks
+            2: The command produces deterministic per-product grouping from the same repo contents
