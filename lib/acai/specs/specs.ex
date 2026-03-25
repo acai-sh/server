@@ -1254,12 +1254,19 @@ defmodule Acai.Specs do
 
     with {:ok, normalized_statuses} <- normalize_status_filter(statuses),
          {:ok, context} <- load_feature_context_context(team, product_name, implementation_name) do
-      features =
+      feature_names =
         list_features_for_implementation(context.implementation, context.product)
-        |> Enum.map(fn {feature_name, _feature_name} ->
+        |> Enum.map(&elem(&1, 0))
+
+      feature_candidates = load_implementation_feature_candidates(context, feature_names)
+
+      features =
+        feature_names
+        |> Enum.map(fn feature_name ->
           build_implementation_feature_entry(
             feature_name,
             context,
+            feature_candidates,
             normalized_statuses,
             changed_since_commit
           )
@@ -1376,6 +1383,77 @@ defmodule Acai.Specs do
     end
   end
 
+  # implementation-features.DISCOVERY.1, implementation-features.DISCOVERY.2, implementation-features.DISCOVERY.3, implementation-features.DISCOVERY.4, implementation-features.DISCOVERY.5, implementation-features.DISCOVERY.6, implementation-features.DISCOVERY.7, implementation-features.DISCOVERY.8
+  defp load_implementation_feature_candidates(context, feature_names) do
+    %{
+      specs_by_feature: load_implementation_feature_specs(context, feature_names),
+      states_by_feature: load_implementation_feature_states(context, feature_names),
+      refs_by_feature: load_implementation_feature_refs(context, feature_names)
+    }
+  end
+
+  defp load_implementation_feature_specs(context, feature_names) do
+    if feature_names == [] or context.all_branch_ids == [] do
+      %{}
+    else
+      Repo.all(
+        from s in Spec,
+          join: b in assoc(s, :branch),
+          where:
+            s.feature_name in ^feature_names and
+              s.product_id == ^context.product.id and
+              s.branch_id in ^context.all_branch_ids,
+          order_by: [desc: s.updated_at, asc: b.branch_name, asc: s.id],
+          preload: [:branch]
+      )
+      |> Enum.group_by(& &1.feature_name)
+    end
+  end
+
+  defp load_implementation_feature_states(context, feature_names) do
+    if feature_names == [] or context.ancestor_ids == [] do
+      %{}
+    else
+      Repo.all(
+        from fis in FeatureImplState,
+          where:
+            fis.feature_name in ^feature_names and
+              fis.implementation_id in ^context.ancestor_ids,
+          select: {fis.feature_name, fis.implementation_id, fis}
+      )
+      |> Enum.reduce(%{}, fn {feature_name, implementation_id, state}, acc ->
+        Map.update(
+          acc,
+          feature_name,
+          %{implementation_id => state},
+          &Map.put(&1, implementation_id, state)
+        )
+      end)
+    end
+  end
+
+  defp load_implementation_feature_refs(context, feature_names) do
+    if feature_names == [] or context.all_branch_ids == [] do
+      %{}
+    else
+      Repo.all(
+        from fbr in FeatureBranchRef,
+          where:
+            fbr.feature_name in ^feature_names and
+              fbr.branch_id in ^context.all_branch_ids,
+          select: {fbr.feature_name, fbr.branch_id, fbr.refs}
+      )
+      |> Enum.reduce(%{}, fn {feature_name, branch_id, refs}, acc ->
+        Map.update(
+          acc,
+          feature_name,
+          %{branch_id => refs || %{}},
+          &Map.put(&1, branch_id, refs || %{})
+        )
+      end)
+    end
+  end
+
   # feature-context.RESOLUTION.1, feature-context.RESOLUTION.3, feature-context.RESOLUTION.4, feature-context.RESOLUTION.5, feature-context.RESPONSE.2
   defp load_feature_context_context(%Team{} = team, product_name, implementation_name) do
     with {:ok, product} <- Acai.Products.get_product_by_team_and_name(team, product_name),
@@ -1412,19 +1490,32 @@ defmodule Acai.Specs do
   defp build_implementation_feature_entry(
          feature_name,
          context,
+         feature_candidates,
          statuses,
          changed_since_commit
        ) do
-    case resolve_canonical_spec_with_context(feature_name, context) do
+    case resolve_canonical_spec_from_feature_specs(
+           feature_name,
+           context,
+           Map.get(feature_candidates.specs_by_feature, feature_name, [])
+         ) do
       {nil, nil} ->
         nil
 
       {spec, spec_source} ->
         {states_row, states_source_impl_id} =
-          get_feature_impl_state_with_context(feature_name, context)
+          get_feature_impl_state_from_feature_states(
+            feature_name,
+            context,
+            Map.get(feature_candidates.states_by_feature, feature_name, %{})
+          )
 
         {aggregated_refs, refs_source_impl_id} =
-          get_aggregated_refs_with_context(feature_name, context)
+          get_aggregated_refs_from_feature_refs(
+            feature_name,
+            context,
+            Map.get(feature_candidates.refs_by_feature, feature_name, %{})
+          )
 
         feature_statuses = feature_acid_statuses(spec, states_row)
 
@@ -1447,6 +1538,21 @@ defmodule Acai.Specs do
         else
           nil
         end
+    end
+  end
+
+  defp resolve_canonical_spec_from_feature_specs(_feature_name, context, specs) do
+    case specs do
+      [] ->
+        {nil, nil}
+
+      _ ->
+        resolve_canonical_spec_from_candidates(
+          specs,
+          context.ancestor_chain,
+          context.branch_ids_by_impl,
+          context.implementation.id
+        )
     end
   end
 
@@ -1565,12 +1671,7 @@ defmodule Acai.Specs do
               preload: [:branch]
           )
 
-        resolve_canonical_spec_from_candidates(
-          specs,
-          context.ancestor_chain,
-          context.branch_ids_by_impl,
-          context.implementation.id
-        )
+        resolve_canonical_spec_from_feature_specs(feature_name, context, specs)
     end
   end
 
@@ -1632,20 +1733,28 @@ defmodule Acai.Specs do
           )
           |> Map.new()
 
-        Enum.reduce_while(context.ancestor_chain, {nil, nil}, fn implementation, _acc ->
-          case Map.get(state_rows, implementation.id) do
-            nil ->
-              {:cont, {nil, nil}}
+        get_feature_impl_state_from_feature_states(feature_name, context, state_rows)
+    end
+  end
 
-            state ->
-              source_impl_id =
-                if implementation.id == context.implementation.id,
-                  do: nil,
-                  else: implementation.id
+  defp get_feature_impl_state_from_feature_states(_feature_name, context, state_rows) do
+    if state_rows == %{} do
+      {nil, nil}
+    else
+      Enum.reduce_while(context.ancestor_chain, {nil, nil}, fn implementation, _acc ->
+        case Map.get(state_rows, implementation.id) do
+          nil ->
+            {:cont, {nil, nil}}
 
-              {:halt, {state, source_impl_id}}
-          end
-        end)
+          state ->
+            source_impl_id =
+              if implementation.id == context.implementation.id,
+                do: nil,
+                else: implementation.id
+
+            {:halt, {state, source_impl_id}}
+        end
+      end)
     end
   end
 
@@ -1667,31 +1776,40 @@ defmodule Acai.Specs do
           )
           |> Map.new(fn ref -> {ref.branch_id, ref} end)
 
-        Enum.reduce_while(context.ancestor_chain, {[], nil}, fn implementation, _acc ->
-          branches = Map.get(context.branches_by_impl, implementation.id, [])
+        get_aggregated_refs_from_feature_refs(feature_name, context, refs_by_branch_id)
+    end
+  end
 
-          aggregated_refs =
-            branches
-            |> Enum.flat_map(fn branch ->
-              case Map.get(refs_by_branch_id, branch.id) do
-                nil -> []
-                ref -> [{branch, ref.refs || %{}}]
-              end
-            end)
+  defp get_aggregated_refs_from_feature_refs(_feature_name, context, refs_by_branch_id) do
+    if refs_by_branch_id == %{} do
+      {[], nil}
+    else
+      Enum.reduce_while(context.ancestor_chain, {[], nil}, fn implementation, _acc ->
+        branches = Map.get(context.branches_by_impl, implementation.id, [])
 
-          case aggregated_refs do
-            [] ->
-              {:cont, {[], nil}}
+        aggregated_refs =
+          branches
+          |> Enum.flat_map(fn branch ->
+            case Map.get(refs_by_branch_id, branch.id) do
+              nil -> []
+              %FeatureBranchRef{refs: refs} -> [{branch, refs || %{}}]
+              refs when is_map(refs) -> [{branch, refs || %{}}]
+            end
+          end)
 
-            _ ->
-              source_impl_id =
-                if implementation.id == context.implementation.id,
-                  do: nil,
-                  else: implementation.id
+        case aggregated_refs do
+          [] ->
+            {:cont, {[], nil}}
 
-              {:halt, {aggregated_refs, source_impl_id}}
-          end
-        end)
+          _ ->
+            source_impl_id =
+              if implementation.id == context.implementation.id,
+                do: nil,
+                else: implementation.id
+
+            {:halt, {aggregated_refs, source_impl_id}}
+        end
+      end)
     end
   end
 

@@ -139,6 +139,64 @@ defmodule Acai.SpecsTest do
     }
   end
 
+  # implementation-features.DISCOVERY.1, implementation-features.DISCOVERY.2, implementation-features.DISCOVERY.3, implementation-features.DISCOVERY.4, implementation-features.DISCOVERY.5, implementation-features.DISCOVERY.6, implementation-features.DISCOVERY.7, implementation-features.DISCOVERY.8
+  defp measure_implementation_features_queries(fun) do
+    original_log_level = Logger.level()
+    storage_key = {:implementation_features_query_count_result, make_ref()}
+
+    try do
+      Logger.configure(level: :debug)
+
+      log_output =
+        ExUnit.CaptureLog.capture_log(fn ->
+          Process.put(storage_key, fun.())
+        end)
+
+      {Process.get(storage_key), analyze_queries(log_output)}
+    after
+      Process.delete(storage_key)
+      Logger.configure(level: original_log_level)
+    end
+  end
+
+  defp analyze_queries(log_output) do
+    query_blocks =
+      log_output
+      |> String.split("[debug] QUERY")
+      |> Enum.drop(1)
+
+    stats =
+      Enum.reduce(query_blocks, %{select: 0, insert: 0, update: 0, delete: 0}, fn block, acc ->
+        lines = String.split(block, "\n")
+
+        sql_line =
+          Enum.find(lines, fn line ->
+            String.match?(line, ~r/^\s*(SELECT|INSERT|UPDATE|DELETE)/i)
+          end) || ""
+
+        cond do
+          String.match?(sql_line, ~r/^\s*SELECT/i) ->
+            Map.update!(acc, :select, &(&1 + 1))
+
+          String.match?(sql_line, ~r/^\s*INSERT/i) ->
+            Map.update!(acc, :insert, &(&1 + 1))
+
+          String.match?(sql_line, ~r/^\s*UPDATE/i) ->
+            Map.update!(acc, :update, &(&1 + 1))
+
+          String.match?(sql_line, ~r/^\s*DELETE/i) ->
+            Map.update!(acc, :delete, &(&1 + 1))
+
+          true ->
+            acc
+        end
+      end)
+
+    total = stats.select + stats.insert + stats.update + stats.delete
+
+    Map.merge(stats, %{total: total, raw_blocks: length(query_blocks)})
+  end
+
   describe "list_specs/2" do
     test "returns empty list when no specs exist" do
       team = team_fixture()
@@ -2724,6 +2782,85 @@ defmodule Acai.SpecsTest do
 
       assert Enum.map(data.features, & &1.feature_name) == ["alpha"]
       assert hd(data.features).spec_last_seen_commit == "alpha-commit-a"
+    end
+
+    # implementation-features.DISCOVERY.1, implementation-features.DISCOVERY.2, implementation-features.DISCOVERY.3, implementation-features.DISCOVERY.4, implementation-features.DISCOVERY.5, implementation-features.DISCOVERY.6, implementation-features.DISCOVERY.7, implementation-features.DISCOVERY.8
+    test "keeps the worklist query count bounded while preserving canonical resolution" do
+      team = team_fixture()
+      ctx = implementation_features_setup(team)
+
+      {base_result, base_stats} =
+        measure_implementation_features_queries(fn ->
+          Specs.load_implementation_features(team, ctx.product.name, ctx.child.name,
+            changed_since_commit: "beta-parent-commit"
+          )
+        end)
+
+      assert {:ok, base_data} = base_result
+      assert Enum.map(base_data.features, & &1.feature_name) == ["alpha"]
+
+      for idx <- 1..8 do
+        feature_name = "bulk-#{idx}"
+
+        spec_fixture(ctx.product, %{
+          feature_name: feature_name,
+          branch: ctx.branch_a,
+          repo_uri: ctx.branch_a.repo_uri,
+          last_seen_commit: "#{feature_name}-commit",
+          feature_description: "Bulk feature #{idx}",
+          requirements: %{
+            "#{feature_name}.REQ.1" => %{requirement: "Bulk #{idx} requirement"}
+          }
+        })
+
+        {:ok, _} =
+          Specs.create_feature_impl_state(feature_name, ctx.child, %{
+            states: %{
+              "#{feature_name}.REQ.1" => %{"status" => "completed"}
+            }
+          })
+
+        feature_branch_ref_fixture(ctx.branch_a, feature_name, %{
+          refs: %{
+            "#{feature_name}.REQ.1" => [
+              %{"path" => "lib/#{feature_name}.ex:1", "is_test" => false}
+            ]
+          },
+          commit: "#{feature_name}-ref"
+        })
+      end
+
+      {result, stats} =
+        measure_implementation_features_queries(fn ->
+          Specs.load_implementation_features(team, ctx.product.name, ctx.child.name,
+            changed_since_commit: "beta-parent-commit"
+          )
+        end)
+
+      assert {:ok, data} = result
+      assert stats.total <= base_stats.total + 2
+
+      assert Enum.map(data.features, & &1.feature_name) ==
+               [
+                 "alpha",
+                 "bulk-1",
+                 "bulk-2",
+                 "bulk-3",
+                 "bulk-4",
+                 "bulk-5",
+                 "bulk-6",
+                 "bulk-7",
+                 "bulk-8"
+               ]
+
+      alpha = Enum.find(data.features, &(&1.feature_name == "alpha"))
+      assert alpha.description == "Alpha from branch A"
+      assert alpha.completed_count == 2
+      assert alpha.has_local_spec == true
+      assert alpha.has_local_states == true
+      assert alpha.states_inherited == false
+      assert alpha.refs_inherited == false
+      assert alpha.spec_last_seen_commit == "alpha-commit-a"
     end
   end
 end
