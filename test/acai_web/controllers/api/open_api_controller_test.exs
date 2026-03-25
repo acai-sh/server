@@ -28,6 +28,29 @@ defmodule AcaiWeb.Api.OpenApiControllerTest do
       assert spec["components"]["securitySchemes"]["bearerAuth"]["type"] == "http"
       assert spec["components"]["securitySchemes"]["bearerAuth"]["scheme"] == "bearer"
 
+      # implementations.REQUEST.1
+      assert Enum.any?(spec["paths"]["/implementations"]["get"]["parameters"], fn param ->
+               param["name"] == "product_name" and param["required"] == true
+             end)
+
+      # feature-context.REQUEST.1, feature-context.REQUEST.2, feature-context.REQUEST.3
+      feature_context_params = spec["paths"]["/feature-context"]["get"]["parameters"]
+
+      assert Enum.any?(
+               feature_context_params,
+               &(&1["name"] == "product_name" and &1["required"] == true)
+             )
+
+      assert Enum.any?(
+               feature_context_params,
+               &(&1["name"] == "feature_name" and &1["required"] == true)
+             )
+
+      assert Enum.any?(
+               feature_context_params,
+               &(&1["name"] == "implementation_name" and &1["required"] == true)
+             )
+
       assert spec["paths"]["/push"]["post"]["operationId"] ==
                "AcaiWeb.Api.PushController.create"
     end

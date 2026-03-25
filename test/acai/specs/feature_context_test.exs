@@ -1,10 +1,11 @@
 defmodule Acai.Specs.FeatureContextTest do
   @moduledoc false
 
-  use Acai.DataCase, async: true
+  use Acai.DataCase, async: false
 
   import Acai.DataModelFixtures
   import Ecto.Query
+  require Logger
 
   alias Acai.Repo
   alias Acai.Implementations
@@ -246,6 +247,50 @@ defmodule Acai.Specs.FeatureContextTest do
                }
              ] = acid.refs
     end
+
+    # feature-context.RESOLUTION.1, feature-context.RESOLUTION.3, feature-context.RESOLUTION.4, feature-context.RESOLUTION.5
+    test "loads canonical context with bounded query count" do
+      team = team_fixture()
+      product = product_fixture(team)
+      parent = implementation_fixture(product, %{name: "parent"})
+
+      child =
+        implementation_fixture(product, %{name: "child", parent_implementation_id: parent.id})
+
+      branch = branch_fixture(team, %{repo_uri: "github.com/acai/api", branch_name: "main"})
+      tracked_branch_fixture(parent, %{branch: branch})
+      tracked_branch_fixture(child, %{branch: branch})
+
+      feature_name = "query-budget-feature"
+
+      spec_fixture(product, %{
+        feature_name: feature_name,
+        branch: branch,
+        requirements: %{"#{feature_name}.REQ.1" => %{requirement: "Track me"}}
+      })
+
+      Specs.create_feature_impl_state(feature_name, parent, %{
+        states: %{"#{feature_name}.REQ.1" => %{"status" => "completed"}}
+      })
+
+      feature_branch_ref_fixture(branch, feature_name, %{
+        refs: %{
+          "#{feature_name}.REQ.1" => [%{"path" => "lib/acai/example.ex:1", "is_test" => false}]
+        }
+      })
+
+      {result, stats} =
+        measure_feature_context_queries(fn ->
+          Specs.get_feature_context(team, product.name, feature_name, child.name,
+            include_refs: true,
+            include_dangling_states: true
+          )
+        end)
+
+      assert {:ok, context} = result
+      assert context.implementation_name == child.name
+      assert stats.total <= 11
+    end
   end
 
   describe "get_implementation_by_team_and_product_name/3" do
@@ -274,5 +319,62 @@ defmodule Acai.Specs.FeatureContextTest do
                  "missing"
                )
     end
+  end
+
+  defp measure_feature_context_queries(fun) do
+    original_log_level = Logger.level()
+    storage_key = {:feature_context_query_count_result, make_ref()}
+
+    try do
+      Logger.configure(level: :debug)
+
+      log_output =
+        ExUnit.CaptureLog.capture_log(fn ->
+          Process.put(storage_key, fun.())
+        end)
+
+      {Process.get(storage_key), analyze_queries(log_output)}
+    after
+      Process.delete(storage_key)
+      Logger.configure(level: original_log_level)
+    end
+  end
+
+  defp analyze_queries(log_output) do
+    query_blocks =
+      log_output
+      |> String.split("[debug] QUERY")
+      |> Enum.drop(1)
+
+    stats =
+      Enum.reduce(query_blocks, %{select: 0, insert: 0, update: 0, delete: 0}, fn block, acc ->
+        lines = String.split(block, "\n")
+
+        sql_line =
+          Enum.find(lines, fn line ->
+            String.match?(line, ~r/^\s*(SELECT|INSERT|UPDATE|DELETE)/i)
+          end) || ""
+
+        cond do
+          String.match?(sql_line, ~r/^\s*SELECT/i) ->
+            Map.update!(acc, :select, &(&1 + 1))
+
+          String.match?(sql_line, ~r/^\s*INSERT/i) ->
+            Map.update!(acc, :insert, &(&1 + 1))
+
+          String.match?(sql_line, ~r/^\s*UPDATE/i) ->
+            Map.update!(acc, :update, &(&1 + 1))
+
+          String.match?(sql_line, ~r/^\s*DELETE/i) ->
+            Map.update!(acc, :delete, &(&1 + 1))
+
+          true ->
+            acc
+        end
+      end)
+
+    total = stats.select + stats.insert + stats.update + stats.delete
+
+    Map.merge(stats, %{total: total, raw_blocks: length(query_blocks)})
   end
 end

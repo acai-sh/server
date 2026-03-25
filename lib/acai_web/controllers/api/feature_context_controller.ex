@@ -19,13 +19,21 @@ defmodule AcaiWeb.Api.FeatureContextController do
     description:
       "Return the canonical spec, resolved states, and refs for one feature in one implementation.",
     parameters: [
-      OpenApiSpex.Operation.parameter(:product_name, :query, :string, "Product name"),
-      OpenApiSpex.Operation.parameter(:feature_name, :query, :string, "Feature name"),
+      # feature-context.REQUEST.1
+      OpenApiSpex.Operation.parameter(:product_name, :query, :string, "Product name",
+        required: true
+      ),
+      # feature-context.REQUEST.2
+      OpenApiSpex.Operation.parameter(:feature_name, :query, :string, "Feature name",
+        required: true
+      ),
       OpenApiSpex.Operation.parameter(
         :implementation_name,
         :query,
         :string,
-        "Implementation name"
+        "Implementation name",
+        # feature-context.REQUEST.3
+        required: true
       ),
       OpenApiSpex.Operation.parameter(
         :include_refs,

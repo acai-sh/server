@@ -17,7 +17,10 @@ defmodule AcaiWeb.Api.ImplementationsController do
     summary: "List implementations",
     description: "Return the implementations visible to the caller's team for one product.",
     parameters: [
-      OpenApiSpex.Operation.parameter(:product_name, :query, :string, "Product name"),
+      # implementations.REQUEST.1
+      OpenApiSpex.Operation.parameter(:product_name, :query, :string, "Product name",
+        required: true
+      ),
       OpenApiSpex.Operation.parameter(:repo_uri, :query, :string, "Exact repository URI",
         required: false
       ),
