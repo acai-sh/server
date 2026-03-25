@@ -74,6 +74,12 @@ defmodule Acai.Services.Push do
   # push.REQUEST.4, push.REQUEST.5, push.REQUEST.6, push.REQUEST.7, push.REQUEST.8
   # Normalize incoming params to use atom keys consistently throughout the service.
   # This eliminates the need for defensive `params[:key] || params["key"]` lookups.
+  defp normalize_params(params) when is_struct(params) do
+    params
+    |> Map.from_struct()
+    |> normalize_params()
+  end
+
   defp normalize_params(params) when is_map(params) do
     params
     |> normalize_map_keys()
@@ -90,6 +96,8 @@ defmodule Acai.Services.Push do
       Map.put(acc, normalize_param_key(key), value)
     end)
   end
+
+  defp normalize_map_keys(nil), do: nil
 
   defp normalize_param_key(key) when is_binary(key), do: Map.get(@normalized_param_keys, key, key)
   defp normalize_param_key(key), do: key
@@ -132,16 +140,16 @@ defmodule Acai.Services.Push do
     # If pushing specs, need specs:write
     cond do
       has_specs and not scope_map["specs:write"] ->
-        {:error, "Token missing required scope: specs:write"}
+        {:error, {:forbidden, "Token missing required scope: specs:write"}}
 
       refs != nil and not scope_map["refs:write"] ->
-        {:error, "Token missing required scope: refs:write"}
+        {:error, {:forbidden, "Token missing required scope: refs:write"}}
 
       states != nil and not scope_map["states:write"] ->
-        {:error, "Token missing required scope: states:write"}
+        {:error, {:forbidden, "Token missing required scope: states:write"}}
 
       has_specs and not scope_map["impls:write"] ->
-        {:error, "Token missing required scope: impls:write"}
+        {:error, {:forbidden, "Token missing required scope: impls:write"}}
 
       true ->
         :ok
@@ -805,14 +813,7 @@ defmodule Acai.Services.Push do
       changeset = Spec.changeset(%Spec{}, Map.drop(attrs, [:inserted_at, :updated_at, :id]))
 
       unless changeset.valid? do
-        errors =
-          Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-            Enum.reduce(opts, msg, fn {key, value}, acc ->
-              String.replace(acc, "%{#{key}}", to_string(value))
-            end)
-          end)
-
-        throw({:error, "Spec validation failed: #{inspect(errors)}"})
+        throw({:error, changeset})
       end
     end)
   end

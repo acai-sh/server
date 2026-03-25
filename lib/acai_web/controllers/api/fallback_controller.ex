@@ -18,52 +18,57 @@ defmodule AcaiWeb.Api.FallbackController do
 
   # Handle not found errors.
   def call(conn, {:error, :not_found}) do
-    conn
-    |> put_status(:not_found)
-    |> put_view(json: AcaiWeb.Api.ErrorJSON)
-    |> render(:error, status: :not_found, detail: "Resource not found")
+    render_error(conn, :not_found, "Resource not found")
+  end
+
+  def call(conn, {:error, :payload_too_large}) do
+    render_error(conn, 413, "Request body too large")
+  end
+
+  def call(conn, {:error, :rate_limited}) do
+    render_error(conn, 429, "Rate limit exceeded")
+  end
+
+  def call(conn, {:error, {:payload_too_large, reason}}) when is_binary(reason) do
+    render_error(conn, 413, reason)
+  end
+
+  def call(conn, {:error, {:rate_limited, reason}}) when is_binary(reason) do
+    render_error(conn, 429, reason)
   end
 
   # Handle forbidden errors (missing scope/permission).
   # push.RESPONSE.7 - On scope/permission error, returns HTTP 403
   def call(conn, {:error, :forbidden}) do
-    conn
-    |> put_status(:forbidden)
-    |> put_view(json: AcaiWeb.Api.ErrorJSON)
-    |> render(:error, status: :forbidden, detail: "Access denied")
+    render_error(conn, :forbidden, "Access denied")
   end
 
   def call(conn, {:error, {:forbidden, reason}}) when is_binary(reason) do
-    conn
-    |> put_status(:forbidden)
-    |> put_view(json: AcaiWeb.Api.ErrorJSON)
-    |> render(:error, status: :forbidden, detail: reason)
+    render_error(conn, :forbidden, reason)
   end
 
   # Handle changeset validation errors.
   def call(conn, {:error, %Changeset{} = changeset}) do
     errors = Changeset.traverse_errors(changeset, &format_error/1)
 
-    conn
-    |> put_status(:unprocessable_entity)
-    |> put_view(json: AcaiWeb.Api.ErrorJSON)
-    |> render(:error, status: :unprocessable_entity, detail: format_changeset_errors(errors))
+    render_error(conn, :unprocessable_entity, format_changeset_errors(errors))
   end
 
   # Handle generic error tuples with a reason string.
   def call(conn, {:error, reason}) when is_binary(reason) do
-    conn
-    |> put_status(:unprocessable_entity)
-    |> put_view(json: AcaiWeb.Api.ErrorJSON)
-    |> render(:error, status: :unprocessable_entity, detail: reason)
+    render_error(conn, :unprocessable_entity, reason)
   end
 
   # Handle atom-based error reasons.
   def call(conn, {:error, reason}) when is_atom(reason) do
+    render_error(conn, :unprocessable_entity, format_atom_error(reason))
+  end
+
+  defp render_error(conn, status, detail) do
     conn
-    |> put_status(:unprocessable_entity)
+    |> put_status(status)
     |> put_view(json: AcaiWeb.Api.ErrorJSON)
-    |> render(:error, status: :unprocessable_entity, detail: format_atom_error(reason))
+    |> render(:error, status: status, detail: detail)
   end
 
   defp format_error({msg, opts}) do

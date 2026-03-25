@@ -5,6 +5,7 @@ defmodule AcaiWeb.Api.OpenApiControllerTest do
   ACIDs:
   - core.API.1 - Exposes public /api/v1/openapi.json route
   - core.API.1-1 - Renders compliant OpenAPI JSON spec
+  - core.ENG.3 - Route documentation is defined inline in controllers
   """
 
   use AcaiWeb.ConnCase, async: true
@@ -26,6 +27,9 @@ defmodule AcaiWeb.Api.OpenApiControllerTest do
       # Check for security schemes
       assert spec["components"]["securitySchemes"]["bearerAuth"]["type"] == "http"
       assert spec["components"]["securitySchemes"]["bearerAuth"]["scheme"] == "bearer"
+
+      assert spec["paths"]["/push"]["post"]["operationId"] ==
+               "AcaiWeb.Api.PushController.create"
     end
 
     test "openapi.json route is accessible without Authorization header", %{conn: conn} do

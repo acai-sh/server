@@ -15,6 +15,30 @@ url_path = System.get_env("URL_PATH", "/")
 url_port = String.to_integer(System.get_env("URL_PORT", "443"))
 url_scheme = System.get_env("URL_SCHEME", "https")
 
+int_env = fn name, default ->
+  case System.get_env(name) do
+    nil -> default
+    value -> String.to_integer(value)
+  end
+end
+
+non_prod? = config_env() != :prod
+
+api_default_request_size_cap = if non_prod?, do: 2_000_000, else: 1_000_000
+api_push_request_size_cap = if non_prod?, do: 4_000_000, else: 2_000_000
+api_feature_states_request_size_cap = if non_prod?, do: 2_000_000, else: 1_000_000
+
+api_default_rate_limit =
+  if non_prod?,
+    do: %{window_seconds: 60, requests: 120},
+    else: %{window_seconds: 60, requests: 60}
+
+api_push_rate_limit =
+  if non_prod?, do: %{window_seconds: 60, requests: 60}, else: %{window_seconds: 60, requests: 30}
+
+api_feature_states_rate_limit =
+  if non_prod?, do: %{window_seconds: 60, requests: 60}, else: %{window_seconds: 60, requests: 30}
+
 # ~~~~~~~~~~~~~~~~~~~~~~~
 # 🔧 DEV / DEFAULT CONFIG
 # ~~~~~~~~~~~~~~~~~~~~~~~
@@ -23,6 +47,49 @@ config :acai, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 # Email sender configuration for white-labeling
 config :acai, :mail_from_name, System.get_env("MAIL_FROM_NAME", "UnconfiguredMailer")
 config :acai, :mail_from_email, System.get_env("MAIL_FROM_EMAIL", "noreply@example.com")
+
+config :acai, :api_operations,
+  default: %{
+    request_size_cap: int_env.("API_DEFAULT_REQUEST_SIZE_CAP", api_default_request_size_cap),
+    semantic_caps: %{
+      max_specs: int_env.("API_DEFAULT_MAX_SPECS", if(non_prod?, do: 100, else: 50)),
+      max_references:
+        int_env.("API_DEFAULT_MAX_REFERENCES", if(non_prod?, do: 2_000, else: 1_000))
+    },
+    rate_limit: %{
+      window_seconds:
+        int_env.("API_DEFAULT_RATE_LIMIT_WINDOW_SECONDS", api_default_rate_limit.window_seconds),
+      requests: int_env.("API_DEFAULT_RATE_LIMIT_REQUESTS", api_default_rate_limit.requests)
+    }
+  },
+  push: %{
+    request_size_cap: int_env.("API_PUSH_REQUEST_SIZE_CAP", api_push_request_size_cap),
+    semantic_caps: %{
+      max_specs: int_env.("API_PUSH_MAX_SPECS", if(non_prod?, do: 100, else: 50)),
+      max_references: int_env.("API_PUSH_MAX_REFERENCES", if(non_prod?, do: 2_000, else: 1_000))
+    },
+    rate_limit: %{
+      window_seconds:
+        int_env.("API_PUSH_RATE_LIMIT_WINDOW_SECONDS", api_push_rate_limit.window_seconds),
+      requests: int_env.("API_PUSH_RATE_LIMIT_REQUESTS", api_push_rate_limit.requests)
+    }
+  },
+  feature_states: %{
+    request_size_cap:
+      int_env.("API_FEATURE_STATES_REQUEST_SIZE_CAP", api_feature_states_request_size_cap),
+    semantic_caps: %{
+      max_states: int_env.("API_FEATURE_STATES_MAX_STATES", if(non_prod?, do: 1_000, else: 500))
+    },
+    rate_limit: %{
+      window_seconds:
+        int_env.(
+          "API_FEATURE_STATES_RATE_LIMIT_WINDOW_SECONDS",
+          api_feature_states_rate_limit.window_seconds
+        ),
+      requests:
+        int_env.("API_FEATURE_STATES_RATE_LIMIT_REQUESTS", api_feature_states_rate_limit.requests)
+    }
+  }
 
 config :acai, AcaiWeb.Endpoint,
   # What phoenix uses to construct browser urls

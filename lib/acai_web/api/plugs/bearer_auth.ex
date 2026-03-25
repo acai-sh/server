@@ -10,6 +10,7 @@ defmodule AcaiWeb.Api.Plugs.BearerAuth do
 
   import Plug.Conn
   alias Acai.Teams
+  alias AcaiWeb.Api.RejectionLog
 
   @doc """
   Initializes the plug with options.
@@ -50,19 +51,27 @@ defmodule AcaiWeb.Api.Plugs.BearerAuth do
       {:ok, %{token: token, team: team}} ->
         conn
         |> assign(:current_token, token)
+        |> assign(:current_token_id, token.id)
         |> assign(:current_team, team)
         |> assign(:current_team_id, team.id)
 
       {:error, reason} ->
-        unauthorized(conn, reason)
+        unauthorized(conn, reason, token_identifier: token_identifier(raw_token))
     end
   end
 
-  defp unauthorized(conn, detail) do
+  defp unauthorized(conn, detail, extra \\ []) do
+    RejectionLog.security(conn, detail, extra)
+
     conn
     |> put_status(:unauthorized)
     |> put_resp_content_type("application/json")
     |> Phoenix.Controller.json(%{errors: %{detail: detail}})
     |> halt()
   end
+
+  defp token_identifier(raw_token) when is_binary(raw_token),
+    do: RejectionLog.token_fingerprint(raw_token)
+
+  defp token_identifier(_), do: nil
 end

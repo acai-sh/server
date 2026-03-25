@@ -13,6 +13,7 @@ defmodule AcaiWeb.Api.Controller do
   defmacro __using__(_opts) do
     quote do
       use AcaiWeb, :controller
+      use OpenApiSpex.ControllerSpecs
 
       # core.ENG.5 - Use action_fallback for unified error handling
       action_fallback AcaiWeb.Api.FallbackController

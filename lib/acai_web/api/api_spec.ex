@@ -8,7 +8,7 @@ defmodule AcaiWeb.Api.ApiSpec do
   See core.API.1, core.API.1-1
   """
 
-  alias OpenApiSpex.{OpenApi, Info, Server, Components, SecurityScheme, PathItem, Tag}
+  alias OpenApiSpex.{OpenApi, Info, Server, Components, SecurityScheme, Tag}
 
   @spec spec() :: OpenApi.t()
   def spec do
@@ -29,11 +29,7 @@ defmodule AcaiWeb.Api.ApiSpec do
           description: "API v1"
         }
       ],
-      paths: %{
-        "/push" => %PathItem{
-          post: AcaiWeb.Api.PushController.open_api_operation(:create)
-        }
-      },
+      paths: build_paths(),
       tags: [
         %Tag{
           name: "Actions",
@@ -78,5 +74,13 @@ defmodule AcaiWeb.Api.ApiSpec do
       |> String.trim_trailing("/")
 
     "#{base_url}#{normalized_path}/api/v1"
+  end
+
+  defp build_paths do
+    AcaiWeb.Router
+    |> OpenApiSpex.Paths.from_router()
+    |> Map.new(fn {path, path_item} ->
+      {String.replace_prefix(path, "/api/v1", ""), path_item}
+    end)
   end
 end

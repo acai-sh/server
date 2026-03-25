@@ -5,9 +5,13 @@ defmodule AcaiWeb.Api.Plugs.BearerAuthTest do
   ACIDs:
   - push.AUTH.1 - Push requires a valid, non-expired, non-revoked API token
   - core.ENG.8 - All routes require Authorization header with Bearer token
+  - core.OPERATIONS.2 - Security rejections are logged through the application logger
+  - core.OPERATIONS.3 - Security logs include safe metadata without secret credentials
   """
 
   use AcaiWeb.ConnCase, async: true
+
+  import ExUnit.CaptureLog
 
   import Acai.DataModelFixtures
   alias Acai.AccountsFixtures
@@ -15,6 +19,7 @@ defmodule AcaiWeb.Api.Plugs.BearerAuthTest do
 
   alias Acai.Teams
   alias Acai.Teams.AccessToken
+  alias AcaiWeb.Api.RejectionLog
 
   describe "bearer token authentication" do
     setup do
@@ -153,6 +158,40 @@ defmodule AcaiWeb.Api.Plugs.BearerAuthTest do
 
       {:ok, body} = Jason.decode(conn.resp_body)
       assert body["errors"]["detail"] == "Token has expired"
+    end
+
+    test "missing Authorization header emits a structured security log", %{conn: conn} do
+      conn = %{conn | request_path: "/api/v1/push", method: "POST"}
+      conn = Plug.Conn.put_req_header(conn, "x-request-id", "req-log-1")
+
+      log =
+        capture_log(fn ->
+          conn = AcaiWeb.Api.Plugs.BearerAuth.call(conn, [])
+          assert conn.status == 401
+        end)
+
+      assert log =~ "api_rejection"
+      assert log =~ "req-log-1"
+      assert log =~ "/api/v1/push"
+      assert log =~ "Authorization header required"
+    end
+
+    test "invalid token logs a non-secret token fingerprint", %{conn: conn} do
+      raw_token = "at_invalidtoken123"
+      fingerprint = RejectionLog.token_fingerprint(raw_token)
+
+      conn = %{conn | request_path: "/api/v1/push", method: "POST"}
+      conn = Plug.Conn.put_req_header(conn, "authorization", "Bearer #{raw_token}")
+
+      log =
+        capture_log(fn ->
+          conn = AcaiWeb.Api.Plugs.BearerAuth.call(conn, [])
+          assert conn.status == 401
+        end)
+
+      assert log =~ "api_rejection"
+      assert log =~ fingerprint
+      refute log =~ raw_token
     end
   end
 end

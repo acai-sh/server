@@ -6,13 +6,17 @@ defmodule AcaiWeb.Api.PushControllerTest do
   - push.ENDPOINT.1 - POST /api/v1/push
   - push.ENDPOINT.2 - Content-Type application/json
   - push.ENDPOINT.3 - Requires Authorization Bearer token header
+  - core.ENG.1 - API router pipeline includes OpenApiSpex.Plug.CastAndValidate
+  - core.ENG.3 - OpenApi route documentation is defined inline in controllers
+  - core.ENG.5 - Controllers use action_fallback for unified error handling
+  - core.OPERATIONS.1 - API abuse protections and limits are enforced at runtime
   - push.RESPONSE.1 - On success, returns HTTP 200 with a JSON body containing a `data` object
   - push.RESPONSE.5 - On validation error, returns HTTP 422
   - push.RESPONSE.6 - On auth error, returns HTTP 401
   - push.RESPONSE.7 - On scope/permission error, returns HTTP 403
   """
 
-  use AcaiWeb.ConnCase, async: true
+  use AcaiWeb.ConnCase, async: false
 
   import Acai.DataModelFixtures
   alias Acai.AccountsFixtures
@@ -45,6 +49,16 @@ defmodule AcaiWeb.Api.PushControllerTest do
 
   describe "POST /api/v1/push" do
     setup do
+      original = Application.get_env(:acai, :api_operations)
+
+      on_exit(fn ->
+        if is_nil(original) do
+          Application.delete_env(:acai, :api_operations)
+        else
+          Application.put_env(:acai, :api_operations, original)
+        end
+      end)
+
       user = AccountsFixtures.user_fixture()
       team = team_fixture()
       user_team_role_fixture(team, user, %{title: "owner"})
@@ -61,7 +75,11 @@ defmodule AcaiWeb.Api.PushControllerTest do
     end
 
     test "returns 401 when Authorization header is missing", %{conn: conn} do
-      conn = post(conn, ~p"/api/v1/push", @valid_push_params)
+      conn =
+        conn
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
+        |> post(~p"/api/v1/push", @valid_push_params)
 
       assert json_response(conn, 401)
       assert conn.resp_body =~ "Authorization header required"
@@ -71,6 +89,8 @@ defmodule AcaiWeb.Api.PushControllerTest do
       conn =
         conn
         |> put_req_header("authorization", "Bearer invalid_token")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
         |> post(~p"/api/v1/push", @valid_push_params)
 
       assert json_response(conn, 401)
@@ -81,6 +101,8 @@ defmodule AcaiWeb.Api.PushControllerTest do
       conn =
         conn
         |> put_req_header("authorization", "Basic sometoken")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
         |> post(~p"/api/v1/push", @valid_push_params)
 
       assert json_response(conn, 401)
@@ -103,10 +125,44 @@ defmodule AcaiWeb.Api.PushControllerTest do
       conn =
         conn
         |> put_req_header("authorization", "Bearer #{limited_token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
         |> post(~p"/api/v1/push", @valid_push_params)
 
       assert json_response(conn, 403)
       assert conn.resp_body =~ "specs:write"
+    end
+
+    test "returns 429 when the shared rate limit is exceeded", %{conn: conn, token: token} do
+      Application.put_env(:acai, :api_operations, %{
+        default: %{
+          request_size_cap: 2_000_000,
+          semantic_caps: %{},
+          rate_limit: %{requests: 1, window_seconds: 60}
+        },
+        push: %{
+          rate_limit: %{requests: 1, window_seconds: 60}
+        }
+      })
+
+      first_conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
+        |> post(~p"/api/v1/push", @valid_push_params)
+
+      assert json_response(first_conn, 200)
+
+      second_conn =
+        build_conn()
+        |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
+        |> post(~p"/api/v1/push", @valid_push_params)
+
+      assert json_response(second_conn, 429)
+      assert second_conn.resp_body =~ "Rate limit exceeded"
     end
 
     test "successfully pushes specs and creates implementation", %{
@@ -117,6 +173,8 @@ defmodule AcaiWeb.Api.PushControllerTest do
       conn =
         conn
         |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
         |> post(~p"/api/v1/push", @valid_push_params)
 
       response = json_response(conn, 200)
@@ -143,6 +201,8 @@ defmodule AcaiWeb.Api.PushControllerTest do
       conn =
         conn
         |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
         |> post(~p"/api/v1/push", @valid_push_params)
 
       assert json_response(conn, 200)
@@ -164,6 +224,8 @@ defmodule AcaiWeb.Api.PushControllerTest do
       conn =
         build_conn()
         |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
         |> post(~p"/api/v1/push", refs_params)
 
       response = json_response(conn, 200)
@@ -180,6 +242,26 @@ defmodule AcaiWeb.Api.PushControllerTest do
       conn =
         conn
         |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
+        |> post(~p"/api/v1/push", invalid_params)
+
+      assert json_response(conn, 422)
+    end
+
+    test "returns 422 when request body fails OpenAPI validation", %{conn: conn, token: token} do
+      invalid_params = %{
+        repo_uri: "github.com/test-org/test-repo",
+        branch_name: "main",
+        commit_hash: "abc123def456",
+        specs: %{}
+      }
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
         |> post(~p"/api/v1/push", invalid_params)
 
       assert json_response(conn, 422)
@@ -206,10 +288,52 @@ defmodule AcaiWeb.Api.PushControllerTest do
       conn =
         conn
         |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
         |> post(~p"/api/v1/push", states_params)
 
       assert json_response(conn, 422)
       assert conn.resp_body =~ "Cannot push states"
+    end
+
+    test "returns 422 and flattens changeset errors when spec validation fails", %{
+      conn: conn,
+      token: token
+    } do
+      invalid_spec_params = %{
+        repo_uri: "github.com/test-org/test-repo",
+        branch_name: "main",
+        commit_hash: "abc123def456",
+        specs: [
+          %{
+            feature: %{
+              name: "invalid feature name",
+              product: "test-product",
+              description: "A test feature",
+              version: "1.0.0"
+            },
+            requirements: %{
+              "test-feature.REQ.1" => %{
+                requirement: "Must do something"
+              }
+            },
+            meta: %{
+              path: "features/test.feature.yaml",
+              last_seen_commit: "abc123def456"
+            }
+          }
+        ]
+      }
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
+        |> post(~p"/api/v1/push", invalid_spec_params)
+
+      assert json_response(conn, 422)
+      assert conn.resp_body =~ "feature_name"
     end
 
     test "rejects multi-product push", %{conn: conn, token: token} do
@@ -240,6 +364,8 @@ defmodule AcaiWeb.Api.PushControllerTest do
       conn =
         conn
         |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
         |> post(~p"/api/v1/push", multi_product_params)
 
       assert json_response(conn, 422)

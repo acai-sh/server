@@ -730,7 +730,7 @@ defmodule Acai.Services.PushTest do
           %{name: "Limited", scopes: ["refs:write"]}
         )
 
-      assert {:error, reason} = Push.execute(limited_token, @valid_push_params)
+      assert {:error, {:forbidden, reason}} = Push.execute(limited_token, @valid_push_params)
       assert reason =~ "specs:write"
     end
 
