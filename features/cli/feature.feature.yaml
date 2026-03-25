@@ -20,15 +20,6 @@ components:
             7: Accepts optional `--status <value>` filters, repeatable
             8: Supports `--json` output for machine consumption
 
-    TARGETING:
-        description: How the command resolves the implementation
-        requirements:
-            1: When `--impl` is provided, the command uses it directly
-            2: When `--impl` is omitted, the command reads the current repo remote and branch from git and resolves candidates via the implementations API
-            3: If branch targeting yields exactly one implementation, that implementation is used automatically
-            4: If branch targeting yields multiple implementations, the command exits with an ambiguity error and lists the candidate names
-            5: If branch targeting yields no implementations, the command exits non-zero and states that no implementation matched the current repo, branch, and product
-
     API:
         description: Interaction with the feature context API
         requirements:
