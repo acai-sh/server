@@ -27,6 +27,14 @@ defmodule AcaiWeb.Api.RejectionLogTest do
     assert log =~ "/api/v1/push"
   end
 
+  test "test logger config suppresses api_rejection events at the console only" do
+    {:ok, %{filters: filters}} = :logger.get_handler_config(:default)
+
+    assert Keyword.has_key?(filters, :api_rejection)
+    assert RejectionLog.filter_api_rejection(%{meta: %{api_rejection: true}}, nil) == :stop
+    assert RejectionLog.filter_api_rejection(%{meta: %{}}, nil) == :ignore
+  end
+
   test "token fingerprints are non-secret and stable" do
     fingerprint = RejectionLog.token_fingerprint("Bearer secret-token-value")
 

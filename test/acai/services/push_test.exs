@@ -21,6 +21,7 @@ defmodule Acai.Services.PushTest do
   use Acai.DataCase, async: true
 
   import Acai.DataModelFixtures
+  import ExUnit.CaptureLog
   alias Acai.AccountsFixtures
   alias Acai.Services.Push
   alias Acai.Teams
@@ -592,8 +593,17 @@ defmodule Acai.Services.PushTest do
         push: %{semantic_caps: %{max_specs: 0, max_references: 0}}
       })
 
-      assert {:error, reason} = Push.execute(token, @valid_push_params)
-      assert reason =~ "too many specs"
+      log =
+        capture_log(fn ->
+          assert {:error, reason} = Push.execute(token, @valid_push_params)
+          assert reason =~ "too many specs"
+        end)
+
+      assert log =~ "api_rejection"
+      assert log =~ "/api/v1/push"
+      assert log =~ to_string(token.id)
+      assert log =~ to_string(token.team_id)
+      refute log =~ token.raw_token
     end
 
     # push.NEW_IMPLS.5

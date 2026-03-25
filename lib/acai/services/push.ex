@@ -15,13 +15,13 @@ defmodule Acai.Services.Push do
   """
 
   import Ecto.Query
-  require Logger
 
   alias Acai.Repo
   alias Acai.Teams.AccessToken
   alias Acai.Implementations.{Branch, Implementation, TrackedBranch}
   alias Acai.Products.Product
   alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
+  alias AcaiWeb.Api.RejectionLog
   alias AcaiWeb.Api.Operations
 
   @push_endpoint "/api/v1/push"
@@ -442,8 +442,8 @@ defmodule Acai.Services.Push do
       |> Enum.reject(fn {_key, value} -> is_nil(value) end)
       |> Map.new()
 
-    Logger.warning(fn -> "api_rejection #{Jason.encode!(payload)}" end)
-    :ok
+    # push.ABUSE.5
+    RejectionLog.emit(payload)
   end
 
   defp do_push(token, params) do

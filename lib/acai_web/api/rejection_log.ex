@@ -20,6 +20,24 @@ defmodule AcaiWeb.Api.RejectionLog do
     log_rejection(conn, :abuse, reason, extra)
   end
 
+  # core.OPERATIONS.2
+  # core.OPERATIONS.3
+  @spec emit(map() | keyword()) :: :ok
+  def emit(payload) do
+    payload =
+      payload
+      |> Map.new()
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Map.new()
+
+    Logger.warning(fn -> {"api_rejection #{Jason.encode!(payload)}", [api_rejection: true]} end)
+    :ok
+  end
+
+  # core.OPERATIONS.2
+  def filter_api_rejection(%{meta: %{api_rejection: true}}, _config), do: :stop
+  def filter_api_rejection(_event, _config), do: :ignore
+
   @spec token_fingerprint(String.t()) :: String.t()
   def token_fingerprint(raw_token) when is_binary(raw_token) do
     :crypto.hash(:sha256, raw_token)
@@ -33,11 +51,8 @@ defmodule AcaiWeb.Api.RejectionLog do
       |> base_metadata()
       |> Map.merge(%{category: category, reason: normalize_reason(reason)})
       |> Map.merge(Map.new(extra))
-      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
-      |> Map.new()
 
-    Logger.warning(fn -> "api_rejection #{Jason.encode!(payload)}" end)
-    :ok
+    emit(payload)
   end
 
   defp base_metadata(conn) do
