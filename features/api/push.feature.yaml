@@ -38,6 +38,7 @@ components:
             8-note: When provided, all specs in the push must belong to the same product as the parent implementation. Resolved within the request product, which comes from pushed specs when present or `product_name` when specs are absent.
             9: Accepts optional `product_name` string
             9-note: Required for refs-only pushes that create or link an implementation because refs do not identify a product.
+            10: If `specs` contains the same `feature.name` more than once, the push is rejected
 
     FEAT:
         description: The shape of the `feature` object contained in a spec object
@@ -82,6 +83,7 @@ components:
             4: Refs can be pushed independently of specs (common in multi-repo setups)
             5: When override is false, incoming refs replace existing refs per-ACID key; untouched ACIDs in the existing bucket are preserved
             6: When override is true, all existing refs for each touched feature + branch bucket are replaced entirely
+            7: A refs-only push to an untracked branch is allowed without creating or linking an implementation unless the request also satisfies NEW_IMPLS.6 or LINK_IMPLS.1
 
     STATES:
         deprecated: true
@@ -176,6 +178,7 @@ components:
             6: Creates a new implementation from a refs-only push when the branch is not yet tracked by any implementation and `product_name`, `target_impl_name`, and `parent_impl_name` are all provided
             6-1: A refs-only implementation creation always creates a new child implementation and never links the branch to an existing implementation
             6-2: The new child implementation belongs to `product_name` and inherits from `parent_impl_name`
+            7: A refs-only push to an untracked branch does not create an implementation unless it satisfies 6
 
     LINK_IMPLS:
         description: |
@@ -193,13 +196,15 @@ components:
             2: On successful link, specs and refs are written to the linked implementation as normal
             3: If `target_impl_name` matches an existing implementation but that implementation already tracks a branch in this repo_uri, the push is rejected with a helpful error
             4: If `parent_impl_name` is provided for an untracked branch, the push never links to an existing implementation and instead follows the new child implementation rules in NEW_IMPLS
+            5: If an untracked refs-only push provides `product_name` and `target_impl_name` but does not satisfy 1, the push is rejected unless it satisfies NEW_IMPLS.6
 
     EXISTING_IMPLS:
-        description: In most cases we are pushing refs or spec changes to an existing implementation (Prod, Staging, etc)
+        description: In most cases the branch is already tracked by one or more implementations
         requirements:
-            1: When the branch is already tracked by an implementation, all specs and refs are written to that implementation
-            2: If the branch is tracked by multiple implementations and no `target_impl_name` is provided, the push is rejected with a helpful error listing the implementation names
-            3: If the branch is tracked by multiple implementations and `target_impl_name` is provided, the push targets only that implementation
+            1: When the branch is already tracked by one implementation, specs and refs are written to that branch as normal
+            2: If the branch is tracked by multiple implementations and the request needs an implementation context, `target_impl_name` is required
+            2-note: An implementation context is needed for implementation-scoped behavior such as the response implementation fields or validating `parent_impl_name`
+            3: If the branch is tracked by multiple implementations and `target_impl_name` is provided, the push resolves the implementation context to that implementation only
             4: If the branch is already tracked by implementation X and `target_impl_name` resolves to a different implementation Y, the push is rejected with a helpful error
             4-note: This prevents accidentally pushing to the wrong implementation. To re-link a branch, use the frontend.
 
@@ -227,6 +232,7 @@ components:
             4: Forgotten refs can be added in subsequent pushes via the references map
             5: If the branch is already tracked by an implementation and a different parent_impl_name is provided, reject with an error explaining that parent cannot be changed via push.
             5-1: If the parent name matches, do nothing (idempotent / duplicate request case).
+            6: Re-pushing the same refs-only payload to an untracked branch without implementation-creation inputs leaves the branch untracked
 
 constraints:
     AUTH:
@@ -247,7 +253,7 @@ constraints:
         requirements:
             1: All operations within a push are atomic; any failure rolls back the entire push
             1-note: Any rejection causes nothing to be written — including refs and specs.
-            2: Concurrent pushes to the same implementation use last-write-wins semantics
+            2: Concurrent pushes to the same branch and implementation context use last-write-wins semantics
 
     VALIDATION:
         name: Validation constraints
@@ -260,6 +266,7 @@ constraints:
             6: If specs are present and `product_name` is also provided, `product_name` must match the shared `feature.product` value from the pushed specs
             7: A refs-only push that creates or links an implementation requires explicit `product_name`
             8: A refs-only push that creates a new child implementation requires explicit `target_impl_name` and `parent_impl_name`
+            9: If a refs-only push to an untracked branch provides any of `product_name`, `target_impl_name`, or `parent_impl_name`, the combination must satisfy either NEW_IMPLS.6 or LINK_IMPLS.1
 
     ABUSE:
         name: Abuse protection and operational limits

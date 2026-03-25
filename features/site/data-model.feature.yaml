@@ -190,12 +190,13 @@ constraints:
         name: Implementation creation
         description: |
             Describes how implementations are created during a push.
-            Implementation creation requires specs -- the product is derived from the pushed specs.
+            Implementations are usually created from pushed specs, but may also be created from refs-only pushes when the request provides explicit product and parent information.
             There is no auto-inheritance for MVP. Parent must be explicitly specified.
         requirements:
             1: When CLI pushes specs to an untracked branch, the server auto-creates an implementation.
             2: Implementation name defaults to the branch name being pushed.
             3: CLI may provide explicit --parent-impl flag to set parent at creation time. --parent-branch is deferred post-MVP.
+            4: A refs-only push may create a new child implementation when product, target implementation name, and parent implementation name are all provided.
 
     INHERITANCE:
         name: Implementation inheritance semantics

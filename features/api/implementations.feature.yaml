@@ -30,7 +30,7 @@ components:
             3: "`branch_name` without `repo_uri` is rejected"
             4: "`repo_uri` without `branch_name` is rejected"
             5: When `feature_name` is provided, implementations that cannot resolve that feature are excluded
-            6: Implementations inherit feature availability using the same canonical spec resolution rules as the implementation view
+            6: Implementations inherit feature availability using the same canonical spec resolution rules as `feature-context`
 
     RESPONSE:
         description: The response shape for implementation discovery

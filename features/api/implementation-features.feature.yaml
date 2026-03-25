@@ -19,6 +19,7 @@ components:
             1: Requires `product_name` string
             2: Requires `implementation_name` string
             3: Accepts optional `statuses` list of valid state values, including `null`
+            3-1: `statuses` is encoded as a repeated query parameter and the literal string `null` means the null status
             4: Accepts optional `changed_since_commit` string
             4-note: Filters to features whose canonical spec `last_seen_commit` differs from the provided commit
 
@@ -31,6 +32,8 @@ components:
             4: Completion counts use the resolved states for that implementation, inheriting from the nearest ancestor row when no local row exists
             5: Ref counts aggregate refs across all tracked branches for the implementation, falling back to the nearest ancestor implementation only when no refs exist locally
             6: When `statuses` is provided, a feature is included only if at least one of its resolved ACIDs has a matching status
+            7: `changed_since_commit` compares against the canonical spec selected by this endpoint, including inherited canonical specs
+            8: If multiple local specs have the same most recent `updated_at`, the canonical spec is the one with the lexicographically smallest branch name
 
     RESPONSE:
         description: The response shape for implementation worklists

@@ -24,6 +24,7 @@ components:
             4-1: "`states` contains a map of full ACID strings to state objects"
             4-2: Each state object requires nullable `status`
             4-3: Each state object accepts optional `comment` string
+            4-4: `states` must contain at least one ACID entry
             5: Every ACID in `states` must share the requested `feature_name` prefix
             6: The request updates exactly one feature and one implementation
 

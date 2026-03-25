@@ -128,7 +128,7 @@ Fewer specs/refs included in the payload. Note: work on one feature can cause re
 
 #### Existing tracked branch
 - No parent/target: updates specs and refs as usual
-- With parent: parent is ignored (idempotent, parent is immutable after creation)
+- With parent: if the provided parent matches the existing parent, it is ignored; otherwise the API rejects because parent is immutable after creation
 - With target: API rejects if branch is tracked by a different implementation
 
 ## API
@@ -142,6 +142,7 @@ Fewer specs/refs included in the payload. Note: work on one feature can cause re
 - Push is idempotent
 - Partial pushes merge with existing data
 - Refs-only pushes can create a new child implementation when `product_name`, `target_impl_name`, and `parent_impl_name` are explicit
+- Refs-only pushes to an untracked branch may also write refs without creating or linking an implementation when no implementation-creation inputs are provided
 
 **Common Rejection Scenarios**:
 - Multi-product push (specs span multiple products)
@@ -149,6 +150,7 @@ Fewer specs/refs included in the payload. Note: work on one feature can cause re
 - Branch already tracked by a different implementation than the given target
 - `parent_impl_name` provided on an existing tracked branch (parent is immutable after creation)
 - Refs-only create/link request without explicit `product_name`
+- Refs-only untracked-branch request with partial creation/link inputs that do not fully match either the link flow or child-creation flow
 
 ### GET /api/v1/implementations
 
@@ -157,10 +159,12 @@ Lists implementations within one product, with optional filtering by `repo_uri` 
 ### GET /api/v1/implementation-features
 
 Returns a lightweight feature worklist for one implementation, including completion counts, ref counts, and spec commit metadata.
+When multiple local specs tie on `updated_at`, canonical resolution uses lexicographically smallest branch name.
 
 ### GET /api/v1/feature-context
 
 Returns the canonical requirements, resolved states, and optional refs for one feature in one implementation.
+`statuses` query filters are encoded as repeated query params, and the literal string `null` means the null status.
 
 ### PATCH /api/v1/feature-states
 
@@ -188,8 +192,9 @@ All journeys work locally, on CI (GitHub Actions), or via git hooks:
 | Parent deleted | Child survives | `ON DELETE SET NULL` |
 | Override mode | Replace entire bucket | Full bucket replacement |
 | Concurrent pushes | Last-write-wins | Latest successful write |
-| Same spec on multiple tracked branches | Most recent `updated_at` wins at read time | e.g. `frontend/main` and `backend/main` both push `important-feature` |
+| Same spec on multiple tracked branches | Most recent `updated_at` wins at read time | ties break by largest uuidv7 timestamp |
 | Refs-only child creation from spec-less repo | Allowed with explicit product + target + parent | Supports agent workflows in multi-repo products |
+| Refs-only push to untracked branch with no creation inputs | Allowed; refs are stored on the branch only | Branch remains untracked |
 
 ## Decisions
 
