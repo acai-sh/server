@@ -141,60 +141,30 @@ defmodule Acai.SpecsTest do
 
   # implementation-features.DISCOVERY.1, implementation-features.DISCOVERY.2, implementation-features.DISCOVERY.3, implementation-features.DISCOVERY.4, implementation-features.DISCOVERY.5, implementation-features.DISCOVERY.6, implementation-features.DISCOVERY.7, implementation-features.DISCOVERY.8
   defp measure_implementation_features_queries(fun) do
-    original_log_level = Logger.level()
-    storage_key = {:implementation_features_query_count_result, make_ref()}
+    handler_id = {:implementation_features_query_count, make_ref()}
+    count_key = {:implementation_features_query_count, make_ref()}
+    owner_pid = self()
+
+    :ok =
+      :telemetry.attach(
+        handler_id,
+        [:acai, :repo, :query],
+        fn _event, _measurements, _metadata, _config ->
+          if self() == owner_pid do
+            Process.put(count_key, (Process.get(count_key) || 0) + 1)
+          end
+        end,
+        nil
+      )
 
     try do
-      Logger.configure(level: :debug)
+      Process.put(count_key, 0)
 
-      log_output =
-        ExUnit.CaptureLog.capture_log(fn ->
-          Process.put(storage_key, fun.())
-        end)
-
-      {Process.get(storage_key), analyze_queries(log_output)}
+      {fun.(), %{total: Process.get(count_key) || 0}}
     after
-      Process.delete(storage_key)
-      Logger.configure(level: original_log_level)
+      :telemetry.detach(handler_id)
+      Process.delete(count_key)
     end
-  end
-
-  defp analyze_queries(log_output) do
-    query_blocks =
-      log_output
-      |> String.split("[debug] QUERY")
-      |> Enum.drop(1)
-
-    stats =
-      Enum.reduce(query_blocks, %{select: 0, insert: 0, update: 0, delete: 0}, fn block, acc ->
-        lines = String.split(block, "\n")
-
-        sql_line =
-          Enum.find(lines, fn line ->
-            String.match?(line, ~r/^\s*(SELECT|INSERT|UPDATE|DELETE)/i)
-          end) || ""
-
-        cond do
-          String.match?(sql_line, ~r/^\s*SELECT/i) ->
-            Map.update!(acc, :select, &(&1 + 1))
-
-          String.match?(sql_line, ~r/^\s*INSERT/i) ->
-            Map.update!(acc, :insert, &(&1 + 1))
-
-          String.match?(sql_line, ~r/^\s*UPDATE/i) ->
-            Map.update!(acc, :update, &(&1 + 1))
-
-          String.match?(sql_line, ~r/^\s*DELETE/i) ->
-            Map.update!(acc, :delete, &(&1 + 1))
-
-          true ->
-            acc
-        end
-      end)
-
-    total = stats.select + stats.insert + stats.update + stats.delete
-
-    Map.merge(stats, %{total: total, raw_blocks: length(query_blocks)})
   end
 
   describe "list_specs/2" do
