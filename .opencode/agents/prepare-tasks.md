@@ -2,7 +2,7 @@
 name: prepare-tasks
 description: "Plan a project by researching it and breaking it up into well-researched task files"
 mode: subagent
-model: opencode/gpt-5.4
+model: openai/gpt-5.4
 permission:
   edit: allow
   bash:

@@ -2,7 +2,7 @@
 name: supervise
 description: "The supervisor's only job is to coordinate and delegate other agents for task definition, implementation, and review."
 mode: primary
-model: opencode-go/kimi-k2.5
+model: opencode-go/minimax-m2.7
 permission:
   edit: allow
   bash:
