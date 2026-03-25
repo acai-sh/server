@@ -15,11 +15,16 @@ defmodule Acai.Services.Push do
   """
 
   import Ecto.Query
+  require Logger
+
   alias Acai.Repo
   alias Acai.Teams.AccessToken
   alias Acai.Implementations.{Branch, Implementation, TrackedBranch}
   alias Acai.Products.Product
   alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
+  alias AcaiWeb.Api.Operations
+
+  @push_endpoint "/api/v1/push"
 
   @normalized_param_keys %{
     "repo_uri" => :repo_uri,
@@ -28,6 +33,7 @@ defmodule Acai.Services.Push do
     "specs" => :specs,
     "references" => :references,
     "states" => :states,
+    "product_name" => :product_name,
     "target_impl_name" => :target_impl_name,
     "parent_impl_name" => :parent_impl_name,
     "feature" => :feature,
@@ -64,7 +70,8 @@ defmodule Acai.Services.Push do
     normalized_params = normalize_params(params)
 
     # Check required scopes based on what parts of the request are present
-    with :ok <- check_scopes(token, normalized_params) do
+    with :ok <- check_scopes(token, normalized_params),
+         :ok <- validate_push_request(token, normalized_params) do
       Repo.run_transaction(fn ->
         do_push(token, normalized_params)
       end)
@@ -137,6 +144,9 @@ defmodule Acai.Services.Push do
     states = params[:states]
     has_specs = specs != []
 
+    refs_only_impl_request? =
+      refs != nil and has_specs == false and refs_only_impl_context_requested?(params)
+
     # If pushing specs, need specs:write
     cond do
       has_specs and not scope_map["specs:write"] ->
@@ -147,6 +157,10 @@ defmodule Acai.Services.Push do
 
       states != nil and not scope_map["states:write"] ->
         {:error, {:forbidden, "Token missing required scope: states:write"}}
+
+      # push.AUTH.4
+      refs_only_impl_request? and not scope_map["impls:write"] ->
+        {:error, {:forbidden, "Token missing required scope: impls:write"}}
 
       has_specs and not scope_map["impls:write"] ->
         {:error, {:forbidden, "Token missing required scope: impls:write"}}
@@ -162,6 +176,251 @@ defmodule Acai.Services.Push do
     scopes = MapSet.new(token.scopes || [])
 
     Map.new(@write_scopes, fn scope -> {scope, MapSet.member?(scopes, scope)} end)
+  end
+
+  # push.AUTH.4
+  defp refs_only_impl_context_requested?(params) do
+    not is_nil(params[:product_name]) and
+      (not is_nil(params[:target_impl_name]) or not is_nil(params[:parent_impl_name]))
+  end
+
+  # push.REQUEST.10, push.VALIDATION.6, push.ABUSE.2
+  defp validate_push_request(token, params) do
+    specs = params[:specs] || []
+
+    with :ok <- validate_duplicate_feature_names(token, specs, params),
+         :ok <- validate_spec_product_name(token, specs, params),
+         :ok <- validate_semantic_caps(token, params) do
+      :ok
+    end
+  end
+
+  # push.REQUEST.10
+  defp validate_duplicate_feature_names(token, specs, params) do
+    feature_names = extract_feature_names_from_specs(specs)
+
+    case Enum.find(feature_names, fn feature_name ->
+           feature_name && Enum.count(feature_names, &(&1 == feature_name)) > 1
+         end) do
+      nil ->
+        :ok
+
+      duplicate_feature_name ->
+        reject_push_request(
+          token,
+          "Push rejected: specs contain duplicate feature.name '#{duplicate_feature_name}'.",
+          params,
+          spec_count: length(specs)
+        )
+    end
+  end
+
+  # push.VALIDATION.6
+  defp validate_spec_product_name(token, specs, params) do
+    case {specs, params[:product_name], extract_product_names_from_specs(specs)} do
+      {[], _, _} ->
+        :ok
+
+      {_, nil, _} ->
+        :ok
+
+      {_, product_name, [shared_product_name]} when product_name == shared_product_name ->
+        :ok
+
+      {_, product_name, [shared_product_name]} ->
+        reject_push_request(
+          token,
+          "product_name '#{product_name}' must match pushed specs product '#{shared_product_name}'",
+          params,
+          product_name: product_name
+        )
+
+      {_, _product_name, _} ->
+        :ok
+    end
+  end
+
+  # push.ABUSE.2-1, push.ABUSE.2-2, push.ABUSE.2-3, push.ABUSE.2-4, push.ABUSE.2-5,
+  # push.ABUSE.2-6, push.ABUSE.2-7, push.ABUSE.2-8
+  defp validate_semantic_caps(token, params) do
+    caps = Operations.semantic_caps(:push)
+    specs = params[:specs] || []
+
+    cond do
+      exceeds_cap?(length(specs), caps[:max_specs]) ->
+        reject_push_request(token, "Push rejected: too many specs in one push.", params,
+          spec_count: length(specs),
+          max_specs: caps[:max_specs]
+        )
+
+      exceeds_cap?(references_entry_count(params[:references]), caps[:max_references]) ->
+        reject_push_request(
+          token,
+          "Push rejected: too many reference entries in one push.",
+          params,
+          reference_count: references_entry_count(params[:references]),
+          max_references: caps[:max_references]
+        )
+
+      violation = spec_cap_violation(specs, caps) ->
+        reject_push_request(token, violation, params, spec_count: length(specs))
+
+      exceeds_string_cap?(params[:repo_uri], caps[:max_repo_uri_length]) ->
+        reject_push_request(
+          token,
+          "Push rejected: repo_uri exceeds the configured maximum length.",
+          params,
+          repo_uri_length: string_length(params[:repo_uri]),
+          max_repo_uri_length: caps[:max_repo_uri_length]
+        )
+
+      true ->
+        :ok
+    end
+  end
+
+  defp spec_cap_violation(specs, caps) do
+    Enum.find_value(specs, fn spec ->
+      requirements = spec[:requirements] || %{}
+
+      cond do
+        exceeds_cap?(map_size(requirements), caps[:max_requirements_per_spec]) ->
+          "Push rejected: a spec exceeded the configured requirement count."
+
+        exceeds_string_cap?(
+          spec_in(spec, [:meta, :raw_content]),
+          caps[:max_raw_content_bytes],
+          :byte_size
+        ) ->
+          "Push rejected: meta.raw_content exceeds the configured maximum length."
+
+        exceeds_string_cap?(
+          spec_in(spec, [:feature, :description]),
+          caps[:max_feature_description_length]
+        ) ->
+          "Push rejected: feature.description exceeds the configured maximum length."
+
+        exceeds_string_cap?(spec_in(spec, [:meta, :path]), caps[:max_meta_path_length]) ->
+          "Push rejected: meta.path exceeds the configured maximum length."
+
+        requirement_over_limit =
+            invalid_requirement_text?(requirements, caps[:max_requirement_string_length]) ->
+          requirement_over_limit
+
+        true ->
+          nil
+      end
+    end)
+  end
+
+  defp invalid_requirement_text?(_requirements, nil), do: nil
+
+  defp invalid_requirement_text?(requirements, max_length) when is_integer(max_length) do
+    Enum.find_value(requirements, fn {_acid, definition} ->
+      requirement_text =
+        cond do
+          is_map(definition) ->
+            Map.get(definition, :requirement) ||
+              Map.get(definition, "requirement") ||
+              Map.get(definition, :definition) ||
+              Map.get(definition, "definition") ||
+              ""
+
+          is_binary(definition) ->
+            definition
+
+          true ->
+            ""
+        end
+
+      if string_length(requirement_text) > max_length do
+        "Push rejected: a requirement string exceeds the configured maximum length."
+      else
+        nil
+      end
+    end)
+  end
+
+  defp invalid_requirement_text?(_requirements, _max_length), do: nil
+
+  defp references_entry_count(nil), do: 0
+
+  defp references_entry_count(references) when is_map(references) do
+    references
+    |> Map.get(:data, %{})
+    |> case do
+      data when is_map(data) -> map_size(data)
+      _ -> 0
+    end
+  end
+
+  defp references_entry_count(_), do: 0
+
+  defp exceeds_cap?(_value, nil), do: false
+  defp exceeds_cap?(value, cap) when is_integer(cap), do: value > cap
+  defp exceeds_cap?(_value, _cap), do: false
+
+  defp exceeds_string_cap?(value, cap), do: exceeds_string_cap?(value, cap, :length)
+
+  defp exceeds_string_cap?(value, cap, mode)
+
+  defp exceeds_string_cap?(nil, _cap, _mode), do: false
+
+  defp exceeds_string_cap?(value, cap, mode) when is_integer(cap) do
+    case normalized_string_length(value, mode) do
+      nil -> false
+      length -> length > cap
+    end
+  end
+
+  defp exceeds_string_cap?(_value, _cap, _mode), do: false
+
+  defp spec_in(spec, path) do
+    Enum.reduce(path, spec, fn key, acc ->
+      case acc do
+        %{} = map -> Map.get(map, key) || Map.get(map, to_string(key))
+        _ -> nil
+      end
+    end)
+  end
+
+  defp string_length(nil, :byte_size), do: nil
+  defp string_length(value, :byte_size) when is_binary(value), do: byte_size(value)
+  defp string_length(value, :byte_size), do: value |> to_string() |> byte_size()
+
+  defp string_length(nil), do: nil
+  defp string_length(value) when is_binary(value), do: String.length(value)
+  defp string_length(value), do: value |> to_string() |> String.length()
+
+  defp normalized_string_length(value, :byte_size), do: string_length(value, :byte_size)
+  defp normalized_string_length(value, :length), do: string_length(value)
+
+  defp reject_push_request(token, reason, params, extra) do
+    log_push_rejection(token, :abuse, reason, params, extra)
+    {:error, reason}
+  end
+
+  defp log_push_rejection(token, category, reason, params, extra) do
+    payload =
+      %{
+        request_id: nil,
+        endpoint: @push_endpoint,
+        method: "POST",
+        category: category,
+        reason: reason,
+        team_id: token.team_id,
+        token_id: token.id,
+        repo_uri: params[:repo_uri],
+        branch_name: params[:branch_name],
+        spec_count: length(params[:specs] || []),
+        reference_count: references_entry_count(params[:references])
+      }
+      |> Map.merge(Map.new(extra))
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Map.new()
+
+    Logger.warning(fn -> "api_rejection #{Jason.encode!(payload)}" end)
+    :ok
   end
 
   defp do_push(token, params) do
@@ -196,16 +455,23 @@ defmodule Acai.Services.Push do
         last_seen_commit: commit_hash
       })
 
-    # Step 2: If specs are present, handle product/implementation resolution
-    # This also validates multi-product constraint
-    # push.NEW_IMPLS.3, push.NEW_IMPLS.4
+    # Step 2: Resolve implementation context and enforce request-matrix rules
+    # push.NEW_IMPLS.3, push.NEW_IMPLS.4, push.NEW_IMPLS.6, push.LINK_IMPLS.1, push.LINK_IMPLS.4,
+    # push.EXISTING_IMPLS.2, push.EXISTING_IMPLS.3, push.EXISTING_IMPLS.4, push.IDEMPOTENCY.5
     {product, implementation, warnings} =
-      if specs != [] do
-        handle_specs_push(team_id, branch, specs, target_impl_name, parent_impl_name)
-      else
-        # No specs - just resolve existing implementation if any
-        resolve_existing_implementation(team_id, branch, target_impl_name, states_data)
-      end
+      resolve_push_context(
+        token,
+        team_id,
+        branch,
+        specs,
+        refs_data,
+        target_impl_name,
+        parent_impl_name,
+        params
+      )
+
+    # push.IDEMPOTENCY.5, push.IDEMPOTENCY.5-1
+    maybe_validate_existing_parent!(token, implementation, parent_impl_name, params)
 
     # Step 3: Write specs
     # push.INSERT_SPEC.1, push.UPDATE_SPEC.1, push.UPDATE_SPEC.2, push.UPDATE_SPEC.3
@@ -311,16 +577,6 @@ defmodule Acai.Services.Push do
     :ok
   end
 
-  defp maybe_validate_shared_product!(target_impl, parent_impl, parent_impl_name) do
-    if parent_impl != nil and target_impl != nil and
-         target_impl.product_id != parent_impl.product_id do
-      throw(
-        {:error,
-         "Parent implementation '#{parent_impl_name}' must belong to the same product as the specs"}
-      )
-    end
-  end
-
   defp maybe_raise_name_collision!(existing_impl, implementation_name) do
     if existing_impl do
       throw(
@@ -331,8 +587,6 @@ defmodule Acai.Services.Push do
   end
 
   # push.NEW_IMPLS.4, push.VALIDATION.3, push.VALIDATION.4
-  # Shared helper: Extract unique product names from specs list.
-  # Eliminates duplicate product name extraction logic.
   defp extract_product_names_from_specs(specs) when is_list(specs) do
     specs
     |> Enum.map(fn spec ->
@@ -345,54 +599,281 @@ defmodule Acai.Services.Push do
 
   defp extract_product_names_from_specs(_), do: []
 
-  # Handle specs push - creates/links implementation and product
-  # push.NEW_IMPLS.1, push.NEW_IMPLS.2, push.NEW_IMPLS.3, push.NEW_IMPLS.4, push.NEW_IMPLS.5
-  # push.LINK_IMPLS.1, push.LINK_IMPLS.2, push.LINK_IMPLS.3
-  # push.EXISTING_IMPLS.1, push.EXISTING_IMPLS.2, push.EXISTING_IMPLS.3, push.EXISTING_IMPLS.4
-  defp handle_specs_push(team_id, branch, specs, target_impl_name, parent_impl_name) do
-    # push.NEW_IMPLS.4 - Get unique product names from specs using shared helper
-    product_names = extract_product_names_from_specs(specs)
+  # push.NEW_IMPLS.3, push.NEW_IMPLS.4, push.NEW_IMPLS.6, push.LINK_IMPLS.1, push.LINK_IMPLS.4
+  # push.EXISTING_IMPLS.2, push.EXISTING_IMPLS.3, push.EXISTING_IMPLS.4, push.IDEMPOTENCY.5
+  defp resolve_push_context(
+         token,
+         team_id,
+         branch,
+         specs,
+         refs_data,
+         target_impl_name,
+         parent_impl_name,
+         params
+       ) do
+    cond do
+      specs != [] ->
+        handle_specs_push(
+          token,
+          team_id,
+          branch,
+          specs,
+          params[:product_name],
+          target_impl_name,
+          parent_impl_name,
+          params
+        )
 
-    # push.NEW_IMPLS.4 - Reject multi-product pushes
-    if length(product_names) > 1 do
-      throw(
-        {:error,
-         "Push rejected: specs span multiple products (#{Enum.join(product_names, ", ")}). All specs must belong to the same product."}
-      )
+      true ->
+        handle_no_specs_push(
+          token,
+          team_id,
+          branch,
+          refs_data,
+          params[:product_name],
+          target_impl_name,
+          parent_impl_name,
+          params,
+          params[:states]
+        )
     end
+  end
 
-    product_name = List.first(product_names)
-
-    # Check if branch is already tracked by any implementation
+  defp handle_no_specs_push(
+         token,
+         team_id,
+         branch,
+         refs_data,
+         product_name,
+         target_impl_name,
+         parent_impl_name,
+         params,
+         states_data
+       ) do
     existing_trackings = implementation_trackings_for_branch(branch)
 
     cond do
-      # Case 1: Branch is already tracked by one or more implementations
       existing_trackings != [] ->
-        handle_tracked_branch_push(team_id, existing_trackings, target_impl_name, specs)
+        resolve_existing_implementation(team_id, branch, target_impl_name, states_data)
 
-      # Case 2: Branch is not tracked - look for target implementation or create new
-      true ->
-        handle_untracked_branch_push(
+      states_data != nil ->
+        throw({:error, @untracked_states_error})
+
+      refs_data != nil ->
+        handle_untracked_refs_only_push(
+          token,
           team_id,
           branch,
           product_name,
-          specs,
           target_impl_name,
-          parent_impl_name
+          parent_impl_name,
+          params
+        )
+
+      true ->
+        {nil, nil, []}
+    end
+  end
+
+  # push.NEW_IMPLS.6, push.NEW_IMPLS.7, push.LINK_IMPLS.1, push.LINK_IMPLS.4, push.LINK_IMPLS.5
+  # push.VALIDATION.7, push.VALIDATION.8, push.VALIDATION.9
+  defp handle_untracked_refs_only_push(
+         token,
+         team_id,
+         branch,
+         product_name,
+         target_impl_name,
+         parent_impl_name,
+         params
+       ) do
+    cond do
+      is_nil(product_name) and (not is_nil(target_impl_name) or not is_nil(parent_impl_name)) ->
+        {:error, reason} =
+          reject_push_request(
+            token,
+            "Refs-only pushes that create or link an implementation require product_name.",
+            params,
+            branch_name: branch.branch_name
+          )
+
+        throw({:error, reason})
+
+      not is_nil(parent_impl_name) and is_nil(target_impl_name) ->
+        {:error, reason} =
+          reject_push_request(
+            token,
+            "Refs-only pushes that create a new child implementation require target_impl_name and parent_impl_name.",
+            params,
+            branch_name: branch.branch_name
+          )
+
+        throw({:error, reason})
+
+      not is_nil(product_name) and not is_nil(target_impl_name) and not is_nil(parent_impl_name) ->
+        handle_untracked_child_push(
+          token,
+          team_id,
+          branch,
+          product_name,
+          target_impl_name,
+          parent_impl_name,
+          params
+        )
+
+      not is_nil(product_name) and not is_nil(target_impl_name) ->
+        handle_untracked_branch_link_or_create_push(
+          token,
+          team_id,
+          branch,
+          product_name,
+          target_impl_name,
+          params
+        )
+
+      not is_nil(product_name) or not is_nil(target_impl_name) or not is_nil(parent_impl_name) ->
+        {:error, reason} =
+          reject_push_request(
+            token,
+            "Refs-only push inputs must satisfy either the child-implementation or link-implementation rule set.",
+            params,
+            branch_name: branch.branch_name
+          )
+
+        throw({:error, reason})
+
+      true ->
+        {nil, nil, []}
+    end
+  end
+
+  # push.IDEMPOTENCY.5, push.IDEMPOTENCY.5-1
+  defp maybe_validate_existing_parent!(token, implementation, parent_impl_name, params) do
+    if implementation && parent_impl_name do
+      implementation = Repo.preload(implementation, :parent_implementation)
+
+      case implementation.parent_implementation do
+        %{name: ^parent_impl_name} ->
+          :ok
+
+        _ ->
+          {:error, reason} =
+            reject_push_request(
+              token,
+              "Parent implementation cannot be changed via push.",
+              params,
+              implementation_name: implementation.name
+            )
+
+          throw({:error, reason})
+      end
+    else
+      :ok
+    end
+  end
+
+  defp ensure_product!(team_id, product_name) do
+    case find_product(team_id, product_name) do
+      nil ->
+        {:ok, product} =
+          Product.changeset(%Product{}, %{name: product_name, team_id: team_id}) |> Repo.insert()
+
+        product
+
+      existing ->
+        existing
+    end
+  end
+
+  defp fetch_parent_implementation!(team_id, product_id, parent_impl_name) do
+    case Repo.one(
+           from i in Implementation,
+             where:
+               i.team_id == ^team_id and i.product_id == ^product_id and
+                 i.name == ^parent_impl_name
+         ) do
+      nil ->
+        throw({:error, "Parent implementation '#{parent_impl_name}' not found"})
+
+      parent ->
+        parent
+    end
+  end
+
+  defp handle_specs_push(
+         token,
+         team_id,
+         branch,
+         specs,
+         product_name,
+         target_impl_name,
+         parent_impl_name,
+         params
+       ) do
+    product_names = extract_product_names_from_specs(specs)
+
+    if length(product_names) > 1 do
+      reject_push_request(
+        token,
+        "Push rejected: specs span multiple products (#{Enum.join(product_names, ", ")}). All specs must belong to the same product.",
+        params,
+        spec_count: length(specs)
+      )
+      |> case do
+        {:error, reason} -> throw({:error, reason})
+      end
+    end
+
+    product_name = product_name || List.first(product_names)
+    existing_trackings = implementation_trackings_for_branch(branch)
+
+    cond do
+      existing_trackings != [] ->
+        handle_tracked_branch_push(
+          token,
+          team_id,
+          existing_trackings,
+          target_impl_name,
+          specs,
+          params
+        )
+
+      parent_impl_name != nil ->
+        handle_untracked_child_push(
+          token,
+          team_id,
+          branch,
+          product_name,
+          target_impl_name,
+          parent_impl_name,
+          params
+        )
+
+      true ->
+        handle_untracked_branch_link_or_create_push(
+          token,
+          team_id,
+          branch,
+          product_name,
+          target_impl_name,
+          params
         )
     end
   end
 
   # Handle push when branch is already tracked
   # push.EXISTING_IMPLS.1, push.EXISTING_IMPLS.2, push.EXISTING_IMPLS.3, push.EXISTING_IMPLS.4
-  defp handle_tracked_branch_push(_team_id, existing_trackings, target_impl_name, specs) do
+  defp handle_tracked_branch_push(
+         _token,
+         _team_id,
+         existing_trackings,
+         target_impl_name,
+         specs,
+         _params
+       ) do
     implementations = Enum.map(existing_trackings, & &1.implementation)
 
     implementation =
       cond do
-        # Multiple implementations and no target specified
-        # push.EXISTING_IMPLS.2
         length(implementations) > 1 and is_nil(target_impl_name) ->
           impl_names = Enum.map(implementations, & &1.name) |> Enum.join(", ")
 
@@ -401,8 +882,6 @@ defmodule Acai.Services.Push do
              "Branch is tracked by multiple implementations (#{impl_names}). Please provide target_impl_name to specify which implementation to push to."}
           )
 
-        # Multiple implementations with target specified
-        # push.EXISTING_IMPLS.3
         length(implementations) > 1 and not is_nil(target_impl_name) ->
           case Enum.find(implementations, &(&1.name == target_impl_name)) do
             nil ->
@@ -412,13 +891,10 @@ defmodule Acai.Services.Push do
               impl
           end
 
-        # Single implementation
         true ->
           hd(implementations)
       end
 
-    # If target_impl_name was provided, verify it matches
-    # push.EXISTING_IMPLS.4
     if target_impl_name && implementation.name != target_impl_name do
       throw(
         {:error,
@@ -426,12 +902,9 @@ defmodule Acai.Services.Push do
       )
     end
 
-    # push.VALIDATION.3 - Verify all specs belong to the same product as the implementation
-    # Reuse shared helper for product name extraction
     spec_product_names = extract_product_names_from_specs(specs)
 
-    if spec_product_names != [] and
-         hd(spec_product_names) != implementation.product.name do
+    if spec_product_names != [] and hd(spec_product_names) != implementation.product.name do
       throw(
         {:error,
          "All specs must belong to the same product as the target implementation '#{implementation.name}' (product: '#{implementation.product.name}')"}
@@ -441,52 +914,50 @@ defmodule Acai.Services.Push do
     {implementation.product, implementation, []}
   end
 
-  # Handle push when branch is not tracked
-  # push.NEW_IMPLS.1, push.NEW_IMPLS.3, push.NEW_IMPLS.5
-  # push.LINK_IMPLS.1, push.LINK_IMPLS.2, push.LINK_IMPLS.3
-  defp handle_untracked_branch_push(
+  # Handle push when branch is not tracked and the request explicitly wants a new child implementation.
+  # push.NEW_IMPLS.6, push.NEW_IMPLS.6-1, push.NEW_IMPLS.6-2
+  defp handle_untracked_child_push(
+         _token,
          team_id,
          branch,
          product_name,
-         _specs,
          target_impl_name,
-         parent_impl_name
+         parent_impl_name,
+         _params
        ) do
-    # push.NEW_IMPLS.3 - Get or create product
-    product =
-      case find_product(team_id, product_name) do
-        nil ->
-          # Create new product
-          {:ok, product} =
-            Product.changeset(%Product{}, %{name: product_name, team_id: team_id})
-            |> Repo.insert()
+    product = ensure_product!(team_id, product_name)
+    parent_impl = fetch_parent_implementation!(team_id, product.id, parent_impl_name)
 
-          product
-
-        existing ->
-          existing
-      end
-
-    # push.LINK_IMPLS.1, push.PARENTS.1, push.NEW_IMPLS.5
-    # Consolidate implementation lookups: batch fetch target and parent together when both present
-    {target_impl, parent_impl} =
-      fetch_implementations_consolidated(
-        team_id,
-        product,
-        branch,
-        target_impl_name,
-        parent_impl_name
-      )
-
-    # push.VALIDATION.4 - Validate parent and target are in same product
-    maybe_validate_shared_product!(target_impl, parent_impl, parent_impl_name)
-
-    # Determine implementation name (for new implementations)
     impl_name = target_impl_name || branch.branch_name
 
-    # push.NEW_IMPLS.5 - Check for name collision if creating new
-    # We already fetched target_impl if target_impl_name was provided, so we only
-    # need to check collision when NOT linking to existing implementation
+    existing_impl_for_collision =
+      fetch_implementation_name_collision(team_id, product.id, impl_name)
+
+    maybe_raise_name_collision!(existing_impl_for_collision, impl_name)
+
+    implementation = create_implementation(team_id, product, impl_name, parent_impl)
+    maybe_track_branch(implementation, branch)
+
+    {product, implementation, []}
+  end
+
+  # Handle push when branch is not tracked and the request may link to an existing implementation.
+  # push.NEW_IMPLS.1, push.NEW_IMPLS.3, push.NEW_IMPLS.5, push.LINK_IMPLS.1, push.LINK_IMPLS.3
+  defp handle_untracked_branch_link_or_create_push(
+         _token,
+         team_id,
+         branch,
+         product_name,
+         target_impl_name,
+         _params
+       ) do
+    product = ensure_product!(team_id, product_name)
+
+    {target_impl, _parent_impl} =
+      fetch_implementations_consolidated(team_id, product, branch, target_impl_name, nil)
+
+    impl_name = target_impl_name || branch.branch_name
+
     existing_impl_for_collision =
       if is_nil(target_impl_name) do
         fetch_implementation_name_collision(team_id, product.id, impl_name)
@@ -496,17 +967,14 @@ defmodule Acai.Services.Push do
 
     implementation =
       cond do
-        # push.LINK_IMPLS.1 - Linking to existing implementation
         target_impl_name && target_impl ->
           target_impl
 
-        # push.NEW_IMPLS.5 - Creating new implementation - check for name collision
         existing_impl_for_collision ->
           maybe_raise_name_collision!(existing_impl_for_collision, impl_name)
 
-        # push.NEW_IMPLS.1 - Create new implementation
         true ->
-          create_implementation(team_id, product, impl_name, parent_impl)
+          create_implementation(team_id, product, impl_name, nil)
       end
 
     maybe_track_branch(implementation, branch)
@@ -550,8 +1018,9 @@ defmodule Acai.Services.Push do
     target_impl =
       if target_impl_name do
         case Map.get(implementations_by_name, target_impl_name) do
+          # push.NEW_IMPLS.1, push.NEW_IMPLS.1-1
           nil ->
-            throw({:error, "Target implementation '#{target_impl_name}' not found"})
+            nil
 
           impl ->
             # push.LINK_IMPLS.3 - Check if implementation already tracks a branch in this repo

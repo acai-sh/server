@@ -21,7 +21,9 @@ defmodule AcaiWeb.Api.ApiSpec do
       info: %Info{
         title: "Acai API",
         version: "1.0.0",
-        description: "API for managing feature specs, implementations, and states"
+        # push.REQUEST.6, push.ABUSE.2-1, push.ABUSE.4
+        description:
+          "API for managing feature specs, implementations, and refs (with deprecated states support)"
       },
       servers: [
         %Server{
@@ -33,8 +35,9 @@ defmodule AcaiWeb.Api.ApiSpec do
       tags: [
         %Tag{
           name: "Actions",
+          # push.REQUEST.6, push.ABUSE.2-1, push.ABUSE.4
           description:
-            "Push specs, refs, and states from your repo to update feature definitions and implementation tracking"
+            "Push specs and refs from your repo to update feature definitions and implementation tracking; deprecated states remain supported for compatibility"
         }
       ],
       components: %Components{

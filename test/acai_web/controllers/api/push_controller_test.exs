@@ -6,6 +6,8 @@ defmodule AcaiWeb.Api.PushControllerTest do
   - push.ENDPOINT.1 - POST /api/v1/push
   - push.ENDPOINT.2 - Content-Type application/json
   - push.ENDPOINT.3 - Requires Authorization Bearer token header
+  - push.REQUEST.9 - Accepts optional `product_name` string
+  - push.AUTH.4 - Refs-only implementation scope enforcement
   - core.ENG.1 - API router pipeline includes OpenApiSpex.Plug.CastAndValidate
   - core.ENG.3 - OpenApi route documentation is defined inline in controllers
   - core.ENG.5 - Controllers use action_fallback for unified error handling
@@ -14,6 +16,8 @@ defmodule AcaiWeb.Api.PushControllerTest do
   - push.RESPONSE.5 - On validation error, returns HTTP 422
   - push.RESPONSE.6 - On auth error, returns HTTP 401
   - push.RESPONSE.7 - On scope/permission error, returns HTTP 403
+  - push.RESPONSE.8 - On oversized request body, returns HTTP 413
+  - push.RESPONSE.9 - On rate limit exceeded, returns HTTP 429
   """
 
   use AcaiWeb.ConnCase, async: false
@@ -133,6 +137,50 @@ defmodule AcaiWeb.Api.PushControllerTest do
       assert conn.resp_body =~ "specs:write"
     end
 
+    # push.AUTH.4
+    test "returns 403 when refs-only request would create an implementation without impls:write",
+         %{
+           conn: conn,
+           team: team,
+           user: user
+         } do
+      product = product_fixture(team, %{name: "child-product"})
+      _parent_impl = implementation_fixture(product, %{name: "parent-impl"})
+
+      {:ok, limited_token} =
+        Teams.generate_token(
+          %{user: user},
+          team,
+          %{name: "Refs Only", scopes: ["refs:write"]}
+        )
+
+      refs_only_child_params = %{
+        repo_uri: "github.com/test-org/child-repo",
+        branch_name: "child-branch",
+        commit_hash: "def789ghi012",
+        product_name: "child-product",
+        target_impl_name: "child-impl",
+        parent_impl_name: "parent-impl",
+        references: %{
+          data: %{
+            "child-feature.REQ.1" => [
+              %{path: "lib/child.ex:10", is_test: false}
+            ]
+          }
+        }
+      }
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{limited_token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
+        |> post(~p"/api/v1/push", refs_only_child_params)
+
+      assert json_response(conn, 403)
+      assert conn.resp_body =~ "impls:write"
+    end
+
     test "returns 429 when the shared rate limit is exceeded", %{conn: conn, token: token} do
       Application.put_env(:acai, :api_operations, %{
         default: %{
@@ -163,6 +211,35 @@ defmodule AcaiWeb.Api.PushControllerTest do
 
       assert json_response(second_conn, 429)
       assert second_conn.resp_body =~ "Rate limit exceeded"
+    end
+
+    # push.RESPONSE.8
+    test "returns 413 when the request body exceeds the configured size cap", %{
+      conn: conn,
+      token: token
+    } do
+      Application.put_env(:acai, :api_operations, %{
+        default: %{
+          request_size_cap: 1,
+          semantic_caps: %{},
+          rate_limit: %{requests: 1, window_seconds: 60}
+        },
+        push: %{
+          request_size_cap: 1,
+          semantic_caps: %{},
+          rate_limit: %{requests: 1, window_seconds: 60}
+        }
+      })
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
+        |> post(~p"/api/v1/push", Jason.encode!(@valid_push_params))
+
+      assert json_response(conn, 413)
+      assert conn.resp_body =~ "Request body too large"
     end
 
     test "successfully pushes specs and creates implementation", %{
@@ -233,6 +310,46 @@ defmodule AcaiWeb.Api.PushControllerTest do
       assert response["data"]["specs_updated"] == 0
     end
 
+    # push.NEW_IMPLS.6, push.NEW_IMPLS.6-1, push.NEW_IMPLS.6-2, push.RESPONSE.1, push.RESPONSE.2
+    test "creates a child implementation from refs-only inputs", %{
+      conn: conn,
+      token: token,
+      team: team
+    } do
+      product = product_fixture(team, %{name: "child-product"})
+      _parent_impl = implementation_fixture(product, %{name: "parent-impl"})
+
+      refs_only_child_params = %{
+        repo_uri: "github.com/test-org/child-repo",
+        branch_name: "child-branch",
+        commit_hash: "def789ghi012",
+        product_name: "child-product",
+        target_impl_name: "child-impl",
+        parent_impl_name: "parent-impl",
+        references: %{
+          data: %{
+            "child-feature.REQ.1" => [
+              %{path: "lib/child.ex:10", is_test: false}
+            ]
+          }
+        }
+      }
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
+        |> post(~p"/api/v1/push", refs_only_child_params)
+
+      response = json_response(conn, 200)
+
+      assert response["data"]["implementation_name"] == "child-impl"
+      assert response["data"]["product_name"] == "child-product"
+      assert response["data"]["implementation_id"]
+      assert response["data"]["branch_id"]
+    end
+
     test "returns 422 when required fields are missing", %{conn: conn, token: token} do
       invalid_params = %{
         # Missing repo_uri, branch_name, commit_hash
@@ -247,6 +364,36 @@ defmodule AcaiWeb.Api.PushControllerTest do
         |> post(~p"/api/v1/push", invalid_params)
 
       assert json_response(conn, 422)
+    end
+
+    # push.VALIDATION.7, push.VALIDATION.8, push.VALIDATION.9
+    test "returns 422 when refs-only implementation inputs are incomplete", %{
+      conn: conn,
+      token: token
+    } do
+      invalid_params = %{
+        repo_uri: "github.com/test-org/new-repo",
+        branch_name: "feature-branch",
+        commit_hash: "abc123def456",
+        references: %{
+          data: %{
+            "some-feature.REQ.1" => [
+              %{path: "lib/test.ex:42", is_test: false}
+            ]
+          }
+        },
+        product_name: "test-product"
+      }
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
+        |> post(~p"/api/v1/push", invalid_params)
+
+      assert json_response(conn, 422)
+      assert conn.resp_body =~ "rule set"
     end
 
     test "returns 422 when request body fails OpenAPI validation", %{conn: conn, token: token} do

@@ -54,7 +54,7 @@ config :acai, :api_operations,
     semantic_caps: %{
       max_specs: int_env.("API_DEFAULT_MAX_SPECS", if(non_prod?, do: 100, else: 50)),
       max_references:
-        int_env.("API_DEFAULT_MAX_REFERENCES", if(non_prod?, do: 2_000, else: 1_000))
+        int_env.("API_DEFAULT_MAX_REFERENCES", if(non_prod?, do: 10_000, else: 5_000))
     },
     rate_limit: %{
       window_seconds:
@@ -66,7 +66,19 @@ config :acai, :api_operations,
     request_size_cap: int_env.("API_PUSH_REQUEST_SIZE_CAP", api_push_request_size_cap),
     semantic_caps: %{
       max_specs: int_env.("API_PUSH_MAX_SPECS", if(non_prod?, do: 100, else: 50)),
-      max_references: int_env.("API_PUSH_MAX_REFERENCES", if(non_prod?, do: 2_000, else: 1_000))
+      max_references: int_env.("API_PUSH_MAX_REFERENCES", if(non_prod?, do: 10_000, else: 5_000)),
+      max_requirements_per_spec:
+        int_env.("API_PUSH_MAX_REQUIREMENTS_PER_SPEC", if(non_prod?, do: 200, else: 100)),
+      max_raw_content_bytes:
+        int_env.("API_PUSH_MAX_RAW_CONTENT_BYTES", if(non_prod?, do: 102_400, else: 51_200)),
+      max_requirement_string_length:
+        int_env.("API_PUSH_MAX_REQUIREMENT_STRING_LENGTH", if(non_prod?, do: 2_000, else: 1_000)),
+      max_feature_description_length:
+        int_env.("API_PUSH_MAX_FEATURE_DESCRIPTION_LENGTH", if(non_prod?, do: 5_000, else: 2_500)),
+      max_meta_path_length:
+        int_env.("API_PUSH_MAX_META_PATH_LENGTH", if(non_prod?, do: 1_024, else: 512)),
+      max_repo_uri_length:
+        int_env.("API_PUSH_MAX_REPO_URI_LENGTH", if(non_prod?, do: 2_048, else: 1_024))
     },
     rate_limit: %{
       window_seconds:

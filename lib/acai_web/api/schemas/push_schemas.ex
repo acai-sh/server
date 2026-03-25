@@ -24,7 +24,9 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
           description: "Product name"
         },
         description: %OpenApiSpex.Schema{
+          # push.ABUSE.2-6
           type: :string,
+          maxLength: 5_000,
           description: "Optional feature description"
         },
         version: %OpenApiSpex.Schema{
@@ -61,11 +63,15 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
       required: [:path, :last_seen_commit],
       properties: %{
         path: %OpenApiSpex.Schema{
+          # push.ABUSE.2-7, push.ABUSE.2-4
           type: :string,
+          maxLength: 1_024,
           description: "Path from repo root (e.g., features/auth.feature.yaml)"
         },
         raw_content: %OpenApiSpex.Schema{
+          # push.ABUSE.2-4
           type: :string,
+          maxLength: 102_400,
           description: "Optional raw content of the feature file"
         },
         last_seen_commit: %OpenApiSpex.Schema{
@@ -93,7 +99,9 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
       required: [:requirement],
       properties: %{
         requirement: %OpenApiSpex.Schema{
+          # push.ABUSE.2-5
           type: :string,
+          maxLength: 2_000,
           description: "The requirement text describing the acceptance criteria"
         },
         deprecated: %OpenApiSpex.Schema{
@@ -135,7 +143,9 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
           description: "Feature metadata"
         },
         requirements: %OpenApiSpex.Schema{
+          # push.ABUSE.2-3
           type: :object,
+          maxProperties: 200,
           additionalProperties: %OpenApiSpex.Schema{
             allOf: [RequirementDefinition.schema()]
           },
@@ -210,7 +220,9 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
           description: "If true, replaces all existing refs instead of merging"
         },
         data: %OpenApiSpex.Schema{
+          # push.ABUSE.2-2
           type: :object,
+          maxProperties: 10_000,
           description: "Map of requirement IDs to arrays of ref objects",
           additionalProperties: %OpenApiSpex.Schema{
             type: :array,
@@ -261,13 +273,13 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
 
   defmodule States do
     @moduledoc """
-    Schema for states section in push request.
+    Deprecated compatibility schema for the states section in push requests.
     """
     require OpenApiSpex
 
     OpenApiSpex.schema(%{
       title: "States",
-      description: "Implementation states grouped by requirement ID",
+      description: "Deprecated implementation states grouped by requirement ID",
       type: :object,
       required: [:data],
       properties: %{
@@ -277,7 +289,9 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
           description: "If true, replaces all existing states instead of merging"
         },
         data: %OpenApiSpex.Schema{
+          # push.ABUSE.2-2
           type: :object,
+          maxProperties: 10_000,
           description: "Map of requirement IDs to state objects",
           additionalProperties: %OpenApiSpex.Schema{allOf: [StateObject.schema()]}
         }
@@ -302,12 +316,19 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
 
     OpenApiSpex.schema(%{
       title: "PushRequest",
-      description: "Request body for pushing specs, refs, and states",
+      description: "Request body for pushing specs, refs, and deprecated states",
       type: :object,
       required: [:repo_uri, :branch_name, :commit_hash],
       properties: %{
-        repo_uri: %OpenApiSpex.Schema{
+        product_name: %OpenApiSpex.Schema{
           type: :string,
+          description:
+            "Optional product name used for refs-only implementation creation or linking"
+        },
+        repo_uri: %OpenApiSpex.Schema{
+          # push.ABUSE.2-8
+          type: :string,
+          maxLength: 2_048,
           description:
             "`repo_uri` should be in the format `host/owner/repo` (e.g. `github.com/my-org/my-repo`). Supported hosts for deep linking are `github.com`, `gitlab.com`, and `bitbucket.org`. Self-hosted instances may work for tracking but deep links are not guaranteed yet."
         },
@@ -321,7 +342,9 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
             "Full 40-character Git commit SHA that this push represents (e.g., 'abc123def456...')"
         },
         specs: %OpenApiSpex.Schema{
+          # push.ABUSE.2-1
           type: :array,
+          maxItems: 100,
           items: %OpenApiSpex.Schema{allOf: [SpecObject.schema()]},
           description: "Optional list of specs to push"
         },
@@ -330,8 +353,10 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
           description: "Optional code references"
         },
         states: %OpenApiSpex.Schema{
+          # push.REQUEST.6
+          deprecated: true,
           allOf: [States.schema()],
-          description: "Optional implementation states"
+          description: "Deprecated compatibility field for implementation states"
         },
         target_impl_name: %OpenApiSpex.Schema{
           type: :string,

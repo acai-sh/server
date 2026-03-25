@@ -7,6 +7,10 @@ defmodule Acai.Services.PushTest do
   - push.UPDATE_SPEC.1 - Updates existing spec
   - push.REFS.1-6 - Ref writing behavior
   - push.STATES.1-4 - State writing behavior
+  - push.REQUEST.9-10 - Updated request contract and duplicate feature guard
+  - push.VALIDATION.6-9 - Product/refs-only validation matrix
+  - push.ABUSE.2-5 - Semantic caps and rejection logging
+  - push.AUTH.4 - Refs-only implementation scope enforcement
   - push.NEW_IMPLS.1-5 - New implementation creation
   - push.LINK_IMPLS.1-3 - Linking to existing implementations
   - push.EXISTING_IMPLS.1-4 - Existing implementation handling
@@ -474,6 +478,19 @@ defmodule Acai.Services.PushTest do
       assert impl.is_active == true
     end
 
+    # push.NEW_IMPLS.1, push.NEW_IMPLS.1-1
+    test "creates a new implementation when target_impl_name does not exist", %{token: token} do
+      params_with_target = Map.put(@valid_push_params, :target_impl_name, "new-impl")
+
+      {:ok, result} = Push.execute(token, params_with_target)
+
+      assert result.implementation_name == "new-impl"
+      assert result.product_name == "test-product"
+
+      impl = Repo.get(Implementation, result.implementation_id)
+      assert impl.name == "new-impl"
+    end
+
     # push.NEW_IMPLS.3
     test "creates new product when product name is new to the team", %{token: token} do
       {:ok, _} = Push.execute(token, @valid_push_params)
@@ -508,6 +525,59 @@ defmodule Acai.Services.PushTest do
 
       assert {:error, reason} = Push.execute(token, multi_product_params)
       assert reason =~ "multiple products"
+    end
+
+    # push.REQUEST.10
+    test "rejects duplicate feature names within one push", %{token: token} do
+      duplicate_feature_params = %{
+        repo_uri: "github.com/test-org/test-repo",
+        branch_name: "main",
+        commit_hash: "abc123def456",
+        specs: [
+          %{
+            feature: %{name: "dup-feature", product: "test-product"},
+            requirements: %{"dup-feature.REQ.1" => %{requirement: "First"}},
+            meta: %{path: "dup-1.yaml", last_seen_commit: "abc123"}
+          },
+          %{
+            feature: %{name: "dup-feature", product: "test-product"},
+            requirements: %{"dup-feature.REQ.2" => %{requirement: "Second"}},
+            meta: %{path: "dup-2.yaml", last_seen_commit: "abc123"}
+          }
+        ]
+      }
+
+      assert {:error, reason} = Push.execute(token, duplicate_feature_params)
+      assert reason =~ "duplicate feature.name"
+    end
+
+    # push.VALIDATION.6
+    test "rejects product_name when it does not match pushed specs", %{token: token} do
+      mismatch_params = Map.put(@valid_push_params, :product_name, "other-product")
+
+      assert {:error, reason} = Push.execute(token, mismatch_params)
+      assert reason =~ "product_name"
+    end
+
+    # push.ABUSE.2-1, push.ABUSE.2-2
+    test "rejects pushes that exceed configured semantic caps", %{token: token} do
+      original = Application.get_env(:acai, :api_operations)
+
+      on_exit(fn ->
+        if is_nil(original) do
+          Application.delete_env(:acai, :api_operations)
+        else
+          Application.put_env(:acai, :api_operations, original)
+        end
+      end)
+
+      Application.put_env(:acai, :api_operations, %{
+        default: %{semantic_caps: %{max_specs: 100, max_references: 100}},
+        push: %{semantic_caps: %{max_specs: 0, max_references: 0}}
+      })
+
+      assert {:error, reason} = Push.execute(token, @valid_push_params)
+      assert reason =~ "too many specs"
     end
 
     # push.NEW_IMPLS.5
@@ -621,6 +691,31 @@ defmodule Acai.Services.PushTest do
 
       impl = Repo.get(Implementation, result.implementation_id)
       assert impl.parent_implementation_id == parent_impl.id
+    end
+
+    # push.IDEMPOTENCY.5, push.IDEMPOTENCY.5-1
+    test "rejects changing parent on an existing tracked implementation", %{
+      token: token,
+      team: team
+    } do
+      product = product_fixture(team, %{name: "test-product"})
+      parent_impl = implementation_fixture(product, %{name: "parent-impl"})
+      other_parent = implementation_fixture(product, %{name: "other-parent"})
+
+      params_with_parent = Map.put(@valid_push_params, :parent_impl_name, "parent-impl")
+
+      {:ok, _} = Push.execute(token, params_with_parent)
+
+      {:ok, _} = Push.execute(token, params_with_parent)
+
+      changed_parent_params = Map.put(@valid_push_params, :parent_impl_name, "other-parent")
+
+      assert {:error, reason} = Push.execute(token, changed_parent_params)
+      assert reason =~ "Parent implementation cannot be changed"
+
+      impl = Repo.one(from i in Implementation, where: i.name == "main")
+      assert impl.parent_implementation_id == parent_impl.id
+      assert Repo.get(Implementation, other_parent.id)
     end
 
     # push.PARENTS.3
@@ -795,26 +890,19 @@ defmodule Acai.Services.PushTest do
       assert spec.feature_name == "string-feature"
     end
 
-    # push.LINK_IMPLS.1, push.PARENTS.1, push.PARENTS.3
-    # Regression test: Both target_impl_name and parent_impl_name present exercises consolidated lookup
-    test "linking with both target and parent uses consolidated lookup", %{
+    # push.NEW_IMPLS.6, push.NEW_IMPLS.6-1, push.NEW_IMPLS.6-2
+    test "creates a child implementation when both target and parent are provided", %{
       token: token,
       team: team
     } do
-      # Create existing implementation to link to
       product = product_fixture(team, %{name: "test-product"})
-      existing_impl = implementation_fixture(product, %{name: "target-impl"})
+      parent_impl = implementation_fixture(product, %{name: "parent-for-link"})
 
-      # Create another implementation in same product (parent is validated during lookup)
-      _parent_impl = implementation_fixture(product, %{name: "parent-for-link"})
-
-      # Push to link to existing implementation while also specifying parent
-      # This exercises the consolidated fetch path in fetch_implementations_consolidated
       params = %{
         repo_uri: "github.com/test-org/target-parent-repo",
         branch_name: "target-parent-branch",
         commit_hash: "tparent123",
-        target_impl_name: "target-impl",
+        target_impl_name: "child-target-impl",
         parent_impl_name: "parent-for-link",
         specs: [
           %{
@@ -829,12 +917,14 @@ defmodule Acai.Services.PushTest do
         ]
       }
 
-      # Should link to target_impl, not create new
       {:ok, result} = Push.execute(token, params)
 
-      assert result.implementation_name == "target-impl"
-      assert result.implementation_id == existing_impl.id
+      assert result.implementation_name == "child-target-impl"
+      assert result.implementation_id != parent_impl.id
       assert result.specs_created == 1
+
+      impl = Repo.get(Implementation, result.implementation_id)
+      assert impl.parent_implementation_id == parent_impl.id
     end
   end
 
@@ -1037,6 +1127,88 @@ defmodule Acai.Services.PushTest do
         )
 
       assert ref
+    end
+
+    # push.NEW_IMPLS.6, push.NEW_IMPLS.6-1, push.NEW_IMPLS.6-2
+    test "creates a child implementation from refs-only inputs on an untracked branch", %{
+      token: token,
+      team: team
+    } do
+      product = product_fixture(team, %{name: "child-product"})
+      parent_impl = implementation_fixture(product, %{name: "parent-impl"})
+
+      refs_only_child_params = %{
+        repo_uri: "github.com/test-org/child-repo",
+        branch_name: "child-branch",
+        commit_hash: "abc123",
+        product_name: "child-product",
+        target_impl_name: "child-impl",
+        parent_impl_name: "parent-impl",
+        references: %{
+          data: %{
+            "child-feature.REQ.1" => [%{path: "lib/test.ex:42", is_test: false}]
+          }
+        }
+      }
+
+      {:ok, result} = Push.execute(token, refs_only_child_params)
+
+      assert result.implementation_name == "child-impl"
+      assert result.product_name == "child-product"
+
+      impl = Repo.get(Implementation, result.implementation_id)
+      assert impl.parent_implementation_id == parent_impl.id
+    end
+
+    # push.AUTH.4
+    test "rejects refs-only implementation creation without impls:write", %{
+      team: team,
+      user: user
+    } do
+      product = product_fixture(team, %{name: "child-product"})
+      _parent_impl = implementation_fixture(product, %{name: "parent-impl"})
+
+      {:ok, limited_token} =
+        Teams.generate_token(
+          %{user: user},
+          team,
+          %{name: "Refs Only", scopes: ["refs:write"]}
+        )
+
+      refs_only_child_params = %{
+        repo_uri: "github.com/test-org/child-repo",
+        branch_name: "child-branch",
+        commit_hash: "abc123",
+        product_name: "child-product",
+        target_impl_name: "child-impl",
+        parent_impl_name: "parent-impl",
+        references: %{
+          data: %{
+            "child-feature.REQ.1" => [%{path: "lib/test.ex:42", is_test: false}]
+          }
+        }
+      }
+
+      assert {:error, {:forbidden, reason}} = Push.execute(limited_token, refs_only_child_params)
+      assert reason =~ "impls:write"
+    end
+
+    # push.VALIDATION.7, push.VALIDATION.8, push.VALIDATION.9
+    test "rejects partial refs-only implementation inputs on an untracked branch", %{
+      token: token
+    } do
+      partial_params = %{
+        repo_uri: "github.com/test-org/new-repo",
+        branch_name: "new-branch",
+        commit_hash: "abc123",
+        references: %{
+          data: %{"feature.REQ.1" => [%{path: "lib/test.ex:42", is_test: false}]}
+        },
+        product_name: "test-product"
+      }
+
+      assert {:error, reason} = Push.execute(token, partial_params)
+      assert reason =~ "rule set"
     end
   end
 
