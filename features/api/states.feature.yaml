@@ -1,8 +1,10 @@
 feature:
     name: states
     description: |
-        The states endpoint provides read and write access to acceptance states for implementations.
-        States track acceptance progress for features within an implementation's environment.
+        The /states endpoint provides read and write access to states.
+        States are annotations used to track progress and share additional information related to the acceptance criteria defined in a spec.
+        In the database, states are stored as `feature_impl_states`, containing a jsonb map of ACIDs to State objects, related to an implementation and a feature (spec).
+        The State object can contain a status, and a comment.
     version: 1.0.0
     product: api
     draft: true
@@ -11,7 +13,7 @@ components:
     ENDPOINT:
         description: HTTP interface
         requirements:
-            1: "POST /api/v1/states — write or update states"
+            1: "POST /api/v1/states — insert or update states for an implementation"
             2: "GET /api/v1/states — read states for an implementation"
             3: Content-Type application/json
             4: Requires Authorization Bearer token header

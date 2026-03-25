@@ -7,8 +7,7 @@ Acai.sh is a set of tools including a server (a containerized web app and JSON R
 
 1. Write requirements and acceptance criteria in `feature.yaml` spec files, following a standard spec format. The spec serves as the central source of truth for feature functionality and for what constitutes acceptable implementation in code.
 2. Run a CLI command to extract the specs and push them to the server. The CLI also scans for references to requirement IDs in your codebase and records those as well.
-3. Spec requirements can be annotated with states (comment notes and status tags, e.g. `assigned`, `completed`, `accepted`).
-4. Humans can view the dashboard and agents can query the server (via CLI commands). This provides a cross-sectional view of your products, features, and implementations — useful for QA assessment of AI-generated code and for enabling agents to self-assign work, respond to spec changes, and coordinate across large, ambitious, long-running projects.
+3. Humans can view the dashboard and agents can query the server (via CLI commands). This provides a cross-sectional view of your products, features, and implementations — useful for QA assessment of AI-generated code and for enabling agents to self-assign work, respond to spec changes, and coordinate across large, ambitious, long-running projects.
 
 ## Data Model
 
@@ -52,12 +51,11 @@ The `branches` table stores stable rows per `(team_id, repo_uri, branch_name)`, 
 
 Supported via optional `parent_implementation_id` with `ON DELETE SET NULL`.
 
-Inheritance behavior differs by data type:
+Inheritance behavior:
 - **Specs** are resolved across tracked branches, with the child's spec taking precedence when both parent and child track the same feature.
-- **States** are snapshotted from the parent on the first push for a given `(implementation_id, feature_name)`; later parent changes do not affect the child.
 - **Code references** are aggregated across tracked branches, walking up the parent chain when needed.
 
-New implementations are created automatically when specs are pushed to an untracked branch; the default implementation name is the branch name.
+New implementations are created automatically when specs are pushed to an untracked branch; the default implementation name is the branch name. Parent must be explicitly specified at creation time via `parent_impl_name` — there is no auto-inheritance.
 
 ## Schema
 
@@ -78,7 +76,7 @@ This section summarizes the schema implemented in `priv/repo/migrations/20260308
 | `feature_impl_states` | Requirement states per feature + implementation | GIN index on JSONB states |
 | `feature_branch_refs` | Code references per feature + branch | GIN index on JSONB refs |
 
-Both `feature_impl_states` and `feature_branch_refs` are keyed by `feature_name` (the requirement ID prefix), not `spec_id`. This allows pushing states and code references without a local spec file, which is useful for monorepos where specs live in a different repo than the implementing code.
+Both `feature_impl_states` and `feature_branch_refs` are keyed by `feature_name` (the requirement ID prefix), not `spec_id`. This allows pushing code references without a local spec file, which is useful for products where specs live in a different repo than the implementing code.
 
 `access_tokens.scopes` is stored as a non-null JSONB field. Default scopes are assigned by application code rather than by a database default.
 
@@ -86,13 +84,36 @@ Both `feature_impl_states` and `feature_branch_refs` are keyed by `feature_name`
 
 All tables include `created_at` and `updated_at` timestamps. Primary keys are `uuid` columns generated as UUIDv7 values by the application, except `user_team_roles`, which has no `id` primary key.
 
-## CLI (MVP)
+## CLI
 
 Most use cases are covered by `acai push`:
 - `acai push`: Git-aware push of changed specs and code references only
 - `acai push --all`: Full repo scan and push (useful for initial setup or after significant drift)
 
-## API (MVP)
+### Multi-Product Push (Monorepo)
+
+The API accepts only one product per call. In multi-product monorepos, the CLI splits specs by product and makes individual API calls.
+
+Namespacing supports `product-name/impl-name` format for `--target` and `--parent` flags. The CLI strips the `product-name/` prefix before sending each per-product API call.
+
+#### New branch, no parent, no targets
+CLI splits by product. Server creates the product, implementation, inserts specs and refs, tracks the branch.
+
+#### New branch, with parents
+CLI accepts `--parent product-a/parent-name product-b/parent-name`. If a spec can't be mapped to a parent, the API rejects.
+
+#### New branch, with parents and targets
+CLI accepts `--parent product-a/parent-name product-b/parent-name` and `--target product-a/new-impl product-b/new-impl`. Server creates implementations with inheritance.
+
+#### Any of the above, filtered by `feature-name`
+Fewer specs/refs included in the payload. Note: work on one feature can cause regressions in another, so `push --all` is encouraged.
+
+#### Existing tracked branch
+- No parent/target: updates specs and refs as usual
+- With parent: parent is ignored (idempotent, parent is immutable after creation)
+- With target: API rejects if branch is tracked by a different implementation
+
+## API
 
 ### POST /api/v1/push
 
@@ -102,13 +123,12 @@ Most use cases are covered by `acai push`:
 - All operations are atomic; any failure rolls back the entire push
 - Push is idempotent
 - Partial pushes merge with existing data
-- First state write snapshots from parent, then merges
 
 **Common Rejection Scenarios**:
-- Multi-product push
-- States submitted without an implementation
-- Implementation name collision
-- Branch already tracked by a different implementation when pushing states without a target_impl_name
+- Multi-product push (specs span multiple products)
+- Implementation name collision within a product
+- Branch already tracked by a different implementation than the given target
+- `parent_impl_name` provided on an existing tracked branch (parent is immutable after creation)
 
 ## Key User Journeys
 
@@ -117,17 +137,20 @@ All journeys work locally, on CI (GitHub Actions), or via git hooks:
 - Add a new spec
 - Delete or rename a feature or product
 - Edit code or tests, creating new code references
-- Change implementation state
-- Mix spec, code reference, and state changes in a single push
+- Push specs and code references in a single call
 
 ## Edge Cases
 
 | Case | Behavior | Note |
 |------|----------|------|
-| Orphaned states | Retained for reinstatement | Retained data |
 | Dangling code references | Allowed; persisted if format is valid | Valid reference shape only |
 | Spec rename | New spec created; old preserved | New feature identity |
 | Parent deleted | Child survives | `ON DELETE SET NULL` |
-| First state write | Snapshot from parent, then merge | Copy-on-first-write |
 | Override mode | Replace entire bucket | Full bucket replacement |
 | Concurrent pushes | Last-write-wins | Latest successful write |
+
+## Decisions
+
+- **Multi-product**: `push --all` pushes all specs for all products. The CLI splits into per-product API calls since the API only accepts one product at a time.
+- **Refs always included**: Filters (`feature-name`, future `product-name`) also apply to refs to reduce payload size. However, `push --all` is encouraged since work on one feature can cause regressions in another.
+- **No impl creation from already-tracked branches**: We do not support creation of a new implementation via push from a branch that is already tracked by a different implementation. The user can accomplish this by editing tracked branches.

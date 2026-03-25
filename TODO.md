@@ -79,9 +79,11 @@ acai push --states '{ ...acids }'
 # Experiment 4 - branch from parent
 
 ## Re-evaluating multi-product repos
-In some cases we force the user to namespace their pushes with `--target <product-name>/<implementation-name>`.
-This is because it is common for the user to be in a monorepo with many products (api, microservice, mobile-android, mobile-ios, webapp).
-If all of those products have a similarly named implementation, e.g. `Production`, we wouldn't know where to apply `states`.
+In some cases, the user may want to namespace their pushes with `--target <product-name>/<new-impl-name>` as well as identify parents for establishing inheritance via `--parent <product-name>/<existing-impl-name>`.
+This is makes it possible for the user to be in a monorepo with many products (api, microservice, mobile-android, mobile-ios, webapp), and gives more granular control over how new implementations are named / inherited.
+AFAIK, no changes to the API are necessary, unless there are some error / rejection cases we haven't handled yet.
+
+Below, I ran through the core journeys I could think of to make sure they are well-handled and intuitive.
 
 ### From a monorepo with many specs for **multiple products**, I can use the CLI to push from...
 

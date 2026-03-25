@@ -175,7 +175,11 @@ components:
             This is a different workflow from branching off an implementation, in which case I would want a new child implementation.
             This is useful if I've spun up a new repo (backend, microservice, etc) and am integrating it into a product for the first time.
         requirements:
-            1: A branch is linked to an existing implementation only when all of the following are true - the branch is not already tracked by any implementation, the `target_impl_name` matches an existing implementation within the same product, that implementation does not already track a branch in this `repo_uri`, and all pushed specs belong to that implementation's product
+            1: |
+                A branch is linked to an existing implementation only when all of the following are true;
+                1. the branch is not already tracked by any implementation
+                2. specs were included in the payload
+                3. the `target_impl_name` matches an existing implementation within the same product, that implementation does not already track a branch in this `repo_uri`
             2: On successful link, specs and refs are written to the linked implementation as normal
             3: If `target_impl_name` matches an existing implementation but that implementation already tracks a branch in this repo_uri, the push is rejected with a helpful error
 
@@ -210,6 +214,8 @@ components:
                 requirement: Forgotten states can be added in subsequent pushes via the states map
                 deprecated: true
             4: Forgotten refs can be added in subsequent pushes via the references map
+            5: If the branch is already tracked by an implementation and a different parent_impl_name is provided, reject with an error explaining that parent cannot be changed via push.
+            5-1: If the parent name matches, do nothing (idempotent / duplicate request case).
 
 constraints:
     AUTH:
