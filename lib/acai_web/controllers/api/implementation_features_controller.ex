@@ -17,7 +17,7 @@ defmodule AcaiWeb.Api.ImplementationFeaturesController do
   operation(:index,
     summary: "List implementation features",
     description:
-      "Return the canonical feature worklist for one implementation, including inherited specs, states, and refs.",
+      "Return a lightweight worklist of features visible in one implementation. Each feature is resolved using the same canonical rules as the UI: local tracked branches are checked first, duplicate local specs prefer the most recently updated row, and parent inheritance fills gaps when needed. The response is intentionally summary-oriented so agents can quickly see what exists, what looks incomplete, what has refs, and what may need attention before loading full feature details.",
     parameters: [
       # implementation-features.REQUEST.1
       OpenApiSpex.Operation.parameter(:product_name, :query, :string, "Product name",

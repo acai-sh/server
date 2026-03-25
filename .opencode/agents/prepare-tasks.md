@@ -28,8 +28,8 @@ We use task `.md` files to plan and assigning chunks of work to engineers. The r
 # Requirements
 * [ ] If you determine the feature is still blocked or needs prerequisite work that is out of scope for this task, halt and notify the supervisor.
 * [ ] Output 1 or more task files. If the work is complex, break it into phases - 1 phase per task file.
-* [ ] Task file is always in repo root and not git tracked
-* [ ] Timestamp mandatory - `.tasks/<timestamp_seconds>_<useful-task-name>.md` e.g. `my-git-repo/.tasks/YYYYMMDDHHMMSS_align_my-feature-name_to_spec.md`
+* [ ] Task file is always in `tmp/tasks` dir (from git repo root) and is not git tracked
+* [ ] Timestamp mandatory e.g. `tmp/tasks/YYYYMMDDHHMMSS_align_my-feature-name_to_spec.md`
 * [ ] Report back to the supervisor: "I have prepared the following task files, which should be implemented in this order: <paths to files>. Feel free to assign the next task and begin implementation."
 
 **If no acceptance criteria remain & you believe implementation is already complete, report back to the supervisor: "I believe this project is complete, and I do not have any more tasks to prepare"**

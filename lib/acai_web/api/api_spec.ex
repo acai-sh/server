@@ -23,7 +23,7 @@ defmodule AcaiWeb.Api.ApiSpec do
         version: "1.0.0",
         # push.REQUEST.6, push.ABUSE.2-1, push.ABUSE.4
         description:
-          "API for managing feature specs, implementations, and refs (with deprecated states support)"
+          "Acai is an API for spec-driven development across git branches and product implementations. Specs store canonical requirement definitions, refs store where code on a branch appears to implement those requirements, and states store implementation-specific progress such as completed, blocked, or accepted. Agents typically discover an implementation, read canonical feature context, sync branch-derived changes, and then record status updates separately."
       },
       servers: [
         %Server{
@@ -37,7 +37,7 @@ defmodule AcaiWeb.Api.ApiSpec do
           name: "Actions",
           # push.REQUEST.6, push.ABUSE.2-1, push.ABUSE.4
           description:
-            "Push specs and refs from your repo to update feature definitions and implementation tracking; deprecated states remain supported for compatibility"
+            "Endpoints for syncing branch-derived truth, resolving canonical feature context, discovering implementation work, and recording implementation-specific progress. The API keeps specs and refs separate from status updates so agents can read shared requirements, push observed code changes, and write progress without mixing those concerns."
         }
       ],
       components: %Components{

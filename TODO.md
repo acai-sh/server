@@ -22,9 +22,11 @@
 
 ## API Test
 
+I have just reimplemented the push endpoint. Before moving on to implement the `acai push` cli, and merging the work on this feature branch, I want to test this endpoint by pushing my real specs in this repo. We will "dogfood" it by simulating the work the CLI would do-- batching requests per-product, scanning for refs, etc.
+
 We are performing an experiment where we simulate a CLI interacting with an API. The goal is to battle test a few scenarios to ensure the /push endpoint is working as expected.
-The api endpoint is on localhost - `http://localhost:4002/api/v1/push`
-I have created a token for you to use in the Authorization header: `Bearer at_R04UL_-oHRq3-fQ2Xh6SUOoY2HeQnJVDK4WwH9AAdPc`
+The api endpoint is on localhost - `http://localhost:4000/api/v1/push`
+I have created a sandbox token for you to use in the Authorization header: `Bearer at_JKMygi-1BCdH93yLtdDYxWZtWNAC00LtXGc2slCp-PM`
 
 You are expected to do the 'magic' that a cli would normally do for us here, which is:
 - Determine the repo_uri

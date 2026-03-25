@@ -17,15 +17,18 @@ defmodule AcaiWeb.Api.PushController do
   operation(:create,
     summary: "Push from branch",
     description: """
-    Push specs, code references, and deprecated implementation states to the server.
+    Sync branch-derived truth for one product.
 
-    This endpoint handles:
-    - Creating/updating specs on a branch
-    - Creating code references for ACIDs
-    - Setting implementation states (deprecated compatibility path)
-    - Auto-creating implementations for new branches
-    - Linking branches to existing implementations
-    - Creating child implementations from refs-only pushes when requested
+    A push stores what this git branch currently says about the product:
+    - specs define canonical requirement text
+    - refs point to file locations that appear to implement those requirement IDs
+
+    This endpoint can also create or link implementations when the request provides enough
+    explicit context, including refs-only child creation for multi-repo products where the
+    checked-out repo carries implementation code but not the canonical spec files.
+
+    Use this when branch contents change. Do not use it to record implementation progress
+    or review status.
     """,
     # push.REQUEST.9, push.REQUEST.10, push.RESPONSE.8, push.RESPONSE.9
     request_body: {"Push request body", "application/json", PushSchemas.PushRequest},

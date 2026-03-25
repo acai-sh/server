@@ -15,7 +15,8 @@ defmodule AcaiWeb.Api.FeatureStatesController do
 
   operation(:update,
     summary: "Write feature states",
-    description: "Persist state writes for one feature and one implementation.",
+    description:
+      "Record implementation-specific progress for one feature in one implementation. State writes do not change requirement text or code refs; they only capture how this implementation currently evaluates each requirement, for example assigned, blocked, completed, or accepted. On first write, local state starts from the parent implementation when one exists, then applies the incoming changes. Use this after analysis, coding, review, or QA to record progress without changing branch-derived truth.",
     request_body:
       {"Feature states request body", "application/json",
        FeatureStatesSchemas.FeatureStatesRequest},
