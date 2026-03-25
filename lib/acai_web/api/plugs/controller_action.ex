@@ -30,6 +30,11 @@ defmodule AcaiWeb.Api.Plugs.ControllerAction do
         |> put_private(:phoenix_controller, AcaiWeb.Api.FeatureContextController)
         |> put_private(:phoenix_action, :show)
 
+      :feature_states ->
+        conn
+        |> put_private(:phoenix_controller, AcaiWeb.Api.FeatureStatesController)
+        |> put_private(:phoenix_action, :update)
+
       _other ->
         conn
     end

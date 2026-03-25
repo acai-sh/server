@@ -51,6 +51,10 @@ defmodule AcaiWeb.Api.OpenApiControllerTest do
                &(&1["name"] == "implementation_name" and &1["required"] == true)
              )
 
+      # feature-states.ENDPOINT.1, feature-states.REQUEST.1-4
+      assert spec["paths"]["/feature-states"]["patch"]["operationId"] ==
+               "AcaiWeb.Api.FeatureStatesController.update"
+
       assert spec["paths"]["/push"]["post"]["operationId"] ==
                "AcaiWeb.Api.PushController.create"
     end
