@@ -90,7 +90,7 @@ config :acai, :api_operations,
     request_size_cap:
       int_env.("API_FEATURE_STATES_REQUEST_SIZE_CAP", api_feature_states_request_size_cap),
     semantic_caps: %{
-      max_states: int_env.("API_FEATURE_STATES_MAX_STATES", if(non_prod?, do: 1_000, else: 500)),
+      max_states: int_env.("API_FEATURE_STATES_MAX_STATES", 500),
       max_comment_length:
         int_env.(
           "API_FEATURE_STATES_MAX_COMMENT_LENGTH",

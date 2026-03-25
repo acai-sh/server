@@ -150,6 +150,30 @@ defmodule AcaiWeb.Api.FeatureStatesControllerTest do
       assert conn.resp_body =~ "Resource not found"
     end
 
+    # feature-states.RESPONSE.5
+    test "returns 404 when the implementation cannot be resolved", %{
+      conn: conn,
+      token: token,
+      team: team
+    } do
+      ctx = feature_setup(team)
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
+        |> patch("/api/v1/feature-states", %{
+          "product_name" => ctx.product.name,
+          "feature_name" => ctx.feature_name,
+          "implementation_name" => "missing-implementation",
+          "states" => %{"#{ctx.feature_name}.REQ.1" => %{"status" => "completed"}}
+        })
+
+      assert json_response(conn, 404)
+      assert conn.resp_body =~ "Resource not found"
+    end
+
     # feature-states.RESPONSE.6, feature-states.RESPONSE.6-1
     test "returns 422 and logs a safe summary for validation errors", %{
       conn: conn,

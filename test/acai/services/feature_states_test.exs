@@ -97,6 +97,62 @@ defmodule Acai.Services.FeatureStatesTest do
     assert child_state.states["#{ctx.feature_name}.REQ.2"]["comment"] == nil
   end
 
+  test "subsequent writes replace touched local acids and preserve untouched local acids" do
+    ctx = feature_setup()
+
+    assert {:ok, initial} =
+             FeatureStates.execute(ctx.team, %{
+               "product_name" => ctx.product.name,
+               "feature_name" => ctx.feature_name,
+               "implementation_name" => ctx.child_impl.name,
+               "states" => %{
+                 "#{ctx.feature_name}.REQ.1" => %{"status" => "assigned"},
+                 "#{ctx.feature_name}.REQ.2" => %{"status" => "completed", "comment" => "keep"}
+               }
+             })
+
+    assert initial.states_written == 2
+
+    assert {:ok, updated} =
+             FeatureStates.execute(ctx.team, %{
+               "product_name" => ctx.product.name,
+               "feature_name" => ctx.feature_name,
+               "implementation_name" => ctx.child_impl.name,
+               "states" => %{
+                 "#{ctx.feature_name}.REQ.2" => %{"status" => "blocked"}
+               }
+             })
+
+    assert updated.states_written == 1
+
+    child_state = Specs.get_feature_impl_state(ctx.feature_name, ctx.child_impl)
+    assert child_state.states["#{ctx.feature_name}.REQ.1"]["status"] == "assigned"
+    assert child_state.states["#{ctx.feature_name}.REQ.2"]["status"] == "blocked"
+    assert child_state.states["#{ctx.feature_name}.REQ.2"]["comment"] == nil
+  end
+
+  test "rejects non-string identifiers" do
+    ctx = feature_setup()
+
+    for {field, value} <- [
+          {"product_name", 123},
+          {"feature_name", true},
+          {"implementation_name", :child}
+        ] do
+      attrs = %{
+        "product_name" => ctx.product.name,
+        "feature_name" => ctx.feature_name,
+        "implementation_name" => ctx.child_impl.name,
+        "states" => %{"#{ctx.feature_name}.REQ.1" => %{"status" => "completed"}}
+      }
+
+      attrs = Map.put(attrs, field, value)
+
+      assert {:error, {reason, _meta}} = FeatureStates.execute(ctx.team, attrs)
+      assert reason =~ "must be a string"
+    end
+  end
+
   test "stores explicit null status locally" do
     ctx = feature_setup()
 

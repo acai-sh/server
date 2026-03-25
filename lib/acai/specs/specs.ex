@@ -194,6 +194,43 @@ defmodule Acai.Specs do
   # --- FeatureImplStates ---
 
   @doc """
+  Loads the minimal context needed to write feature states.
+
+  ACIDs:
+  - feature-states.RESPONSE.5: Missing product, implementation, or feature returns not found
+  - feature-states.WRITE.1: State writes apply only to the selected implementation and feature
+  - feature-states.WRITE.2: First writes snapshot parent state before merging incoming states
+  - feature-states.WRITE.3: Subsequent writes replace touched local ACIDs and preserve untouched ones
+  """
+  def get_feature_state_write_context(
+        %Team{} = team,
+        product_name,
+        feature_name,
+        implementation_name
+      ) do
+    with {:ok, context} <- load_feature_context_context(team, product_name, implementation_name),
+         {:ok, resolved_acids} <- resolve_feature_state_write_acids(feature_name, context) do
+      {:ok,
+       %{
+         product: context.product,
+         feature_name: feature_name,
+         implementation: context.implementation,
+         resolved_acids: resolved_acids
+       }}
+    else
+      {:error, :not_found} -> {:error, :not_found}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp resolve_feature_state_write_acids(feature_name, context) do
+    case resolve_canonical_spec_with_context(feature_name, context) do
+      {nil, nil} -> {:error, :not_found}
+      {spec, _source} -> {:ok, MapSet.new(Map.keys(spec.requirements))}
+    end
+  end
+
+  @doc """
   Gets a feature_impl_state for a feature_name and implementation.
   Returns nil if not found.
   """

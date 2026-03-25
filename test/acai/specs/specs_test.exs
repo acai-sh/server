@@ -257,6 +257,37 @@ defmodule Acai.SpecsTest do
     end
   end
 
+  describe "get_feature_state_write_context/4" do
+    # feature-states.WRITE.1, feature-states.WRITE.2, feature-states.WRITE.3, feature-states.RESPONSE.5
+    test "returns the minimal write context and resolved acids" do
+      team = team_fixture()
+      product = product_fixture(team, %{name: "write-context-product"})
+      parent = implementation_fixture(product, %{name: "parent"})
+
+      child =
+        implementation_fixture(product, %{name: "child", parent_implementation_id: parent.id})
+
+      branch = branch_fixture(team, %{repo_uri: "github.com/acai/api", branch_name: "main"})
+      tracked_branch_fixture(parent, %{branch: branch})
+
+      feature_name = "write-context-feature"
+
+      _spec =
+        spec_fixture(product, %{
+          feature_name: feature_name,
+          branch: branch,
+          requirements: %{"#{feature_name}.REQ.1" => %{requirement: "Write me"}}
+        })
+
+      assert {:ok, context} =
+               Specs.get_feature_state_write_context(team, product.name, feature_name, child.name)
+
+      assert context.product.id == product.id
+      assert context.implementation.id == child.id
+      assert MapSet.to_list(context.resolved_acids) == ["#{feature_name}.REQ.1"]
+    end
+  end
+
   describe "create_feature_impl_state/3" do
     test "creates a state for feature_name and implementation" do
       %{spec: spec, impl: impl} = setup_spec_chain()

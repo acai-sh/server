@@ -6,8 +6,6 @@ defmodule Acai.Services.FeatureStates do
   """
 
   alias Acai.Repo
-  alias Acai.Products
-  alias Acai.Implementations
   alias Acai.Specs
   alias Acai.Teams.Team
   alias AcaiWeb.Api.Operations
@@ -61,6 +59,7 @@ defmodule Acai.Services.FeatureStates do
     end
   end
 
+  # feature-states.REQUEST.1, feature-states.REQUEST.2, feature-states.REQUEST.3, feature-states.VALIDATION.1
   defp required_string(attrs, key) do
     case lookup(attrs, key) do
       nil ->
@@ -75,8 +74,8 @@ defmodule Acai.Services.FeatureStates do
           {:ok, trimmed}
         end
 
-      value ->
-        {:ok, to_string(value)}
+      _value ->
+        {:error, {"#{key} must be a string", %{}}}
     end
   end
 
@@ -124,29 +123,8 @@ defmodule Acai.Services.FeatureStates do
          feature_name: feature_name,
          implementation_name: implementation_name
        }) do
-    # feature-states.RESPONSE.5
-    with {:ok, product} <- Products.get_product_by_team_and_name(team, product_name),
-         {:ok, implementation} <-
-           Implementations.get_implementation_by_team_and_product_name(
-             team,
-             product,
-             implementation_name
-           ),
-         {:ok, context} <-
-           Specs.get_feature_context(team, product_name, feature_name, implementation_name,
-             include_dangling_states: true,
-             include_deprecated: true
-           ) do
-      {:ok,
-       %{
-         product: product,
-         feature_name: feature_name,
-         implementation: implementation,
-         context: context
-       }}
-    else
-      {:error, :not_found} -> {:error, :not_found}
-    end
+    # feature-states.RESPONSE.5, feature-states.WRITE.1, feature-states.WRITE.2, feature-states.WRITE.3
+    Specs.get_feature_state_write_context(team, product_name, feature_name, implementation_name)
   end
 
   defp persist_state(
@@ -154,12 +132,13 @@ defmodule Acai.Services.FeatureStates do
            product: product,
            feature_name: feature_name,
            implementation: implementation,
-           context: context
+           resolved_acids: resolved_acids
          },
          %{states: states}
        ) do
     # feature-states.RESPONSE.1, feature-states.RESPONSE.2, feature-states.RESPONSE.3, feature-states.RESPONSE.4
-    with {:ok, validated_states, warnings} <- validate_states(feature_name, states, context),
+    with {:ok, validated_states, warnings} <-
+           validate_states(feature_name, states, resolved_acids),
          {:ok, _state} <- write_state_row(feature_name, implementation, validated_states) do
       {:ok,
        %{
@@ -173,10 +152,8 @@ defmodule Acai.Services.FeatureStates do
     end
   end
 
-  defp validate_states(feature_name, states, context) do
+  defp validate_states(feature_name, states, resolved_acids) do
     # feature-states.REQUEST.4-1, feature-states.REQUEST.4-2, feature-states.REQUEST.4-3, feature-states.REQUEST.5, feature-states.REQUEST.6
-    resolved_acids = MapSet.new(Enum.map(context.acids, & &1.acid))
-
     Enum.reduce_while(states, {:ok, %{}, []}, fn {acid, state}, {:ok, acc_states, acc_warnings} ->
       with :ok <- validate_acid(acid, feature_name),
            {:ok, normalized_state} <- validate_state_object(acid, state) do
