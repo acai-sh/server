@@ -24,26 +24,27 @@
 
 I have just reimplemented the push endpoint. Before moving on to implement the `acai push` cli, and merging the work on this feature branch, I want to test this endpoint by pushing my real specs in this repo. We will "dogfood" it by simulating the work the CLI would do-- batching requests per-product, scanning for refs, etc.
 
-We are performing an experiment where we simulate a CLI interacting with an API. The goal is to battle test a few scenarios to ensure the /push endpoint is working as expected.
-The api endpoint is on localhost - `http://localhost:4000/api/v1/push`
+The openapi.json is at `http://localhost:4000/api/v1/openapi.json`
 I have created a sandbox token for you to use in the Authorization header: `Bearer at_JKMygi-1BCdH93yLtdDYxWZtWNAC00LtXGc2slCp-PM`
 
 You are expected to do the 'magic' that a cli would normally do for us here, which is:
 - Determine the repo_uri
-- Determine the branch name
+- Determine the branch name (lets do this from main, to establish a new Production impl)
 - Determine the commit hash
 - Scan the repo for code references to ACIDs (storing the file path + line of code, and recording the is_test: true boolean if that ref was in a test file)
 - Parse the feature.yaml to extract requirements, requirement notes, product and feature name, etc.
 - Assemble the request body that includes specs, states, refs, and metadata
-- Submit an authenticated network `post` to the `/push` endpoint
+- Submit authenticated network `post` to the `/push` endpoint (one per product)
 
-In addition, for debugging, please put the complete payload of each experiment in `/tmp/api-test/experiment<number>.json` so that I can see what was sent.
-Optionally, if you identify is other debug data worth recording, you can put that in a similar `experiment<number>.txt` file.
+In addition, for debugging, please put the complete payload of each experiment in this git repo's temp folder - `tmp/api-test/<product>.json` so that I can see what was sent.
+Optionally, if you identify is other debug data or notes worth recording, you can put that in a similar `tmp/.txt` file.
 
 You can find the complete openapi.json in `/tmp/openapi.json`
 
-If the api is not accepting your data, and you believe the request is properly formatted, please do not proceed.
-Once the api accepts your push, do not proceed
+If the api is not accepting your data, and you believe this is due to a bug in the API, please do not proceed.
+
+Proceed with pushing specs for all 3 products (api, cli, site).
+Then, mark every ACID in `api` and `site` as 'completed'
 
 # Experiment 1 - Net new content
 In this first experiment we simulate pushing 1 brand new spec, for a new product and feature, that has already been completed.

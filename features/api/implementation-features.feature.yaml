@@ -4,7 +4,7 @@ feature:
     version: 1.0.0
     description: |
         The implementation-features endpoint returns a worklist of features available to one implementation.
-        It gives AI agents and CI a lightweight way to discover what exists, what looks incomplete, and what may need attention.
+        It gives AI agents and CI a lightweight way to discover what exists and what may need attention.
 
 components:
     ENDPOINT:
@@ -18,10 +18,8 @@ components:
         requirements:
             1: Requires `product_name` string
             2: Requires `implementation_name` string
-            3: Accepts optional `statuses` list of valid state values, including `null`
-            3-1: `statuses` is encoded as a repeated query parameter and the literal string `null` means the null status
-            4: Accepts optional `changed_since_commit` string
-            4-note: Filters to features whose canonical spec `last_seen_commit` differs from the provided commit
+            3: Accepts optional `changed_since_commit` string
+            3-note: Filters to features whose canonical spec `last_seen_commit` differs from the provided commit
 
     DISCOVERY:
         description: How features are discovered and summarized
@@ -29,11 +27,9 @@ components:
             1: Lists features that resolve for the selected implementation, including features inherited from ancestors
             2: Each feature is represented once using its canonical spec for that implementation
             3: When multiple tracked branches on the selected implementation contain the same feature, the local spec with the most recent `updated_at` timestamp is the canonical spec for that feature
-            4: Completion counts use the resolved states for that implementation, inheriting from the nearest ancestor row when no local row exists
-            5: Ref counts aggregate refs across all tracked branches for the implementation, falling back to the nearest ancestor implementation only when no refs exist locally
-            6: When `statuses` is provided, a feature is included only if at least one of its resolved ACIDs has a matching status
-            7: `changed_since_commit` compares against the canonical spec selected by this endpoint, including inherited canonical specs
-            8: If multiple local specs have the same most recent `updated_at`, the canonical spec is the one with the lexicographically smallest branch name
+            4: Ref counts aggregate refs across all tracked branches for the implementation, falling back to the nearest ancestor implementation only when no refs exist locally
+            5: `changed_since_commit` compares against the canonical spec selected by this endpoint, including inherited canonical specs
+            6: If multiple local specs have the same most recent `updated_at`, the canonical spec is the one with the lexicographically smallest branch name
 
     RESPONSE:
         description: The response shape for implementation worklists
@@ -41,24 +37,21 @@ components:
             1: "On success, returns HTTP 200 with a JSON body containing a `data` object"
             2: "The `data` object includes `product_name`, `implementation_name`, and `implementation_id`"
             3: "The `data` object includes a `features` list sorted by feature name"
-            4: Each feature entry includes `feature_name`, `description`, `completed_count`, and `total_count`
-            5: Each feature entry includes `refs_count`, `test_refs_count`, `has_local_spec`, and `has_local_states`
-            6: Each feature entry includes `spec_last_seen_commit`
-            7: Each feature entry includes `states_inherited` boolean and `refs_inherited` boolean
-            8: "On validation error, returns HTTP 422 with an `errors` object containing a `detail` string"
-            9: "If the product or implementation cannot be found, returns HTTP 404 with an `errors` object containing a `detail` string"
-            10: "On auth error, returns HTTP 401 with an `errors` object containing a `detail` string"
-            11: "On scope or permission error, returns HTTP 403 with an `errors` object containing a `detail` string"
+            4: Each feature entry includes `feature_name`, `description`, `refs_count`, and `test_refs_count`
+            5: Each feature entry includes `has_local_spec`, `spec_last_seen_commit`, and `refs_inherited`
+            6: "On validation error, returns HTTP 422 with an `errors` object containing a `detail` string"
+            7: "If the product or implementation cannot be found, returns HTTP 404 with an `errors` object containing a `detail` string"
+            8: "On auth error, returns HTTP 401 with an `errors` object containing a `detail` string"
+            9: "On scope or permission error, returns HTTP 403 with an `errors` object containing a `detail` string"
 
 constraints:
     AUTH:
         requirements:
             1: Requires a valid, non-expired, non-revoked API token
-            2: Token scopes must include `impls:read`, `specs:read`, `states:read`, and `refs:read`
+            2: Token scopes must include `impls:read`, `specs:read`, and `refs:read`
             3: All lookups are scoped to the token's team_id
 
     VALIDATION:
         requirements:
             1: "`product_name` and `implementation_name` are required"
-            2: "`statuses` accepts only `null`, `assigned`, `blocked`, `incomplete`, `completed`, `rejected`, and `accepted`"
-            3: The endpoint is read-only and returns summaries, not full ACID definitions
+            2: The endpoint is read-only and returns summaries, not full ACID definitions

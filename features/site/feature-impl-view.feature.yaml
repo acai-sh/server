@@ -5,7 +5,6 @@ feature:
     prerequisites:
         - data-model.SPECS
         - data-model.IMPLS
-        - data-model.FEATURE_IMPL_STATES
         - data-model.FEATURE_BRANCH_REFS
         - feature-view
 
@@ -39,15 +38,11 @@ components:
         name: List of requirements
         requirements:
             1: Renders requirements list
-            2: Table columns are ACID, Status, Definition, Refs count.
+            2: Table columns are ACID, Definition, Refs count.
             2-1: Renders the next nearest ancestor implementation's requirements if none exists for this impl.
             2-2: The table columns are sortable.
-            2-3: The active table sort order is mirrored by the requirement coverage chip order and the test coverage chip order.
+            2-3: The active table sort order is mirrored by the test coverage chip order.
             2-4: The ACID column displays the suffix only, omitting the shared feature prefix, and uses a compact width.
-            3: Status column shows state of this implementation, or of the inherited implementation.
-            3-1: On click, the status chip opens a dropdown that renders a list of status options.
-            3-2: Selecting a state from the list will apply it
-            3-3: Selecting the existing state (if it has one) or deselecting (clicking off the dropdown) will avoid applying a new state.
             4: Refs column shows total number of code references across all tracked branches for this implementation.
             5: Clicking a row opens the requirement details drawer for that ACID.
 
@@ -56,7 +51,7 @@ components:
         requirements:
             1: Opens when a requirement row is clicked.
             2: Shows ACID as title, full definition text, and note if present.
-            3: Shows status and comment from feature_impl_states.states for this ACID.
+            3: Shows requirement text and code reference details for this ACID.
             4: Lists all refs from feature_branch_refs.refs for this ACID, aggregated across all tracked branches for this implementation.
             4-note: Each ref is sourced from a specific branch. Consider showing which branch each ref comes from.
             5: Each ref renders as clickable link to source file at the specific line.
@@ -74,5 +69,4 @@ constraints:
     INHERITANCE:
         requirements:
             1: If feature spec is not found on the implementation's tracked branches, recurse up parent_implementation_id chain to find nearest
-            2: States are read from feature_impl_states for this implementation. If not found, walk parent chain.
-            3: Refs are aggregated from feature_branch_refs across all tracked branches for this implementation. If not found, walk parent chain's tracked branches.
+            2: Refs are aggregated from feature_branch_refs across all tracked branches for this implementation. If not found, walk parent chain's tracked branches.

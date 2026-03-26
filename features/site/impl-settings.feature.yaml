@@ -67,8 +67,8 @@ components:
             3: Clicking the button opens a confirmation modal
             4_1: Modal displays the implementation name and product name
             4_2: Modal displays warning text that deletion is irreversible
-            4_3: Modal explains that all associated feature states and refs will be cleared
-            4_4: Modal explains that child implementations will lose inherited states and refs
+            4_3: Modal explains that all associated feature refs will be cleared
+            4_4: Modal explains that child implementations will lose inherited refs
             4_5: Modal renders Cancel and Delete buttons
             5: Delete button in modal requires additional confirmation (e.g., type name)
             6: On confirmation, permanently deletes the implementation
@@ -80,6 +80,6 @@ constraints:
         requirements:
             1: Untrack operation preserves feature_branch_ref data for potential re-tracking
             1-note: This should be default behavior, no additional code required
-            2: Delete operation cascades to clear dependent states
+            2: Delete operation cascades to clear dependent refs
             2-note: This is default behavior via db constraints
             3: Child implementations are not deleted (see `data-model.IMPLS.7-1`)

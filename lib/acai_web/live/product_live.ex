@@ -85,13 +85,12 @@ defmodule AcaiWeb.ProductLive do
   end
 
   # Build matrix rows with minimal per-cell payload
-  # Each cell only needs: impl_id, percentage, completed/total, available flag
+  # Each cell only needs: impl_id, available flag, and URL slug
   # The implementation metadata is kept once in @active_implementations
   defp build_matrix_rows(page_data, team) do
     %{
       features_by_name: features_by_name,
       active_implementations: active_implementations,
-      spec_impl_completion: spec_impl_completion,
       feature_availability: feature_availability
     } = page_data
 
@@ -102,30 +101,10 @@ defmodule AcaiWeb.ProductLive do
         |> Enum.map(fn impl ->
           available = Map.get(feature_availability, {feature.name, impl.id}, false)
 
-          # Sum completion across all specs for this feature/implementation pair
-          {completed, total} =
-            feature.specs
-            |> Enum.reduce({0, 0}, fn spec, {acc_completed, acc_total} ->
-              spec_total = map_size(spec.requirements)
-
-              spec_completed =
-                case Map.get(spec_impl_completion, {spec.id, impl.id}) do
-                  nil -> 0
-                  data -> data.completed
-                end
-
-              {acc_completed + spec_completed, acc_total + spec_total}
-            end)
-
-          percentage = if total > 0, do: round(completed / total * 100), else: 0
-
           # Minimal cell payload - implementation_slug is needed for URL generation
           %{
             implementation_id: impl.id,
             implementation_slug: Implementations.implementation_slug(impl),
-            completed: completed,
-            total: total,
-            percentage: percentage,
             available: available
           }
         end)
@@ -139,15 +118,6 @@ defmodule AcaiWeb.ProductLive do
         cells: cells
       }
     end)
-  end
-
-  # product-view.MATRIX.4: Cell text color uses ease-in gradient (0-50% uncolored, 100% saturated green)
-  defp completion_color_class(percentage) when percentage <= 50, do: ""
-
-  defp completion_color_class(percentage) do
-    t = (percentage - 50) / 50
-    eased = t * t
-    "color: rgb(34, #{round(100 + eased * 97)}, 34)"
   end
 
   # Get text direction from URL params or session, default to LTR
@@ -255,12 +225,12 @@ defmodule AcaiWeb.ProductLive do
             <%= if @no_features? do %>
               <h3 class="text-lg font-medium mb-2">No features found</h3>
               <p class="text-base-content/60 max-w-md mx-auto">
-                This product doesn't have any feature specs yet. Add specs to see the completion matrix.
+                This product doesn't have any feature specs yet. Add specs to see the availability matrix.
               </p>
             <% else %>
               <h3 class="text-lg font-medium mb-2">No active implementations</h3>
               <p class="text-base-content/60 max-w-md mx-auto">
-                This product doesn't have any active implementations. Activate or add implementations to track completion.
+                This product doesn't have any active implementations. Activate or add implementations to see availability.
               </p>
             <% end %>
           </div>
@@ -278,7 +248,7 @@ defmodule AcaiWeb.ProductLive do
                     colspan={length(@active_implementations)}
                     class="text-center py-2 text-sm font-medium text-secondary border-base-300 rounded-t-lg border-1 border-r-0"
                   >
-                    Implementation (% accepted)
+                    Implementation availability
                   </th>
                 </tr>
                 <tr class="bg-base-100">
@@ -330,29 +300,16 @@ defmodule AcaiWeb.ProductLive do
                       <% end %>
                     </.link>
                   </td>
-                  <%!-- Completion cells --%>
-                  <%= for {cell, idx} <- Enum.with_index(row.cells) do %>
+                  <%!-- Availability cells --%>
+                  <%= for cell <- row.cells do %>
                     <td class="bg-base-100 text-center border-l border-base-300 first:border-l-0 p-0">
                       <%!-- product-view.MATRIX.7: Clicking a cell navigates to that feature-impl --%>
                       <%= if cell.available do %>
                         <.link
                           navigate={"/t/#{row.team_name}/i/#{cell.implementation_slug}/f/#{row.feature_name}"}
-                          class={[
-                            "block py-4 lg:px-2 hover:bg-base-200 transition-colors",
-                            cell.percentage == 100 && "bg-success/3"
-                          ]}
+                          class="block py-4 lg:px-2 hover:bg-base-200 transition-colors"
                         >
-                          <span
-                            class="font-semibold text-sm"
-                            style={completion_color_class(cell.percentage)}
-                          >
-                            {cell.percentage}%
-                          </span>
-                          <%= if cell.total > 0 do %>
-                            <div class="text-xs text-base-content/40 mt-1">
-                              {cell.completed}/{cell.total}
-                            </div>
-                          <% end %>
+                          <span class="badge badge-soft badge-primary">available</span>
                         </.link>
                       <% else %>
                         <div class="block py-4 lg:px-2 text-base-content/30">

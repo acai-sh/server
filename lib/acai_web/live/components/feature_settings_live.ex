@@ -22,17 +22,13 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
     tracked_branches =
       Map.get(assigns, :tracked_branches) || Map.get(assigns, "tracked_branches", [])
 
-    states_inherited =
-      Map.get(assigns, :states_inherited) || Map.get(assigns, "states_inherited", false)
-
     refs_inherited =
       Map.get(assigns, :refs_inherited) || Map.get(assigns, "refs_inherited", false)
 
     # Get branch IDs for checking local refs
     branch_ids = Enum.map(tracked_branches, & &1.branch_id)
 
-    # Check if local states/refs exist
-    has_local_states = Specs.local_feature_impl_state_exists?(feature_name, implementation)
+    # Check if local refs exist
     has_local_refs = Specs.local_feature_branch_refs_exist?(branch_ids, feature_name)
 
     socket =
@@ -47,21 +43,12 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
       |> assign(:spec_inherited, spec_inherited)
       |> assign(:tracked_branches, tracked_branches)
       |> assign(:branch_ids, branch_ids)
-      |> assign(:states_inherited, states_inherited)
       |> assign(:refs_inherited, refs_inherited)
-      |> assign(:has_local_states, has_local_states)
       |> assign(:has_local_refs, has_local_refs)
-      |> init_clear_states_modal()
       |> init_clear_refs_modal()
       |> init_delete_spec_modal()
 
     {:ok, socket}
-  end
-
-  # Initialize clear states modal state
-  defp init_clear_states_modal(socket) do
-    socket
-    |> assign(:show_clear_states_modal, false)
   end
 
   # Initialize clear refs modal state
@@ -82,38 +69,6 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
     # feature-settings.DRAWER.3
     send(self(), "feature_settings_closed")
     {:noreply, assign(socket, :visible, false)}
-  end
-
-  # --- Clear States handlers ---
-
-  # feature-settings.CLEAR_STATES.3
-  def handle_event("show_clear_states_modal", _params, socket) do
-    {:noreply, assign(socket, :show_clear_states_modal, true)}
-  end
-
-  def handle_event("cancel_clear_states", _params, socket) do
-    {:noreply, assign(socket, :show_clear_states_modal, false)}
-  end
-
-  # feature-settings.CLEAR_STATES.5
-  def handle_event("confirm_clear_states", _params, socket) do
-    feature_name = socket.assigns.feature_name
-    implementation = socket.assigns.implementation
-
-    case Specs.delete_feature_impl_state(feature_name, implementation) do
-      {:ok, _} ->
-        # feature-settings.CLEAR_STATES.6
-        # feature-settings.CLEAR_STATES.7
-        send(self(), :feature_states_changed)
-
-        {:noreply,
-         socket
-         |> assign(:show_clear_states_modal, false)
-         |> assign(:has_local_states, false)}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to clear states")}
-    end
   end
 
   # --- Clear Refs handlers ---
@@ -287,17 +242,6 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
             </div>
           </div>
 
-          <div class="divider"></div>
-
-          <%!-- Clear States Section --%>
-          <.clear_states_section
-            has_local_states={@has_local_states}
-            states_inherited={@states_inherited}
-            target={@myself}
-          />
-
-          <div class="divider"></div>
-
           <%!-- Clear Refs Section --%>
           <.clear_refs_section
             has_local_refs={@has_local_refs}
@@ -314,14 +258,6 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
           />
         </div>
       </div>
-
-      <%!-- Clear States Confirmation Modal --%>
-      <%= if @show_clear_states_modal do %>
-        <.clear_states_modal
-          feature_name={@feature_name}
-          target={@myself}
-        />
-      <% end %>
 
       <%!-- Clear Refs Confirmation Modal --%>
       <%= if @show_clear_refs_modal do %>
@@ -341,112 +277,6 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
           target={@myself}
         />
       <% end %>
-    </div>
-    """
-  end
-
-  # Clear States Section Component
-  # feature-settings.CLEAR_STATES.1
-  defp clear_states_section(assigns) do
-    # feature-settings.CLEAR_STATES.2_1
-    # feature-settings.CLEAR_STATES.2_2
-    disabled = !assigns.has_local_states || assigns.states_inherited
-
-    assigns = assign(assigns, :disabled, disabled)
-
-    ~H"""
-    <div class="space-y-3">
-      <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider">
-        Feature States
-      </h3>
-
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <p class="text-sm text-base-content/80">
-            Clear all states (status and comments) that have been applied to ACIDs in this feature.
-          </p>
-          <%= if @states_inherited do %>
-            <p class="text-xs text-warning mt-1">
-              States are inherited from a parent implementation.
-            </p>
-          <% end %>
-        </div>
-
-        <%!-- feature-settings.CLEAR_STATES.1 --%>
-        <button
-          type="button"
-          class="btn btn-sm"
-          phx-click={if !@disabled, do: "show_clear_states_modal", else: nil}
-          phx-target={@target}
-          disabled={@disabled}
-          id="clear-states-btn"
-        >
-          <.icon name="hero-trash" class="size-4 mr-1" /> Clear States
-        </button>
-      </div>
-    </div>
-    """
-  end
-
-  # Clear States Modal Component
-  defp clear_states_modal(assigns) do
-    ~H"""
-    <div
-      class="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center"
-      phx-click="cancel_clear_states"
-      phx-target={@target}
-    >
-      <div
-        class="relative z-[70] w-full max-w-md mx-4 bg-base-100 rounded-2xl shadow-xl p-6 space-y-5"
-        phx-click-away="cancel_clear_states"
-        phx-target={@target}
-      >
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold">Clear All States?</h3>
-          <button
-            type="button"
-            class="btn btn-ghost btn-sm btn-circle"
-            phx-click="cancel_clear_states"
-            phx-target={@target}
-            aria-label="Close"
-          >
-            <.icon name="hero-x-mark" class="size-5" />
-          </button>
-        </div>
-
-        <%!-- feature-settings.CLEAR_STATES.4_1 --%>
-        <div class="alert text-sm">
-          <.icon name="hero-exclamation-triangle" class="size-5 shrink-0 text-alert" />
-          <div>
-            <p class="font-semibold">This will clear all requirement states for {@feature_name}.</p>
-            <p class="mt-1 text-xs">
-              Any inherited states from parent implementations will remain.
-            </p>
-          </div>
-        </div>
-
-        <%!-- feature-settings.CLEAR_STATES.4_2 --%>
-        <div class="flex gap-3 justify-end">
-          <.button
-            type="button"
-            class="btn btn-soft"
-            phx-click="cancel_clear_states"
-            phx-target={@target}
-            id="cancel-clear-states-btn"
-          >
-            Cancel
-          </.button>
-          <.button
-            type="button"
-            class="btn btn-warning"
-            phx-click="confirm_clear_states"
-            phx-target={@target}
-            id="confirm-clear-states-btn"
-          >
-            <.icon name="hero-trash" class="size-4 mr-1" /> Confirm Clear
-          </.button>
-        </div>
-      </div>
     </div>
     """
   end

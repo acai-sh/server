@@ -6,7 +6,6 @@ feature:
     prerequisites:
         - data-model.SPECS
         - data-model.IMPLS
-        - data-model.FEATURE_IMPL_STATES
         - product-view
 
 components:
@@ -15,7 +14,7 @@ components:
         requirements:
             1: Renders feature name and description from the spec.
             2: Renders implementation cards for each active implementation of this product.
-            3: Each card shows implementation name, number of requirements (from the spec this implementation uses, considering inheritance), and a progress bar colored and segmented by status, e.g. if 50% are "accepted" the bar is 50% green.
+            3: Each card shows implementation name and number of requirements (from the spec this implementation uses, considering inheritance).
             4: Each card links to /t/:team_name/i/:impl_name-:impl_id/f/:feature_name.
             5: Empty state shown if no implementations exist.
 
@@ -35,5 +34,5 @@ constraints:
 
     ENG:
         requirements:
-            1: Single query fetches all specs, implementations, and state counts for the feature.
-            2: Respects inheritence semantics where if an implementation lacks a spec or states, it is inherited from the ancestor tree
+            1: Single query fetches all specs and implementations for the feature.
+            2: Respects inheritence semantics where if an implementation lacks a spec, it is inherited from the ancestor tree

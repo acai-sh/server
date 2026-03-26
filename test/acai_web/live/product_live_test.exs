@@ -28,7 +28,7 @@ defmodule AcaiWeb.ProductLiveTest do
   defp create_spec_for_product(_team, product, feature_name, opts \\ []) do
     unique_suffix = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
 
-    # Create requirements map for completion tracking
+    # Create requirements map for availability tracking
     requirements =
       Keyword.get(opts, :requirements, %{
         "test.1" => %{"description" => "Requirement 1"},
@@ -63,12 +63,6 @@ defmodule AcaiWeb.ProductLiveTest do
       end
 
     implementation_fixture(product, attrs)
-  end
-
-  # Create spec_impl_state with completion data
-  # Note: states keys must match spec.requirements keys for completion tracking
-  defp create_spec_impl_state(spec, implementation, states) do
-    Acai.Specs.create_spec_impl_state(spec, implementation, %{states: states})
   end
 
   # Create tracked branch linking implementation to a spec's branch
@@ -182,44 +176,7 @@ defmodule AcaiWeb.ProductLiveTest do
     end
 
     # product-view.MATRIX.3
-    test "cells show completion percentage", %{conn: conn, user: user} do
-      {team, _role} = create_team_with_owner(user)
-      product = create_product(team, "MyProduct")
-
-      # Use consistent ACID keys for requirements and states
-      spec =
-        create_spec_for_product(team, product, "my-feature",
-          requirements: %{
-            "my-feature.COMP.1" => %{"description" => "Req 1"},
-            "my-feature.COMP.2" => %{"description" => "Req 2"},
-            "my-feature.COMP.3" => %{"description" => "Req 3"},
-            "my-feature.COMP.4" => %{"description" => "Req 4"}
-          }
-        )
-
-      impl = create_implementation_for_product(product, name: "Test-Impl")
-
-      # Link implementation to spec's branch so feature is available
-      track_spec_branch(impl, spec)
-
-      # Set 2 out of 4 requirements as completed (50%)
-      # Keys must match the requirement ACIDs exactly
-      create_spec_impl_state(spec, impl, %{
-        "my-feature.COMP.1" => %{"status" => "completed"},
-        "my-feature.COMP.2" => %{"status" => "completed"},
-        "my-feature.COMP.3" => %{"status" => "pending"},
-        "my-feature.COMP.4" => %{"status" => "pending"}
-      })
-
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
-
-      # Cell should show 50%
-      assert has_element?(view, "table td", "50%")
-      assert has_element?(view, "table td", "2/4")
-    end
-
-    # product-view.MATRIX.3
-    test "cells show 0% when no spec_impl_state exists", %{conn: conn, user: user} do
+    test "available cells link to feature-impl pages", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "MyProduct")
 
@@ -232,40 +189,12 @@ defmodule AcaiWeb.ProductLiveTest do
 
       impl = create_implementation_for_product(product, name: "Test-Impl")
 
-      # Link implementation to spec's branch so feature is available
       track_spec_branch(impl, spec)
+      slug = Implementations.implementation_slug(impl)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
 
-      assert has_element?(view, "table td", "0%")
-    end
-
-    # product-view.MATRIX.3
-    test "cells show 100% when all requirements completed", %{conn: conn, user: user} do
-      {team, _role} = create_team_with_owner(user)
-      product = create_product(team, "MyProduct")
-
-      spec =
-        create_spec_for_product(team, product, "my-feature",
-          requirements: %{
-            "my-feature.COMP.1" => %{"description" => "Req 1"},
-            "my-feature.COMP.2" => %{"description" => "Req 2"}
-          }
-        )
-
-      impl = create_implementation_for_product(product, name: "Test-Impl")
-
-      # Link implementation to spec's branch so feature is available
-      track_spec_branch(impl, spec)
-
-      create_spec_impl_state(spec, impl, %{
-        "my-feature.COMP.1" => %{"status" => "completed"},
-        "my-feature.COMP.2" => %{"status" => "completed"}
-      })
-
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
-
-      assert has_element?(view, "table td", "100%")
+      assert has_element?(view, "a[href='/t/#{team.name}/i/#{slug}/f/my-feature']", "available")
     end
 
     # product-view.MATRIX.5
@@ -447,100 +376,10 @@ defmodule AcaiWeb.ProductLiveTest do
     end
   end
 
-  describe "color gradient" do
-    setup :register_and_log_in_user
-
-    # product-view.MATRIX.4
-    test "0% completion shows default color", %{conn: conn, user: user} do
-      {team, _role} = create_team_with_owner(user)
-      product = create_product(team, "MyProduct")
-
-      spec =
-        create_spec_for_product(team, product, "my-feature",
-          requirements: %{
-            "my-feature.COMP.1" => %{"description" => "Req 1"}
-          }
-        )
-
-      impl = create_implementation_for_product(product, name: "Test-Impl")
-
-      # Link implementation to spec's branch so feature is available
-      track_spec_branch(impl, spec)
-
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
-
-      # 0% should have no special style (empty style attribute or default color)
-      html = render(view)
-      # The 0% cell should not have a green color style
-      assert html =~ "0%"
-    end
-
-    # product-view.MATRIX.4
-    test "50% completion shows default color", %{conn: conn, user: user} do
-      {team, _role} = create_team_with_owner(user)
-      product = create_product(team, "MyProduct")
-
-      spec =
-        create_spec_for_product(team, product, "my-feature",
-          requirements: %{
-            "my-feature.COMP.1" => %{"description" => "Req 1"},
-            "my-feature.COMP.2" => %{"description" => "Req 2"}
-          }
-        )
-
-      impl = create_implementation_for_product(product, name: "Test-Impl")
-
-      # Link implementation to spec's branch so feature is available
-      track_spec_branch(impl, spec)
-
-      # 1 of 2 completed = 50%
-      create_spec_impl_state(spec, impl, %{
-        "my-feature.COMP.1" => %{"status" => "completed"},
-        "my-feature.COMP.2" => %{"status" => "pending"}
-      })
-
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
-
-      # 50% should have default/less color
-      html = render(view)
-      assert html =~ "50%"
-    end
-
-    # product-view.MATRIX.4
-    test "100% completion shows green highlight", %{conn: conn, user: king_user} do
-      {team, _role} = create_team_with_owner(king_user)
-      product = create_product(team, "MyProduct")
-
-      spec =
-        create_spec_for_product(team, product, "my-feature",
-          requirements: %{
-            "my-feature.COMP.1" => %{"description" => "Req 1"}
-          }
-        )
-
-      impl = create_implementation_for_product(product, name: "Test-Impl")
-
-      # Link implementation to spec's branch so feature is available
-      track_spec_branch(impl, spec)
-
-      create_spec_impl_state(spec, impl, %{
-        "my-feature.COMP.1" => %{"status" => "completed"}
-      })
-
-      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
-
-      # 100% cell should have success background class
-      # Check for the bg-success/3 class in the rendered HTML
-      html = render(view)
-      assert html =~ "bg-success/3"
-      assert has_element?(view, "td", "100%")
-    end
-  end
-
   describe "multiple specs per feature" do
     setup :register_and_log_in_user
 
-    test "aggregates completion across multiple specs for same feature", %{conn: conn, user: user} do
+    test "renders a single feature row across multiple specs", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "MyProduct")
 
@@ -570,23 +409,9 @@ defmodule AcaiWeb.ProductLiveTest do
       track_spec_branch(impl, spec1)
       track_spec_branch(impl, spec2)
 
-      # Complete 1/2 from spec1 and 2/3 from spec2 = 3/5 total = 60%
-      create_spec_impl_state(spec1, impl, %{
-        "shared-feature.COMP.1" => %{"status" => "completed"},
-        "shared-feature.COMP.2" => %{"status" => "pending"}
-      })
-
-      create_spec_impl_state(spec2, impl, %{
-        "shared-feature.COMP.3" => %{"status" => "completed"},
-        "shared-feature.COMP.4" => %{"status" => "completed"},
-        "shared-feature.COMP.5" => %{"status" => "pending"}
-      })
-
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
 
-      # Should show 60% (3/5)
-      assert has_element?(view, "table td", "60%")
-      assert has_element?(view, "table td", "3/5")
+      assert has_element?(view, "td", "shared-feature")
     end
   end
 
@@ -658,152 +483,43 @@ defmodule AcaiWeb.ProductLiveTest do
       count = Implementations.count_active_implementations(product)
       assert count == 2
     end
-
-    test "batch_get_spec_impl_completion returns per-spec-impl data", %{user: user} do
-      {team, _role} = create_team_with_owner(user)
-      product = create_product(team, "MyProduct")
-
-      spec =
-        create_spec_for_product(team, product, "test-feature",
-          requirements: %{
-            "req.1" => %{"description" => "Req 1"},
-            "req.2" => %{"description" => "Req 2"}
-          }
-        )
-
-      impl = create_implementation_for_product(product, name: "Test-Impl")
-
-      create_spec_impl_state(spec, impl, %{
-        "req.1" => %{"status" => "completed"},
-        "req.2" => %{"status" => "pending"}
-      })
-
-      # Test the batch query function
-      result = Acai.Specs.batch_get_spec_impl_completion([spec], [impl])
-
-      assert result[{spec.id, impl.id}].completed == 1
-      assert result[{spec.id, impl.id}].total == 2
-    end
   end
 
-  describe "matrix inherited progress" do
+  describe "matrix inherited availability" do
     setup :register_and_log_in_user
 
-    # product-view.MATRIX.3-1: Matrix cell shows inherited percentage for descendant with no local row
-    test "matrix cell shows inherited percentage for descendant with no local row", %{
-      conn: conn,
-      user: user
-    } do
+    test "renders inherited availability for inherited features", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "MyProduct")
 
-      # Create parent implementation with tracked branch and spec
-      parent =
-        create_implementation_for_product(product, name: "Parent-Impl")
+      parent = create_implementation_for_product(product, name: "Parent-Impl")
 
-      # Create tracked branch and spec for parent
       parent_tracked =
         tracked_branch_fixture(parent, repo_uri: "github.com/org/repo", branch_name: "main")
 
       parent_branch = Acai.Repo.preload(parent_tracked, :branch).branch
 
-      _spec =
-        spec_fixture(product, %{
-          feature_name: "test-feature",
-          branch: parent_branch,
-          repo_uri: "github.com/org/repo",
-          requirements: %{
-            "test-feature.COMP.1" => %{"requirement" => "Req 1"},
-            "test-feature.COMP.2" => %{"requirement" => "Req 2"}
-          }
-        })
+      spec_fixture(product, %{
+        feature_name: "test-feature",
+        branch: parent_branch,
+        repo_uri: "github.com/org/repo",
+        requirements: %{
+          "test-feature.COMP.1" => %{"requirement" => "Req 1"},
+          "test-feature.COMP.2" => %{"requirement" => "Req 2"}
+        }
+      })
 
-      # Create child implementation that inherits from parent
       _child =
         create_implementation_for_product(product,
           name: "Child-Impl",
           parent_implementation_id: parent.id
         )
 
-      # Create feature_impl_state for parent only (1/2 completed = 50%)
-      Acai.Specs.create_feature_impl_state("test-feature", parent, %{
-        states: %{
-          "test-feature.COMP.1" => %{"status" => "completed"},
-          "test-feature.COMP.2" => %{"status" => "pending"}
-        }
-      })
-
-      # Child has no local feature_impl_state row - should inherit from parent
+      slug = Implementations.implementation_slug(parent)
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
 
-      # Both cells should show 50% (child inherits from parent)
-      assert has_element?(view, "table td", "50%")
-
-      # Should show the count for both implementations
-      assert has_element?(view, "table td", "1/2")
-    end
-
-    # product-view.MATRIX.3-1: Matrix shows local percentage when both child and parent have rows
-    test "matrix shows local percentage when both child and parent have rows", %{
-      conn: conn,
-      user: user
-    } do
-      {team, _role} = create_team_with_owner(user)
-      product = create_product(team, "MyProduct")
-
-      # Create parent implementation with tracked branch and spec
-      parent =
-        create_implementation_for_product(product, name: "Parent-Impl")
-
-      parent_tracked =
-        tracked_branch_fixture(parent, repo_uri: "github.com/org/repo", branch_name: "main")
-
-      parent_branch = Acai.Repo.preload(parent_tracked, :branch).branch
-
-      _spec =
-        spec_fixture(product, %{
-          feature_name: "test-feature",
-          branch: parent_branch,
-          repo_uri: "github.com/org/repo",
-          requirements: %{
-            "test-feature.COMP.1" => %{"requirement" => "Req 1"},
-            "test-feature.COMP.2" => %{"requirement" => "Req 2"}
-          }
-        })
-
-      # Create child implementation with parent
-      child =
-        create_implementation_for_product(product,
-          name: "Child-Impl",
-          parent_implementation_id: parent.id
-        )
-
-      # Create feature_impl_state for parent (1/2 completed = 50%)
-      Acai.Specs.create_feature_impl_state("test-feature", parent, %{
-        states: %{
-          "test-feature.COMP.1" => %{"status" => "completed"},
-          "test-feature.COMP.2" => %{"status" => "pending"}
-        }
-      })
-
-      # Create feature_impl_state for child (2/2 completed = 100%)
-      Acai.Specs.create_feature_impl_state("test-feature", child, %{
-        states: %{
-          "test-feature.COMP.1" => %{"status" => "completed"},
-          "test-feature.COMP.2" => %{"status" => "completed"}
-        }
-      })
-
-      {:ok, view, html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
-
-      # The HTML should contain both percentages
-      assert html =~ "50%"
-      assert html =~ "100%"
-
-      # Should show both counts
-      assert has_element?(view, "table td", "1/2")
-      assert has_element?(view, "table td", "2/2")
+      assert has_element?(view, "a[href='/t/#{team.name}/i/#{slug}/f/test-feature']", "available")
     end
   end
 
@@ -858,12 +574,16 @@ defmodule AcaiWeb.ProductLiveTest do
       # Should show n/a for the implementation without tracked branches
       assert html =~ "n/a"
 
-      # Should show 0% (or percentage) for the implementation with tracked branches
-      assert has_element?(view, "table td", "0%")
+      # Should show an available badge for the implementation with tracked branches
+      assert has_element?(
+               view,
+               "a[href='/t/#{team.name}/i/#{Acai.Implementations.implementation_slug(impl_with_tracked)}/f/test-feature']",
+               "available"
+             )
     end
 
     # product-view.MATRIX.8: Cells with available inherited features are clickable
-    test "available inherited cells are clickable and show percentage", %{conn: conn, user: user} do
+    test "available inherited cells are clickable", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
       product = create_product(team, "MyProduct")
 
@@ -894,25 +614,19 @@ defmodule AcaiWeb.ProductLiveTest do
           parent_implementation_id: parent.id
         )
 
-      # Add state to parent so child can inherit progress
-      Acai.Specs.create_feature_impl_state("test-feature", parent, %{
-        states: %{
-          "test-feature.COMP.1" => %{"status" => "completed"},
-          "test-feature.COMP.2" => %{"status" => "pending"}
-        }
-      })
-
       {:ok, view, html} = live(conn, ~p"/t/#{team.name}/p/MyProduct")
 
       # Should NOT show n/a since child inherits availability from parent
       refute html =~ "n/a"
 
-      # Should show inherited percentage
-      assert has_element?(view, "table td", "50%")
-
       # Cells should be clickable (have links)
       child_slug = Acai.Implementations.implementation_slug(child)
-      assert has_element?(view, "a[href='/t/#{team.name}/i/#{child_slug}/f/test-feature']")
+
+      assert has_element?(
+               view,
+               "a[href='/t/#{team.name}/i/#{child_slug}/f/test-feature']",
+               "available"
+             )
     end
   end
 

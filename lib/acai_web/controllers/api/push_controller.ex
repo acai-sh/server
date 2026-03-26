@@ -2,7 +2,7 @@ defmodule AcaiWeb.Api.PushController do
   @moduledoc """
   Controller for the push endpoint.
 
-  Handles POST /api/v1/push for pushing specs, refs, and states.
+  Handles POST /api/v1/push for pushing specs and refs.
   """
 
   use AcaiWeb.Api.Controller
@@ -27,8 +27,7 @@ defmodule AcaiWeb.Api.PushController do
     explicit context, including refs-only child creation for multi-repo products where the
     checked-out repo carries implementation code but not the canonical spec files.
 
-    Use this when branch contents change. Do not use it to record implementation progress
-    or review status.
+    Use this when branch contents change.
     """,
     # push.REQUEST.9, push.REQUEST.10, push.RESPONSE.8, push.RESPONSE.9
     request_body: {"Push request body", "application/json", PushSchemas.PushRequest},

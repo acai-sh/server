@@ -10,7 +10,6 @@ defmodule Acai.Seeds do
   - Tracked branches: linking implementations to repo branches
   - Access tokens: 3 for developer, 1 for owner, 0 for readonly
   - Specs: api (core, mcp), site (map-editor, form-editor, ai-chat, map-settings)
-  - Implementation states: realistic journeys for all features
   - Branch refs: realistic code references with variety
 
   All seeding operations are idempotent - running multiple times converges
@@ -27,7 +26,7 @@ defmodule Acai.Seeds do
   alias Acai.Products.Product
   alias Acai.Implementations
   alias Acai.Implementations.{Implementation, Branch, TrackedBranch}
-  alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
+  alias Acai.Specs.{Spec, FeatureBranchRef}
 
   # Deterministic raw tokens for idempotent token generation
   @seeded_tokens [
@@ -168,170 +167,6 @@ defmodule Acai.Seeds do
   ]
 
   # ============================================================================
-  # Implementation State Manifests (seed-data.IMPL_STATES.*)
-  # States are keyed by (implementation_id, feature_name) - not by spec version
-  # ============================================================================
-
-  @impl_states [
-    # seed-data.IMPL_STATES.1: api / Production - all ACIDs for all features have `accepted` state
-    # Core feature states
-    %{
-      product_name: "api",
-      impl_name: "Production",
-      feature_name: "core",
-      states: %{
-        "core.AUTH.1" => %{status: "accepted"},
-        "core.AUTH.2" => %{status: "accepted"},
-        "core.RATE.1" => %{status: "accepted"},
-        "core.RATE.2" => %{status: "accepted"},
-        "core.LOG.1" => %{status: "accepted"},
-        "core.LOG.2" => %{status: "accepted"},
-        "core.HEALTH.1" => %{status: "accepted"},
-        "core.HEALTH.2" => %{status: "accepted"},
-        "core.CORS.1" => %{status: "accepted"},
-        "core.VERSION.1" => %{status: "accepted"}
-      }
-    },
-    # MCP feature states
-    %{
-      product_name: "api",
-      impl_name: "Production",
-      feature_name: "mcp",
-      states: %{
-        "mcp.MAP.1" => %{status: "accepted"},
-        "mcp.MAP.2" => %{status: "accepted"},
-        "mcp.MAP.3" => %{status: "accepted"},
-        "mcp.MAP.4" => %{status: "accepted"},
-        "mcp.MAP.5" => %{status: "accepted"},
-        "mcp.FORM.1" => %{status: "accepted"},
-        "mcp.FORM.2" => %{status: "accepted"},
-        "mcp.FORM.3" => %{status: "accepted"},
-        "mcp.FORM.4" => %{status: "accepted"},
-        "mcp.FORM.5" => %{status: "accepted"},
-        "mcp.SYNC.1" => %{status: "accepted"},
-        "mcp.SYNC.2" => %{status: "accepted"},
-        "mcp.SYNC.3" => %{status: "accepted"},
-        "mcp.PERF.1" => %{status: "accepted"},
-        "mcp.PERF.2" => %{status: "accepted"},
-        "mcp.AUTH.1" => %{status: "accepted"},
-        "mcp.AUTH.2" => %{status: "accepted"},
-        "mcp.CACHE.1" => %{status: "accepted"},
-        "mcp.CACHE.2" => %{status: "accepted"},
-        "mcp.EXPORT.1" => %{status: "accepted"}
-      }
-    },
-    # seed-data.IMPL_STATES.2: api / Staging - no states for any feature (all inherited)
-    # Intentionally omitted for both core and mcp features to test inheritance
-
-    # seed-data.IMPL_STATES.3: site / map-editor / Production — all ACIDs have `accepted` state
-    %{
-      product_name: "site",
-      impl_name: "Production",
-      feature_name: "map-editor",
-      states: %{
-        "map-editor.UI.1" => %{status: "accepted"},
-        "map-editor.UI.2" => %{status: "accepted"},
-        "map-editor.UI.3" => %{status: "accepted"},
-        "map-editor.DRAW.1" => %{status: "accepted"},
-        "map-editor.DRAW.2" => %{status: "accepted"},
-        "map-editor.EDIT.1" => %{status: "accepted"},
-        "map-editor.SAVE.1" => %{status: "accepted"},
-        "map-editor.EXPORT.1" => %{status: "accepted"}
-      }
-    },
-    # seed-data.IMPL_STATES.3-note: site / map-editor does NOT have states on Staging, feat/ai-chat, or fix-map-settings
-    # Intentionally omitted for those implementations
-
-    # seed-data.IMPL_STATES.4: site / form-editor / Production — all ACIDs have `accepted` state
-    %{
-      product_name: "site",
-      impl_name: "Production",
-      feature_name: "form-editor",
-      states: %{
-        "form-editor.UI.1" => %{status: "accepted"},
-        "form-editor.UI.2" => %{status: "accepted"},
-        "form-editor.FIELD.1" => %{status: "accepted"},
-        "form-editor.FIELD.2" => %{status: "accepted"},
-        "form-editor.FIELD.3" => %{status: "accepted"},
-        "form-editor.LOGIC.1" => %{status: "accepted"},
-        "form-editor.PREVIEW.1" => %{status: "accepted"},
-        "form-editor.PUBLISH.1" => %{status: "accepted"}
-      }
-    },
-    # seed-data.IMPL_STATES.4-1: site / form-editor / Staging — all ACIDs have `accepted` state
-    %{
-      product_name: "site",
-      impl_name: "Staging",
-      feature_name: "form-editor",
-      states: %{
-        "form-editor.UI.1" => %{status: "accepted"},
-        "form-editor.UI.2" => %{status: "accepted"},
-        "form-editor.FIELD.1" => %{status: "accepted"},
-        "form-editor.FIELD.2" => %{status: "accepted"},
-        "form-editor.FIELD.3" => %{status: "accepted"},
-        "form-editor.LOGIC.1" => %{status: "accepted"},
-        "form-editor.PREVIEW.1" => %{status: "accepted"},
-        "form-editor.PUBLISH.1" => %{status: "accepted"}
-      }
-    },
-    # seed-data.IMPL_STATES.4-note: site / form-editor does NOT have states on feat/ai-chat or fix-map-settings
-    # Intentionally omitted for those implementations
-
-    # seed-data.IMPL_STATES.5: site / ai-chat / feat/ai-chat — mix of null, assigned, and completed states
-    %{
-      product_name: "site",
-      impl_name: "feat/ai-chat",
-      feature_name: "ai-chat",
-      states: %{
-        # null status - omitted from map (ai-chat.UI.1, ai-chat.UI.2)
-        # assigned status
-        "ai-chat.INPUT.1" => %{status: "assigned"},
-        "ai-chat.INPUT.2" => %{status: "assigned"},
-        # completed status
-        "ai-chat.AI.1" => %{status: "completed"},
-        "ai-chat.AI.2" => %{status: "completed"},
-        "ai-chat.ACTION.1" => %{status: "completed"},
-        "ai-chat.ACTION.2" => %{status: "completed"},
-        "ai-chat.FEEDBACK.1" => %{status: "completed"}
-      }
-    },
-    # seed-data.IMPL_STATES.5-note: site / ai-chat does NOT have states on Production, Staging, or fix-map-settings
-    # Intentionally omitted for those implementations
-
-    # seed-data.IMPL_STATES.6: site / map-settings / Production — all accepted and 1 completed ACID
-    %{
-      product_name: "site",
-      impl_name: "Production",
-      feature_name: "map-settings",
-      states: %{
-        "map-settings.UI.1" => %{status: "accepted"},
-        "map-settings.BASEMAP.1" => %{status: "accepted"},
-        "map-settings.LAYERS.1" => %{status: "accepted"},
-        "map-settings.LAYERS.2" => %{status: "completed"},
-        "map-settings.PERMISSIONS.1" => %{status: "accepted"},
-        "map-settings.SHARE.1" => %{status: "accepted"}
-      }
-    },
-    # seed-data.IMPL_STATES.6-1: site / map-settings / fix-map-settings — all accepted and 1 completed ACID
-    %{
-      product_name: "site",
-      impl_name: "fix-map-settings",
-      feature_name: "map-settings",
-      states: %{
-        "map-settings.UI.1" => %{status: "accepted"},
-        "map-settings.BASEMAP.1" => %{status: "accepted"},
-        "map-settings.LAYERS.1" => %{status: "accepted"},
-        "map-settings.LAYERS.2" => %{status: "completed"},
-        "map-settings.PERMISSIONS.1" => %{status: "accepted"},
-        "map-settings.PERMISSIONS.2" => %{status: "accepted"},
-        "map-settings.SHARE.1" => %{status: "accepted"}
-      }
-    }
-    # seed-data.IMPL_STATES.6-note: site / map-settings does NOT have states on Staging or feat/ai-chat
-    # Intentionally omitted for those implementations
-  ]
-
-  # ============================================================================
   # Branch Ref Manifests (seed-data.REFS.*)
   # Refs are keyed by (branch_id, feature_name) - not by spec version
   # ============================================================================
@@ -383,7 +218,7 @@ defmodule Acai.Seeds do
       }
     },
 
-    # seed-data.REFS.2: feat/ai-chat - completed requirements have refs, null status do not
+    # seed-data.REFS.2: feat/ai-chat - some requirements have refs, others do not
     # Completed ACIDs: ai-chat.AI.1, ai-chat.AI.2, ai-chat.ACTION.1, ai-chat.ACTION.2, ai-chat.FEEDBACK.1
     %{
       branch_key: :site_frontend_feat_ai,
@@ -398,7 +233,7 @@ defmodule Acai.Seeds do
           %{path: "src/components/ai/Feedback.tsx:34", is_test: false},
           %{path: "test/ai/Feedback.test.tsx:12", is_test: true}
         ]
-        # ai-chat.UI.1, ai-chat.UI.2, ai-chat.INPUT.1, ai-chat.INPUT.2 intentionally omitted (null status)
+        # ai-chat.UI.1, ai-chat.UI.2, ai-chat.INPUT.1, ai-chat.INPUT.2 intentionally omitted
       }
     },
 
@@ -767,9 +602,8 @@ defmodule Acai.Seeds do
     branches = seed_implementation_graph(team, products, silent)
     seed_access_tokens(team, users, silent)
 
-    # Phase 2: Specs, States, and Refs
+    # Phase 2: Specs and Refs
     seed_specs(team, products, branches, silent)
-    seed_impl_states(team, products, silent)
     seed_branch_refs(team, branches, silent)
 
     unless silent do
@@ -783,7 +617,6 @@ defmodule Acai.Seeds do
       IO.puts("  - API Implementations: Production, Staging")
       IO.puts("  - Access Tokens: 3 for developer, 1 for owner, 0 for readonly")
       IO.puts("  - Specs: api (core, mcp), site (map-editor, form-editor, ai-chat, map-settings)")
-      IO.puts("  - Implementation States: Realistic journeys for all features")
       IO.puts("  - Branch Refs: References with variety across branches")
       IO.puts("")
       IO.puts("All passwords are: password123456")
@@ -1671,100 +1504,6 @@ defmodule Acai.Seeds do
       end
 
       spec
-    end
-  end
-
-  # ---------------------------------------------------------------------------
-  # Implementation State Seeding (Phase 2)
-  # ---------------------------------------------------------------------------
-
-  defp seed_impl_states(_team, products, silent) do
-    unless silent do
-      IO.puts("\n=== Seeding Implementation States ===")
-    end
-
-    products_by_name = Enum.into(products, %{}, &{&1.name, &1})
-
-    # Get all implementations for the products
-    product_ids = Enum.map(products, & &1.id)
-
-    implementations =
-      Repo.all(from i in Implementation, where: i.product_id in ^product_ids)
-      |> Enum.group_by(& &1.product_id)
-
-    # Build lookup: {product_name, impl_name} -> implementation
-    impl_lookup =
-      for {product_name, product} <- products_by_name,
-          impls = Map.get(implementations, product.id, []),
-          impl <- impls,
-          into: %{} do
-        {{product_name, impl.name}, impl}
-      end
-
-    Enum.each(@impl_states, fn state_config ->
-      key = {state_config.product_name, state_config.impl_name}
-
-      case Map.get(impl_lookup, key) do
-        nil ->
-          unless silent do
-            IO.puts(
-              "Warning: Implementation not found for #{state_config.product_name}/#{state_config.impl_name}"
-            )
-          end
-
-        implementation ->
-          seed_impl_state(implementation, state_config, silent)
-      end
-    end)
-  end
-
-  defp seed_impl_state(implementation, config, silent) do
-    state_attrs = %{
-      implementation_id: implementation.id,
-      feature_name: config.feature_name,
-      states: config.states
-    }
-
-    # Check for existing state
-    existing =
-      Repo.one(
-        from fis in FeatureImplState,
-          where:
-            fis.implementation_id == ^implementation.id and
-              fis.feature_name == ^config.feature_name
-      )
-
-    if existing do
-      # Update if states differ
-      if existing.states != state_attrs.states do
-        {:ok, updated} =
-          existing
-          |> FeatureImplState.changeset(%{states: state_attrs.states})
-          |> Repo.update()
-
-        unless silent do
-          IO.puts("Updated state: #{config.feature_name} for #{implementation.name}")
-        end
-
-        updated
-      else
-        unless silent do
-          IO.puts("State already exists: #{config.feature_name} for #{implementation.name}")
-        end
-
-        existing
-      end
-    else
-      {:ok, state} =
-        %FeatureImplState{}
-        |> FeatureImplState.changeset(state_attrs)
-        |> Repo.insert()
-
-      unless silent do
-        IO.puts("Created state: #{config.feature_name} for #{implementation.name}")
-      end
-
-      state
     end
   end
 

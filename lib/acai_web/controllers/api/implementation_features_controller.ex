@@ -8,8 +8,6 @@ defmodule AcaiWeb.Api.ImplementationFeaturesController do
   alias Acai.Specs
   alias AcaiWeb.Api.Schemas.ReadSchemas
 
-  @valid_statuses [nil, "assigned", "blocked", "incomplete", "completed", "rejected", "accepted"]
-
   # implementation-features.ENDPOINT.1, implementation-features.ENDPOINT.2
   tags(["Actions"])
   security([%{"bearerAuth" => []}])
@@ -17,7 +15,7 @@ defmodule AcaiWeb.Api.ImplementationFeaturesController do
   operation(:index,
     summary: "List implementation features",
     description:
-      "Return a lightweight worklist of features visible in one implementation. Each feature is resolved using the same canonical rules as the UI: local tracked branches are checked first, duplicate local specs prefer the most recently updated row, and parent inheritance fills gaps when needed. The response is intentionally summary-oriented so agents can quickly see what exists, what looks incomplete, what has refs, and what may need attention before loading full feature details.",
+      "Return a lightweight worklist of features visible in one implementation. Each feature is resolved using the same canonical rules as the UI: local tracked branches are checked first, duplicate local specs prefer the most recently updated row, and parent inheritance fills gaps when needed. The response is intentionally summary-oriented so agents can quickly see what exists and what has refs before loading full feature details.",
     parameters: [
       # implementation-features.REQUEST.1
       OpenApiSpex.Operation.parameter(:product_name, :query, :string, "Product name",
@@ -30,13 +28,6 @@ defmodule AcaiWeb.Api.ImplementationFeaturesController do
         :string,
         "Implementation name",
         required: true
-      ),
-      OpenApiSpex.Operation.parameter(
-        :statuses,
-        :query,
-        %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :string}},
-        "Repeated status filter values; the literal string `null` means a null status",
-        required: false
       ),
       OpenApiSpex.Operation.parameter(
         :changed_since_commit,
@@ -65,7 +56,6 @@ defmodule AcaiWeb.Api.ImplementationFeaturesController do
 
     with :ok <- ensure_scope(token, "impls:read"),
          :ok <- ensure_scope(token, "specs:read"),
-         :ok <- ensure_scope(token, "states:read"),
          :ok <- ensure_scope(token, "refs:read"),
          {:ok, parsed} <- parse_params(request_params),
          {:ok, payload} <-
@@ -73,7 +63,6 @@ defmodule AcaiWeb.Api.ImplementationFeaturesController do
              team,
              parsed.product_name,
              parsed.implementation_name,
-             statuses: parsed.statuses,
              changed_since_commit: parsed.changed_since_commit
            ) do
       render_data(conn, payload)
@@ -98,13 +87,11 @@ defmodule AcaiWeb.Api.ImplementationFeaturesController do
     # implementation-features.REQUEST.1, implementation-features.REQUEST.2, implementation-features.REQUEST.3, implementation-features.REQUEST.3-1, implementation-features.REQUEST.4
     with {:ok, product_name} <- required_string(params, "product_name"),
          {:ok, implementation_name} <- required_string(params, "implementation_name"),
-         {:ok, statuses} <- optional_statuses(Map.get(params, "statuses")),
          {:ok, changed_since_commit} <- optional_string(params, "changed_since_commit") do
       {:ok,
        %{
          product_name: product_name,
          implementation_name: implementation_name,
-         statuses: statuses,
          changed_since_commit: changed_since_commit
        }}
     end
@@ -129,28 +116,6 @@ defmodule AcaiWeb.Api.ImplementationFeaturesController do
 
       value ->
         {:ok, to_string(value)}
-    end
-  end
-
-  defp optional_statuses(nil), do: {:ok, nil}
-  defp optional_statuses(status) when is_binary(status), do: normalize_status_list([status])
-  defp optional_statuses(statuses) when is_list(statuses), do: normalize_status_list(statuses)
-  defp optional_statuses(_), do: {:error, "statuses must be a list"}
-
-  defp normalize_status_list(statuses) do
-    normalized =
-      Enum.map(statuses, fn
-        nil -> nil
-        "null" -> nil
-        status when is_binary(status) -> String.trim(status)
-        status -> to_string(status)
-      end)
-
-    # implementation-features.REQUEST.3, implementation-features.REQUEST.3-1
-    if Enum.all?(normalized, &(&1 in @valid_statuses)) do
-      {:ok, normalized}
-    else
-      {:error, "statuses contains an invalid value"}
     end
   end
 end

@@ -6,7 +6,7 @@ defmodule Acai.Specs.FeaturePageQueryCountTest do
   regardless of implementation count or ancestor depth.
 
   ACID:
-  - feature-view.ENG.1: Single query fetches all specs, implementations, and state counts
+  - feature-view.ENG.1: Single query fetches all specs and implementations
   """
 
   use Acai.DataCase, async: false
@@ -110,7 +110,7 @@ defmodule Acai.Specs.FeaturePageQueryCountTest do
       # - 1 for list active implementations
       # - 3 for batch_check_feature_availability (impls, tracked_branches, specs)
       # - 1 for preload products on implementations
-      # - 1 for batch_get_feature_impl_state_counts
+      # - 1 for batch_check_feature_availability
       # - 3 for batch_resolve_canonical_specs (impls, tracked_branches, specs)
       assert stats.total <= 14
 

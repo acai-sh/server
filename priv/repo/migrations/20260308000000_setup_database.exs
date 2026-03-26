@@ -252,36 +252,6 @@ defmodule Acai.Repo.Migrations.SetupDatabase do
     create index(:specs, [:product_id])
 
     # ============================================================================
-    # FEATURE IMPL STATES TABLE (NEW - replaces requirement_statuses)
-    # ============================================================================
-
-    # data-model.FEATURE_IMPL_STATES.1
-    # data-model.FIELDS.2
-    create table(:feature_impl_states, primary_key: false) do
-      add :id, :uuid, primary_key: true, null: false
-      # data-model.FEATURE_IMPL_STATES.2
-      add :implementation_id, references(:implementations, type: :uuid, on_delete: :delete_all),
-        null: false
-
-      # data-model.FEATURE_IMPL_STATES.3
-      add :feature_name, :string, null: false
-      # data-model.FEATURE_IMPL_STATES.4
-      add :states, :map, null: false, default: %{}
-
-      timestamps(type: :utc_datetime)
-    end
-
-    # data-model.FEATURE_IMPL_STATES.3-1
-    execute "ALTER TABLE feature_impl_states ADD CONSTRAINT feature_name_url_safe CHECK (feature_name ~ '^[a-zA-Z0-9_-]+$')"
-
-    # data-model.FEATURE_IMPL_STATES.5
-    create unique_index(:feature_impl_states, [:implementation_id, :feature_name])
-    # data-model.FEATURE_IMPL_STATES.6
-    create index(:feature_impl_states, [:states], using: "gin")
-    # data-model.FEATURE_IMPL_STATES.7
-    create index(:feature_impl_states, [:implementation_id])
-
-    # ============================================================================
     # FEATURE BRANCH REFS TABLE (NEW - branch-scoped refs)
     # ============================================================================
 

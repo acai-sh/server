@@ -52,12 +52,6 @@ defmodule AcaiWeb.Router do
     # push.ENDPOINT.3 - Requires Authorization Bearer token header (handled by BearerAuth plug)
     post "/push", PushController, :create
 
-    # feature-states.ENDPOINT.1 - PATCH /api/v1/feature-states
-    # feature-states.ENDPOINT.2 - JSON request body is handled by the API pipeline
-    # feature-states.ENDPOINT.3 - Requires Authorization Bearer token header via the authenticated pipeline
-    # This route lives in the authenticated API scope because state writes must be team-scoped and rate-limited.
-    patch "/feature-states", FeatureStatesController, :update
-
     # implementations.ENDPOINT.1 - GET /api/v1/implementations
     # implementations.ENDPOINT.2 - Requires Authorization Bearer token header
     get "/implementations", ImplementationsController, :index

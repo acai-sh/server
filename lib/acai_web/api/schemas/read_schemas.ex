@@ -91,21 +91,6 @@ defmodule AcaiWeb.Api.Schemas.ReadSchemas do
     })
   end
 
-  defmodule StateObject do
-    @moduledoc false
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "StateObject",
-      type: :object,
-      properties: %{
-        status: %OpenApiSpex.Schema{type: :string, nullable: true},
-        comment: %OpenApiSpex.Schema{type: :string},
-        updated_at: %OpenApiSpex.Schema{type: :string}
-      }
-    })
-  end
-
   defmodule RefObject do
     @moduledoc false
     require OpenApiSpex
@@ -130,14 +115,13 @@ defmodule AcaiWeb.Api.Schemas.ReadSchemas do
     OpenApiSpex.schema(%{
       title: "AcidEntry",
       type: :object,
-      required: [:acid, :requirement, :state, :refs_count, :test_refs_count],
+      required: [:acid, :requirement, :refs_count, :test_refs_count],
       properties: %{
         acid: %OpenApiSpex.Schema{type: :string},
         requirement: %OpenApiSpex.Schema{type: :string},
         note: %OpenApiSpex.Schema{type: :string},
         deprecated: %OpenApiSpex.Schema{type: :boolean},
         replaced_by: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :string}},
-        state: %OpenApiSpex.Schema{allOf: [StateObject.schema()]},
         refs_count: %OpenApiSpex.Schema{type: :integer},
         test_refs_count: %OpenApiSpex.Schema{type: :integer},
         refs: %OpenApiSpex.Schema{
@@ -155,25 +139,10 @@ defmodule AcaiWeb.Api.Schemas.ReadSchemas do
     OpenApiSpex.schema(%{
       title: "Summary",
       type: :object,
-      required: [:total_acids, :status_counts],
+      required: [:total_acids],
       properties: %{
         total_acids: %OpenApiSpex.Schema{type: :integer},
         status_counts: %OpenApiSpex.Schema{type: :object}
-      }
-    })
-  end
-
-  defmodule DanglingStateEntry do
-    @moduledoc false
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "DanglingStateEntry",
-      type: :object,
-      required: [:acid, :state],
-      properties: %{
-        acid: %OpenApiSpex.Schema{type: :string},
-        state: %OpenApiSpex.Schema{allOf: [StateObject.schema()]}
       }
     })
   end
@@ -191,9 +160,7 @@ defmodule AcaiWeb.Api.Schemas.ReadSchemas do
         :implementation_name,
         :implementation_id,
         :spec_source,
-        :states_source,
         :refs_source,
-        :summary,
         :acids,
         :warnings
       ],
@@ -203,16 +170,10 @@ defmodule AcaiWeb.Api.Schemas.ReadSchemas do
         implementation_name: %OpenApiSpex.Schema{type: :string},
         implementation_id: %OpenApiSpex.Schema{type: :string},
         spec_source: %OpenApiSpex.Schema{allOf: [SourceObject.schema()]},
-        states_source: %OpenApiSpex.Schema{allOf: [SourceObject.schema()]},
         refs_source: %OpenApiSpex.Schema{allOf: [SourceObject.schema()]},
-        summary: %OpenApiSpex.Schema{allOf: [Summary.schema()]},
         acids: %OpenApiSpex.Schema{
           type: :array,
           items: %OpenApiSpex.Schema{allOf: [AcidEntry.schema()]}
-        },
-        dangling_states: %OpenApiSpex.Schema{
-          type: :array,
-          items: %OpenApiSpex.Schema{allOf: [DanglingStateEntry.schema()]}
         },
         warnings: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :string}}
       }
@@ -243,27 +204,19 @@ defmodule AcaiWeb.Api.Schemas.ReadSchemas do
       required: [
         :feature_name,
         :description,
-        :completed_count,
-        :total_count,
         :refs_count,
         :test_refs_count,
         :has_local_spec,
-        :has_local_states,
         :spec_last_seen_commit,
-        :states_inherited,
         :refs_inherited
       ],
       properties: %{
         feature_name: %OpenApiSpex.Schema{type: :string},
         description: %OpenApiSpex.Schema{type: :string, nullable: true},
-        completed_count: %OpenApiSpex.Schema{type: :integer},
-        total_count: %OpenApiSpex.Schema{type: :integer},
         refs_count: %OpenApiSpex.Schema{type: :integer},
         test_refs_count: %OpenApiSpex.Schema{type: :integer},
         has_local_spec: %OpenApiSpex.Schema{type: :boolean},
-        has_local_states: %OpenApiSpex.Schema{type: :boolean},
         spec_last_seen_commit: %OpenApiSpex.Schema{type: :string, nullable: true},
-        states_inherited: %OpenApiSpex.Schema{type: :boolean},
         refs_inherited: %OpenApiSpex.Schema{type: :boolean}
       }
     })

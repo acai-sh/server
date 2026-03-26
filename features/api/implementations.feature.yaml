@@ -59,4 +59,4 @@ constraints:
             1: "`product_name` is required"
             2: "`repo_uri` and `branch_name` are optional as a pair"
             3: "`feature_name` is optional"
-            4: The endpoint is read-only and never mutates products, implementations, branches, specs, refs, or states
+            4: The endpoint is read-only and never mutates products, implementations, branches, specs, or refs

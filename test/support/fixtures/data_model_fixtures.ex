@@ -8,7 +8,7 @@ defmodule Acai.DataModelFixtures do
   alias Acai.Repo
   alias Acai.Teams.{Team, UserTeamRole, AccessToken}
   alias Acai.Products.Product
-  alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
+  alias Acai.Specs.{Spec, FeatureBranchRef}
   alias Acai.Implementations.{Implementation, Branch, TrackedBranch}
 
   def unique_team_name, do: "team-#{Ecto.UUID.generate()}"
@@ -47,8 +47,6 @@ defmodule Acai.DataModelFixtures do
         scopes: [
           "specs:read",
           "specs:write",
-          "states:read",
-          "states:write",
           "refs:read",
           "refs:write",
           "impls:read",
@@ -226,28 +224,6 @@ defmodule Acai.DataModelFixtures do
       |> Repo.insert()
 
     tracked_branch
-  end
-
-  def spec_impl_state_fixture(spec, implementation, attrs \\ %{}) do
-    attrs =
-      attrs
-      |> Enum.into(%{
-        states: %{
-          "test-feature.COMP.1" => %{
-            "status" => "pending",
-            "comment" => "Initial state",
-            "updated_at" => DateTime.utc_now() |> DateTime.to_iso8601()
-          }
-        }
-      })
-      |> Map.put(:feature_name, spec.feature_name)
-      |> Map.put(:implementation_id, implementation.id)
-
-    {:ok, state} =
-      FeatureImplState.changeset(%FeatureImplState{}, attrs)
-      |> Repo.insert()
-
-    state
   end
 
   @doc """

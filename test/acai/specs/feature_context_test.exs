@@ -5,7 +5,6 @@ defmodule Acai.Specs.FeatureContextTest do
 
   import Acai.DataModelFixtures
   import Ecto.Query
-  require Logger
 
   alias Acai.Repo
   alias Acai.Implementations
@@ -92,105 +91,6 @@ defmodule Acai.Specs.FeatureContextTest do
       assert context.spec_source.branch_names == [parent_branch.branch_name]
     end
 
-    # feature-context.RESOLUTION.6, feature-context.RESOLUTION.4
-    test "stops state inheritance when a local empty row exists" do
-      team = team_fixture(%{name: "empty-state-team-#{System.unique_integer([:positive])}"})
-      product = product_fixture(team)
-      parent = implementation_fixture(product, %{name: "parent"})
-
-      child =
-        implementation_fixture(product, %{name: "child", parent_implementation_id: parent.id})
-
-      parent_branch =
-        branch_fixture(team, %{repo_uri: "github.com/acai/api", branch_name: "main"})
-
-      tracked_branch_fixture(parent, %{branch: parent_branch})
-
-      feature_name = "state-inheritance-feature"
-
-      spec =
-        spec_fixture(product, %{
-          feature_name: feature_name,
-          branch: parent_branch,
-          requirements: %{"#{feature_name}.REQ.1" => %{requirement: "Do the thing"}}
-        })
-
-      {:ok, parent_state} =
-        Specs.create_feature_impl_state(feature_name, parent, %{
-          states: %{
-            "#{feature_name}.REQ.1" => %{"status" => "completed", "comment" => "done"}
-          }
-        })
-
-      {:ok, child_state} =
-        Specs.create_feature_impl_state(feature_name, child, %{states: %{}})
-
-      assert {resolved_state, source_impl_id} =
-               Specs.get_feature_impl_state_with_inheritance(feature_name, child.id)
-
-      assert resolved_state.id == child_state.id
-      assert source_impl_id == nil
-
-      {:ok, context} = Specs.get_feature_context(team, product.name, feature_name, child.name)
-
-      [acid] = context.acids
-      assert acid.acid == "#{feature_name}.REQ.1"
-      assert acid.state.status == nil
-      assert context.states_source.source_type == "local"
-      assert context.states_source.implementation_name == child.name
-      assert parent_state.id != child_state.id
-      assert spec.feature_name == feature_name
-    end
-
-    # feature-context.RESOLUTION.7, feature-context.REQUEST.7-1, feature-context.RESPONSE.4
-    test "filters returned ACIDs by repeated statuses including null" do
-      team = team_fixture()
-      product = product_fixture(team)
-      impl = implementation_fixture(product)
-
-      branch = branch_fixture(team, %{repo_uri: "github.com/acai/api", branch_name: "main"})
-      tracked_branch_fixture(impl, %{branch: branch})
-
-      feature_name = "status-filter-feature"
-
-      spec =
-        spec_fixture(product, %{
-          feature_name: feature_name,
-          branch: branch,
-          requirements: %{
-            "#{feature_name}.REQ.1" => %{requirement: "Done"},
-            "#{feature_name}.REQ.2" => %{requirement: "Unset"},
-            "#{feature_name}.REQ.3" => %{requirement: "Blocked"}
-          }
-        })
-
-      {:ok, _} =
-        Specs.create_feature_impl_state(feature_name, impl, %{
-          states: %{
-            "#{feature_name}.REQ.1" => %{"status" => "completed"},
-            "#{feature_name}.REQ.2" => %{"status" => nil},
-            "#{feature_name}.REQ.3" => %{"status" => "blocked"}
-          }
-        })
-
-      {:ok, context} =
-        Specs.get_feature_context(team, product.name, feature_name, impl.name,
-          statuses: [nil, "completed"]
-        )
-
-      assert Enum.map(context.acids, & &1.acid) == [
-               "#{feature_name}.REQ.1",
-               "#{feature_name}.REQ.2"
-             ]
-
-      assert context.summary.total_acids == 2
-      assert context.summary.status_counts == %{"completed" => 1, "null" => 1}
-      assert context.acids |> Enum.any?(&(&1.state.status == nil))
-      assert context.acids |> Enum.any?(&(&1.state.status == "completed"))
-      assert context.acids |> Enum.all?(&(&1.state.status in [nil, "completed"]))
-      assert spec.feature_name == feature_name
-    end
-
     # feature-context.RESOLUTION.5
     test "falls back to parent refs when no local refs exist" do
       team = team_fixture()
@@ -247,50 +147,6 @@ defmodule Acai.Specs.FeatureContextTest do
                }
              ] = acid.refs
     end
-
-    # feature-context.RESOLUTION.1, feature-context.RESOLUTION.3, feature-context.RESOLUTION.4, feature-context.RESOLUTION.5
-    test "loads canonical context with bounded query count" do
-      team = team_fixture()
-      product = product_fixture(team)
-      parent = implementation_fixture(product, %{name: "parent"})
-
-      child =
-        implementation_fixture(product, %{name: "child", parent_implementation_id: parent.id})
-
-      branch = branch_fixture(team, %{repo_uri: "github.com/acai/api", branch_name: "main"})
-      tracked_branch_fixture(parent, %{branch: branch})
-      tracked_branch_fixture(child, %{branch: branch})
-
-      feature_name = "query-budget-feature"
-
-      spec_fixture(product, %{
-        feature_name: feature_name,
-        branch: branch,
-        requirements: %{"#{feature_name}.REQ.1" => %{requirement: "Track me"}}
-      })
-
-      Specs.create_feature_impl_state(feature_name, parent, %{
-        states: %{"#{feature_name}.REQ.1" => %{"status" => "completed"}}
-      })
-
-      feature_branch_ref_fixture(branch, feature_name, %{
-        refs: %{
-          "#{feature_name}.REQ.1" => [%{"path" => "lib/acai/example.ex:1", "is_test" => false}]
-        }
-      })
-
-      {result, stats} =
-        measure_feature_context_queries(fn ->
-          Specs.get_feature_context(team, product.name, feature_name, child.name,
-            include_refs: true,
-            include_dangling_states: true
-          )
-        end)
-
-      assert {:ok, context} = result
-      assert context.implementation_name == child.name
-      assert stats.total <= 11
-    end
   end
 
   describe "get_implementation_by_team_and_product_name/3" do
@@ -319,62 +175,5 @@ defmodule Acai.Specs.FeatureContextTest do
                  "missing"
                )
     end
-  end
-
-  defp measure_feature_context_queries(fun) do
-    original_log_level = Logger.level()
-    storage_key = {:feature_context_query_count_result, make_ref()}
-
-    try do
-      Logger.configure(level: :debug)
-
-      log_output =
-        ExUnit.CaptureLog.capture_log(fn ->
-          Process.put(storage_key, fun.())
-        end)
-
-      {Process.get(storage_key), analyze_queries(log_output)}
-    after
-      Process.delete(storage_key)
-      Logger.configure(level: original_log_level)
-    end
-  end
-
-  defp analyze_queries(log_output) do
-    query_blocks =
-      log_output
-      |> String.split("[debug] QUERY")
-      |> Enum.drop(1)
-
-    stats =
-      Enum.reduce(query_blocks, %{select: 0, insert: 0, update: 0, delete: 0}, fn block, acc ->
-        lines = String.split(block, "\n")
-
-        sql_line =
-          Enum.find(lines, fn line ->
-            String.match?(line, ~r/^\s*(SELECT|INSERT|UPDATE|DELETE)/i)
-          end) || ""
-
-        cond do
-          String.match?(sql_line, ~r/^\s*SELECT/i) ->
-            Map.update!(acc, :select, &(&1 + 1))
-
-          String.match?(sql_line, ~r/^\s*INSERT/i) ->
-            Map.update!(acc, :insert, &(&1 + 1))
-
-          String.match?(sql_line, ~r/^\s*UPDATE/i) ->
-            Map.update!(acc, :update, &(&1 + 1))
-
-          String.match?(sql_line, ~r/^\s*DELETE/i) ->
-            Map.update!(acc, :delete, &(&1 + 1))
-
-          true ->
-            acc
-        end
-      end)
-
-    total = stats.select + stats.insert + stats.update + stats.delete
-
-    Map.merge(stats, %{total: total, raw_blocks: length(query_blocks)})
   end
 end

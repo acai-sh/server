@@ -49,10 +49,7 @@ defmodule AcaiWeb.FeatureLive do
     implementation_cards =
       feature_data.implementations
       |> Enum.map(fn impl ->
-        # feature-view.MAIN.3: Get status counts from feature_impl_states
-        impl_counts = Map.get(feature_data.status_counts_by_impl, impl.id, %{})
-
-        # feature-view.MAIN.3: Get requirement count from the canonical spec (using precomputed data)
+        # feature-view.MAIN.3: Requirement totals are based on the canonical spec
         canonical_spec_info = Map.get(feature_data.canonical_specs_by_impl, impl.id, %{})
         canonical_spec_id = canonical_spec_info[:spec_id]
 
@@ -62,9 +59,6 @@ defmodule AcaiWeb.FeatureLive do
           else
             0
           end
-
-        # Calculate status percentages for progress bar
-        status_percentages = calculate_status_percentages(impl_counts, total_reqs)
 
         # Build the slug for navigation (impl_name-uuid_without_dashes)
         # feature-view.MAIN.4
@@ -78,8 +72,7 @@ defmodule AcaiWeb.FeatureLive do
           inserted_at: impl.inserted_at,
           slug: slug,
           parent_implementation_id: impl.parent_implementation_id,
-          total_requirements: total_reqs,
-          status_percentages: status_percentages
+          total_requirements: total_reqs
         }
       end)
       # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2: Order by inheritance depth
@@ -101,29 +94,6 @@ defmodule AcaiWeb.FeatureLive do
     |> assign(:available_features, feature_data.available_features)
     # nav.AUTH.1: Pass current_path for navigation
     |> assign(:current_path, "/t/#{team.name}/f/#{feature_data.feature_name}")
-  end
-
-  # Calculate status percentages from counts
-  defp calculate_status_percentages(impl_counts, total_reqs) do
-    if total_reqs > 0 do
-      %{
-        nil => Map.get(impl_counts, nil, 0) / total_reqs * 100,
-        "assigned" => Map.get(impl_counts, "assigned", 0) / total_reqs * 100,
-        "blocked" => Map.get(impl_counts, "blocked", 0) / total_reqs * 100,
-        "completed" => Map.get(impl_counts, "completed", 0) / total_reqs * 100,
-        "accepted" => Map.get(impl_counts, "accepted", 0) / total_reqs * 100,
-        "rejected" => Map.get(impl_counts, "rejected", 0) / total_reqs * 100
-      }
-    else
-      %{
-        nil => 0,
-        "assigned" => 0,
-        "blocked" => 0,
-        "completed" => 0,
-        "accepted" => 0,
-        "rejected" => 0
-      }
-    end
   end
 
   # feature-view.HIERARCHY.1, feature-view.HIERARCHY.2, feature-view.HIERARCHY.3, feature-view.HIERARCHY.4
@@ -449,43 +419,6 @@ defmodule AcaiWeb.FeatureLive do
                       <span class="badge badge-sm badge-ghost">
                         {card.total_requirements} requirements
                       </span>
-                    </div>
-
-                    <%!-- feature-view.MAIN.3: Segmented progress bar by status --%>
-                    <div class="pt-3 border-t border-base-200">
-                      <div class="h-2 w-full rounded-full overflow-hidden flex">
-                        <div
-                          :if={card.status_percentages["accepted"] > 0}
-                          class="h-full bg-success"
-                          style={"width: #{card.status_percentages["accepted"]}%"}
-                        />
-                        <div
-                          :if={card.status_percentages["completed"] > 0}
-                          class="h-full bg-info"
-                          style={"width: #{card.status_percentages["completed"]}%"}
-                        />
-                        <div
-                          :if={card.status_percentages["assigned"] > 0}
-                          class="h-full bg-warning"
-                          style={"width: #{card.status_percentages["assigned"]}%"}
-                        />
-                        <div
-                          :if={card.status_percentages["blocked"] > 0}
-                          class="h-full bg-error"
-                          style={"width: #{card.status_percentages["blocked"]}%"}
-                        />
-                        <div
-                          :if={card.status_percentages["rejected"] > 0}
-                          class="h-full bg-error opacity-60"
-                          style={"width: #{card.status_percentages["rejected"]}%"}
-                        />
-                        <div
-                          :if={card.status_percentages[nil] > 0}
-                          class="h-full bg-base-300"
-                          style={"width: #{card.status_percentages[nil]}%"}
-                        />
-                        <div class="h-full flex-1 bg-base-200" />
-                      </div>
                     </div>
                   </div>
                 </div>

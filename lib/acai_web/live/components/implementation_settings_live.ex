@@ -751,17 +751,17 @@ defmodule AcaiWeb.Live.Components.ImplementationSettingsLive do
           </p>
         </div>
 
-        <%!-- impl-settings.DELETE.4_3: Modal explains that all associated feature states and refs will be cleared --%>
-        <%!-- impl-settings.DELETE.4_4: Modal explains that child implementations will lose inherited states and refs --%>
+        <%!-- impl-settings.DELETE.4_3: Modal explains that all associated feature refs will be cleared --%>
+        <%!-- impl-settings.DELETE.4_4: Modal explains that child implementations will lose inherited refs --%>
         <div class="alert alert-soft text-sm">
           <.icon name="hero-exclamation-triangle" class="size-5 shrink-0 text-alert" />
           <div>
             <p class="font-semibold">This action is permanent and cannot be undone.</p>
             <p class="mt-1">
-              This will permanently delete all feature states (status & comments) applied to it, and they can't be recovered.
+              This will permanently delete all feature references applied to it, and they can't be recovered.
             </p>
             <p class="mt-2">
-              Child implementations will be preserved, but lose any inherited states and references.
+              Child implementations will be preserved, but lose any inherited references.
             </p>
           </div>
         </div>

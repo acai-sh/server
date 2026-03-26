@@ -124,7 +124,6 @@ defmodule Acai.Products do
   - :product - the product record
   - :active_implementations - list of active implementations ordered by tree
   - :features_by_name - list of %{name, description, specs} for each feature
-  - :spec_impl_completion - map of {spec_id, impl_id} => %{completed, total}
   - :feature_availability - map of {feature_name, impl_id} => boolean
   - :empty? - boolean indicating if matrix should show empty state
   - :no_features? - boolean indicating no features exist
@@ -163,17 +162,11 @@ defmodule Acai.Products do
     # Get all feature names for batch availability check
     feature_names = Enum.map(features_by_name, & &1.name)
 
-    # Compute completion and availability using shared pre-fetched data
-    # This avoids rebuilding ancestry/product lookup state twice
-    {spec_impl_completion, feature_availability} =
+    feature_availability =
       if specs != [] and active_implementations != [] do
-        Acai.Specs.batch_get_completion_and_availability(
-          specs,
-          feature_names,
-          active_implementations
-        )
+        Acai.Specs.batch_check_feature_availability(feature_names, active_implementations)
       else
-        {%{}, %{}}
+        %{}
       end
 
     # Empty state checks
@@ -183,7 +176,6 @@ defmodule Acai.Products do
       product: product,
       active_implementations: active_implementations,
       features_by_name: features_by_name,
-      spec_impl_completion: spec_impl_completion,
       feature_availability: feature_availability,
       empty?: empty?,
       no_features?: features_by_name == [],

@@ -37,8 +37,6 @@ defmodule Acai.Teams.AccessTokenTest do
       assert %AccessToken{}.scopes == [
                "specs:read",
                "specs:write",
-               "states:read",
-               "states:write",
                "refs:read",
                "refs:write",
                "impls:read",
