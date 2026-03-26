@@ -35,7 +35,7 @@ defmodule Acai.Services.PushQueryCountTest do
       %{team: team, user: user, token: token}
     end
 
-    # push.TX.1, push.INSERT_SPEC.1, push.WRITE_REFS.1, push.WRITE_STATES.1
+    # push.TX.1, push.INSERT_SPEC.1, push.WRITE_REFS.1
     test "cold complete push path stays in a reasonable constant query band", %{token: token} do
       feature_names = ["cold-feature-1"]
 
@@ -95,50 +95,7 @@ defmodule Acai.Services.PushQueryCountTest do
       print_growth("refs", one_stats, many_stats)
     end
 
-    # push.WRITE_STATES.2, push.WRITE_STATES.3
-    test "parent-backed state query count stays nearly flat as touched feature count grows", %{
-      token: token
-    } do
-      one_child =
-        setup_parent_child_implementations(
-          token,
-          "states-one",
-          build_feature_names("states-one", 1)
-        )
-
-      many_child =
-        setup_parent_child_implementations(
-          token,
-          "states-many",
-          build_feature_names("states-many", @growth_feature_count)
-        )
-
-      {_, one_stats} =
-        measure_push_queries(
-          token,
-          states_only_params(
-            one_child,
-            build_state_updates(one_child.feature_names),
-            "states-one-child-commit"
-          )
-        )
-
-      {_, many_stats} =
-        measure_push_queries(
-          token,
-          states_only_params(
-            many_child,
-            build_state_updates(many_child.feature_names),
-            "states-many-child-commit"
-          )
-        )
-
-      assert_flat_growth(one_stats, many_stats, 2)
-
-      print_growth("states with parent", one_stats, many_stats)
-    end
-
-    # push.TX.1, push.UPDATE_SPEC.1, push.WRITE_REFS.2, push.WRITE_STATES.3
+    # push.TX.1, push.UPDATE_SPEC.1, push.WRITE_REFS.2
     test "warm update path is cheaper than cold create path", %{token: token} do
       cold_feature_names = ["warm-compare-feature"]
 
@@ -238,8 +195,7 @@ defmodule Acai.Services.PushQueryCountTest do
       branch_name: "#{tag}-branch",
       commit_hash: commit_hash,
       specs: build_specs(feature_names, @product_name, commit_hash),
-      references: %{data: build_refs(feature_names, 1)},
-      states: %{data: build_states(feature_names, 1, "completed")}
+      references: %{data: build_refs(feature_names, 1)}
     }
   end
 
@@ -258,54 +214,6 @@ defmodule Acai.Services.PushQueryCountTest do
       branch_name: "#{tag}-branch",
       commit_hash: commit_hash,
       references: %{data: build_refs(feature_names, 1)}
-    }
-  end
-
-  defp states_only_params(child_context, states_data, commit_hash) do
-    %{
-      repo_uri: child_context.repo_uri,
-      branch_name: child_context.branch_name,
-      commit_hash: commit_hash,
-      states: %{data: states_data}
-    }
-  end
-
-  defp setup_parent_child_implementations(token, tag, feature_names) do
-    parent_repo = "github.com/test-org/#{tag}-parent-repo"
-    parent_branch = "#{tag}-parent-branch"
-    child_repo = "github.com/test-org/#{tag}-child-repo"
-    child_branch = "#{tag}-child-branch"
-
-    {:ok, parent_result} =
-      Push.execute(token, %{
-        repo_uri: parent_repo,
-        branch_name: parent_branch,
-        commit_hash: "#{tag}-parent-specs",
-        specs: build_specs(feature_names, @product_name, "#{tag}-parent-specs")
-      })
-
-    parent_states = %{
-      repo_uri: parent_repo,
-      branch_name: parent_branch,
-      commit_hash: "#{tag}-parent-states",
-      states: %{data: build_states(feature_names, 1, "accepted")}
-    }
-
-    {:ok, _} = Push.execute(token, parent_states)
-
-    {:ok, _} =
-      Push.execute(token, %{
-        repo_uri: child_repo,
-        branch_name: child_branch,
-        commit_hash: "#{tag}-child-specs",
-        parent_impl_name: parent_result.implementation_name,
-        specs: build_specs(feature_names, @product_name, "#{tag}-child-specs")
-      })
-
-    %{
-      repo_uri: child_repo,
-      branch_name: child_branch,
-      feature_names: feature_names
     }
   end
 
@@ -330,8 +238,7 @@ defmodule Acai.Services.PushQueryCountTest do
       branch_name: context.branch_name,
       commit_hash: commit_hash,
       specs: [updated_spec(feature_name, context.product_name, commit_hash)],
-      references: %{data: build_refs([feature_name], 2)},
-      states: %{data: build_states([feature_name], 2, "in_progress")}
+      references: %{data: build_refs([feature_name], 2)}
     }
   end
 
@@ -385,16 +292,6 @@ defmodule Acai.Services.PushQueryCountTest do
       {acid(feature_name, acid_index),
        [%{path: "lib/#{feature_name}.ex:#{acid_index}", is_test: false}]}
     end)
-  end
-
-  defp build_states(feature_names, acid_index, status) do
-    Map.new(feature_names, fn feature_name ->
-      {acid(feature_name, acid_index), %{status: status, comment: "#{status}-#{acid_index}"}}
-    end)
-  end
-
-  defp build_state_updates(feature_names) do
-    build_states(feature_names, 2, "in_progress")
   end
 
   defp acid(feature_name, requirement_index) do

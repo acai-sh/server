@@ -2,7 +2,7 @@ defmodule AcaiWeb.Api.PushController do
   @moduledoc """
   Controller for the push endpoint.
 
-  Handles POST /api/v1/push for pushing specs, refs, and states.
+  Handles POST /api/v1/push for pushing specs and refs.
   """
 
   use AcaiWeb.Api.Controller
@@ -48,7 +48,7 @@ defmodule AcaiWeb.Api.PushController do
   Handles the push request.
 
   See push.ENDPOINT.1, push.ENDPOINT.2, push.ENDPOINT.3
-  See push.REQUEST.1 through push.REQUEST.10
+  See push.REQUEST.1 through push.REQUEST.5, push.REQUEST.7 through push.REQUEST.10
   See push.RESPONSE.1 through push.RESPONSE.9
   """
   def create(conn, _params) do

@@ -241,73 +241,6 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
     })
   end
 
-  defmodule StateObject do
-    @moduledoc """
-    Schema for a single state entry.
-    """
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "StateObject",
-      description: "State for a single requirement",
-      type: :object,
-      properties: %{
-        status: %OpenApiSpex.Schema{
-          type: :string,
-          nullable: true,
-          enum: ["not_started", "in_progress", "completed", "blocked", "skipped"],
-          description:
-            "Status value (nullable). Valid values: not_started, in_progress, completed, blocked, skipped"
-        },
-        comment: %OpenApiSpex.Schema{
-          type: :string,
-          description: "Optional comment about this state"
-        }
-      },
-      example: %{
-        status: "completed",
-        comment: "Implemented in PR #123"
-      }
-    })
-  end
-
-  defmodule States do
-    @moduledoc """
-    Deprecated compatibility schema for the states section in push requests.
-    """
-    require OpenApiSpex
-
-    OpenApiSpex.schema(%{
-      title: "States",
-      description: "Deprecated implementation states grouped by requirement ID",
-      type: :object,
-      required: [:data],
-      properties: %{
-        override: %OpenApiSpex.Schema{
-          type: :boolean,
-          default: false,
-          description: "If true, replaces all existing states instead of merging"
-        },
-        data: %OpenApiSpex.Schema{
-          # push.ABUSE.2-2
-          type: :object,
-          maxProperties: 10_000,
-          description: "Map of requirement IDs to state objects",
-          additionalProperties: %OpenApiSpex.Schema{allOf: [StateObject.schema()]}
-        }
-      },
-      example: %{
-        override: false,
-        data: %{
-          "auth-feature.AUTH.1" => %{
-            status: "completed",
-            comment: "Done"
-          }
-        }
-      }
-    })
-  end
-
   defmodule PushRequest do
     @moduledoc """
     Schema for the push request body.
@@ -316,7 +249,7 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
 
     OpenApiSpex.schema(%{
       title: "PushRequest",
-      description: "Request body for pushing specs, refs, and deprecated states",
+      description: "Request body for pushing specs and refs",
       type: :object,
       required: [:repo_uri, :branch_name, :commit_hash],
       properties: %{
@@ -352,12 +285,6 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
           allOf: [References.schema()],
           description: "Optional code references"
         },
-        states: %OpenApiSpex.Schema{
-          # push.REQUEST.6
-          deprecated: true,
-          allOf: [States.schema()],
-          description: "Deprecated compatibility field for implementation states"
-        },
         target_impl_name: %OpenApiSpex.Schema{
           type: :string,
           description:
@@ -369,6 +296,7 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
             "Name of a parent implementation for inheritance. When creating a new implementation, it will inherit feature states and refs from the parent (e.g., create 'feature-branch-impl' with parent 'main' to start with main's baseline). Useful for short-lived branches that extend an existing implementation"
         }
       },
+      additionalProperties: false,
       example: %{
         repo_uri: "github.com/my-org/my-repo",
         branch_name: "main",

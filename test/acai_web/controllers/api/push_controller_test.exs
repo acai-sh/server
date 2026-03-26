@@ -510,7 +510,6 @@ defmodule AcaiWeb.Api.PushControllerTest do
         |> post(~p"/api/v1/push", states_params)
 
       assert json_response(conn, 422)
-      assert conn.resp_body =~ "Cannot push states"
     end
 
     test "returns 422 and flattens changeset errors when spec validation fails", %{

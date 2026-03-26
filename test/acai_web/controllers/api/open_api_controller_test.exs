@@ -66,5 +66,25 @@ defmodule AcaiWeb.Api.OpenApiControllerTest do
 
       assert conn.status == 200
     end
+
+    test "push request schema excludes deprecated state components and feature-states remains documented" do
+      spec = AcaiWeb.Api.ApiSpec.spec()
+      push_request = spec.components.schemas["PushRequest"]
+      feature_states_request = spec.components.schemas["FeatureStatesRequest"]
+      state_object = spec.components.schemas["StateObject"]
+
+      refute Map.has_key?(push_request.properties, :states)
+      refute String.contains?(push_request.description, "states")
+      refute Map.has_key?(spec.components.schemas, "States")
+
+      assert feature_states_request
+      assert Map.has_key?(feature_states_request.properties, :states)
+
+      assert Map.get(state_object, :"x-struct") ==
+               AcaiWeb.Api.Schemas.ReadSchemas.StateObject
+
+      assert spec.paths["/feature-states"].patch.operationId ==
+               "AcaiWeb.Api.FeatureStatesController.update"
+    end
   end
 end
