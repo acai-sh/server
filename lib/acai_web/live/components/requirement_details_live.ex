@@ -3,7 +3,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   Side drawer component that displays requirement details.
 
   requirement-details.DRAWER: A side drawer that opens when a requirement is selected,
-  showing the requirement text and code references.
+  showing the requirement text, status, and code references.
 
   ACIDs:
   - feature-impl-view.DRAWER.4: Lists all refs from feature_branch_refs for this ACID
@@ -25,6 +25,18 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
     refs_by_branch =
       Map.get(assigns, :refs_by_branch) || Map.get(assigns, "refs_by_branch") || %{}
 
+    # feature-impl-view.INHERITANCE.2: Accept inherited state context from parent LiveView
+    # Parent LiveView already resolved states via get_feature_impl_state_with_inheritance/2
+    states_inherited =
+      Map.get(assigns, :states_inherited) || Map.get(assigns, "states_inherited") || false
+
+    states_source_impl =
+      Map.get(assigns, :states_source_impl) || Map.get(assigns, "states_source_impl")
+
+    # feature-impl-view.INHERITANCE.2: Receive pre-resolved states from parent LiveView
+    # Avoids redundant query since parent already walked inheritance chain
+    states = Map.get(assigns, :states) || Map.get(assigns, "states") || %{}
+
     feature_name = Map.get(assigns, :feature_name) || Map.get(assigns, "feature_name")
 
     if acid && spec && implementation do
@@ -35,8 +47,16 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
       # JSONB data from database uses string keys
       requirement_data = Map.get(requirements, acid)
 
+      # feature-impl-view.INHERITANCE.2: Use pre-resolved states from parent LiveView
+      # Parent already called get_feature_impl_state_with_inheritance/2, so we use those states
+      # feature-impl-view.DRAWER.3: Shows status and comment from inherited states
+      state_data = Map.get(states, acid)
+
       # Build requirement struct-like map from JSONB data
       requirement = build_requirement_from_jsonb(acid, requirement_data)
+
+      # Build status struct-like map from JSONB data
+      requirement_status = build_status_from_jsonb(state_data)
 
       socket =
         socket
@@ -44,8 +64,11 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
         |> assign(:acid, acid)
         |> assign(:requirement, requirement)
         |> assign(:implementation, implementation)
+        |> assign(:requirement_status, requirement_status)
         |> assign(:refs_by_branch, refs_by_branch)
         |> assign(:visible, Map.get(assigns, :visible, false))
+        |> assign(:states_inherited, states_inherited)
+        |> assign(:states_source_impl, states_source_impl)
         |> assign(:feature_name, feature_name)
 
       {:ok, socket}
@@ -59,6 +82,8 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
        |> assign(:implementation, implementation)
        |> assign(:refs_by_branch, %{})
        |> assign(:visible, Map.get(assigns, :visible) || Map.get(assigns, "visible") || false)
+       |> assign(:states_inherited, states_inherited)
+       |> assign(:states_source_impl, states_source_impl)
        |> assign(:feature_name, feature_name)}
     end
   end
@@ -81,6 +106,17 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
       note: Map.get(data, "note"),
       is_deprecated: Map.get(data, "is_deprecated", false),
       replaced_by: Map.get(data, "replaced_by", [])
+    }
+  end
+
+  # Build status map from JSONB data
+  defp build_status_from_jsonb(nil), do: nil
+
+  defp build_status_from_jsonb(data) do
+    %{
+      status: data["status"],
+      note: data["comment"],
+      updated_at: data["updated_at"]
     }
   end
 
@@ -168,6 +204,97 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
                 </h3>
                 <p class="text-base-content/80 text-sm">
                   {@requirement.note}
+                </p>
+              </div>
+
+              <%!-- requirement-details.DRAWER.4: Status section --%>
+              <div class="space-y-2">
+                <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
+                  Status
+                </h3>
+                <div class="flex flex-wrap items-center gap-2">
+                  <%!-- requirement-details.DRAWER.4-1: If no status exists, renders a clear 'no status' indicator --%>
+                  <%= if @requirement_status && @requirement_status.status do %>
+                    <%!-- requirement-details.DRAWER.4: Show status value if exists --%>
+                    <%!-- feature-impl-view.INHERITANCE.2: When inherited, use lighter badge style --%>
+                    <span class={[
+                      "inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium",
+                      @states_inherited && "opacity-60",
+                      status_chip_color(@requirement_status.status)
+                    ]}>
+                      <.icon name="hero-check-circle" class="size-3.5" />
+                      {@requirement_status.status}
+                    </span>
+                  <% else %>
+                    <%!-- feature-impl-view.INHERITANCE.2: When inherited, use lighter badge style for 'no status' --%>
+                    <span class={[
+                      "inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs",
+                      @states_inherited && "bg-base-200/30 text-base-content/30",
+                      !@states_inherited && "bg-base-200/70 text-base-content/50"
+                    ]}>
+                      <.icon name="hero-minus-circle" class="size-3.5" /> No status
+                    </span>
+                  <% end %>
+
+                  <%!-- feature-impl-view.INHERITANCE.2: Show inherited badge when status is inherited --%>
+                  <%= if @states_inherited do %>
+                    <% inherited_popover_id =
+                      "drawer-inherited-popover-#{String.replace(@acid, ".", "-")}" %>
+                    <% inherited_badge_id =
+                      "drawer-inherited-badge-#{String.replace(@acid, ".", "-")}" %>
+                    <button
+                      type="button"
+                      id={inherited_badge_id}
+                      class="badge badge-warning cursor-pointer transition-colors hover:bg-warning/80"
+                      popovertarget={inherited_popover_id}
+                      style="anchor-name:--drawer-inherited-anchor"
+                    >
+                      <.icon name="hero-cloud-arrow-down" class="size-3.5" /> Inherited
+                    </button>
+                    <div
+                      popover
+                      id={inherited_popover_id}
+                      class="dropdown rounded-box bg-base-100 shadow-sm border border-base-300 p-3 w-80 space-y-2"
+                      style="position-anchor:--drawer-inherited-anchor"
+                    >
+                      <p class="text-xs text-base-content/70" id="drawer-inherited-popover-content">
+                        No states have been added for this implementation. The status has been inherited from
+                        <%= if @states_source_impl do %>
+                          <span id="drawer-inherited-source-wrapper">
+                            <.link
+                              navigate={
+                                ~p"/t/#{@states_source_impl.team.name}/i/#{Acai.Implementations.implementation_slug(@states_source_impl)}/f/#{@feature_name}"
+                              }
+                              class="link link-primary"
+                            >
+                              {@states_source_impl.name}
+                            </.link>
+                          </span>
+                        <% else %>
+                          parent implementation
+                        <% end %>
+                      </p>
+                    </div>
+                  <% else %>
+                    <%!-- requirement-details.DRAWER.4-2: Implementation context chip for local status --%>
+                    <div class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary/10 text-xs text-secondary font-medium">
+                      <.icon name="hero-tag" class="size-3.5" />
+                      <span>{@implementation.name}</span>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+
+              <%!-- requirement-details.DRAWER.7: Comment section from status note --%>
+              <div
+                :if={@requirement_status && @requirement_status.note}
+                class="space-y-2 bg-base-200/50 p-4 rounded-lg border border-base-300"
+              >
+                <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
+                  Status Comment
+                </h3>
+                <p class="text-sm text-base-content/80 italic leading-relaxed">
+                  "{@requirement_status.note}"
                 </p>
               </div>
 
@@ -308,4 +435,16 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   # Format path for display (show file:line format)
   defp format_path(path) when is_binary(path), do: path
   defp format_path(_), do: ""
+
+  # Chip background colors for status (used in icon chip badges)
+  defp status_chip_color(status) do
+    case status do
+      "accepted" -> "bg-success/10 text-success"
+      "completed" -> "bg-info/10 text-info"
+      "assigned" -> "bg-warning/10 text-warning"
+      "blocked" -> "bg-error/10 text-error"
+      "rejected" -> "bg-error/10 text-error"
+      _ -> "bg-base-200/70 text-base-content/70"
+    end
+  end
 end

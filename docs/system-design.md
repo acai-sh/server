@@ -53,6 +53,7 @@ Supported via optional `parent_implementation_id` with `ON DELETE SET NULL`.
 
 Inheritance behavior:
 - **Specs** are resolved across the implementation's tracked branches first. If multiple tracked branches contain the same feature, the spec row with the most recent `updated_at` timestamp wins. If no local spec is found, resolution walks the parent chain.
+- **States** are resolved per feature + implementation, walking up the parent chain only when no local `feature_impl_states` row exists.
 - **Code references** are aggregated across tracked branches, walking up the parent chain when needed.
 
 New implementations are created automatically when specs are pushed to an untracked branch; the default implementation name is the branch name. Parent must be explicitly specified at creation time via `parent_impl_name` — there is no auto-inheritance.
@@ -75,9 +76,10 @@ This section summarizes the schema implemented in `priv/repo/migrations/20260308
 | `branches` | Stable branch identity | Unique `(team_id, repo_uri, branch_name)` |
 | `tracked_branches` | Implementation ↔ Branch join table | Unique `(implementation_id, repo_uri)` |
 | `specs` | Branch-local spec files | Unique `(branch_id, feature_name)` |
+| `feature_impl_states` | Requirement states per feature + implementation | GIN index on JSONB states |
 | `feature_branch_refs` | Code references per feature + branch | GIN index on JSONB refs |
 
-`feature_branch_refs` is keyed by `feature_name` (the requirement ID prefix), not `spec_id`. This allows pushing code references without a local spec file, which is useful for products where specs live in a different repo than the implementing code.
+Both `feature_impl_states` and `feature_branch_refs` are keyed by `feature_name` (the requirement ID prefix), not `spec_id`. This allows pushing code references without a local spec file, which is useful for products where specs live in a different repo than the implementing code.
 
 `access_tokens.scopes` is stored as a non-null JSONB field. Default scopes are assigned by application code rather than by a database default.
 
@@ -87,11 +89,12 @@ All tables include `created_at` and `updated_at` timestamps. Primary keys are `u
 
 ## CLI
 
-The MVP CLI separates branch-derived sync from implementation metadata updates:
+The MVP CLI separates branch-derived sync from implementation status updates:
 - `acai push`: Git-aware push of changed specs and code references only
 - `acai push --all`: Full repo scan and push
 - `acai feature <feature-name>`: Read canonical feature context for one implementation
 - `acai work`: Read a lightweight worklist of features for one implementation
+- `acai set-status <json>`: Write requirement states for one feature in one implementation
 
 ### Multi-Product Push (Monorepo)
 
@@ -155,12 +158,17 @@ Lists implementations within one product, with optional filtering by `repo_uri` 
 
 ### GET /api/v1/implementation-features
 
-Returns a lightweight feature worklist for one implementation, including ref counts and spec commit metadata.
+Returns a lightweight feature worklist for one implementation, including completion counts, ref counts, and spec commit metadata.
 When multiple local specs tie on `updated_at`, canonical resolution uses lexicographically smallest branch name.
 
 ### GET /api/v1/feature-context
 
-Returns the canonical requirements and optional refs for one feature in one implementation.
+Returns the canonical requirements, resolved states, and optional refs for one feature in one implementation.
+`statuses` query filters are encoded as repeated query params, and the literal string `null` means the null status.
+
+### PATCH /api/v1/feature-states
+
+Writes states for one feature in one implementation. On first write for a feature + implementation, states are snapshotted from the parent implementation if one exists, then merged with the incoming state map.
 
 ## Key User Journeys
 
@@ -170,6 +178,7 @@ All journeys work locally, on CI (GitHub Actions), or via git hooks:
 - Query which implementation a branch maps to
 - Read the canonical context for a feature before implementation work
 - Read canonical spec context from one repo, then implement and push refs from a different repo that carries no specs
+- Record progress for a batch of ACIDs on one feature
 - Delete or rename a feature or product
 - Edit code or tests, creating new code references
 - Push specs and code references in a single call

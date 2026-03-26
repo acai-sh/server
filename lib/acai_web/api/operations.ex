@@ -36,6 +36,7 @@ defmodule AcaiWeb.Api.Operations do
   def endpoint_key(%Plug.Conn{request_path: "/api/v1/implementation-features"}),
     do: :implementation_features
 
+  def endpoint_key(%Plug.Conn{request_path: "/api/v1/feature-states"}), do: :feature_states
   def endpoint_key(_conn), do: @default_endpoint
 
   defp normalize_endpoint(endpoint) when is_atom(endpoint), do: endpoint
@@ -46,6 +47,7 @@ defmodule AcaiWeb.Api.Operations do
       "implementations" -> :implementations
       "feature-context" -> :feature_context
       "implementation-features" -> :implementation_features
+      "feature-states" -> :feature_states
       "default" -> @default_endpoint
       _other -> @default_endpoint
     end

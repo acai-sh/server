@@ -3,7 +3,7 @@ feature:
     product: site
     description: |
         Feature Settings drawer component that provides administrative actions for managing
-        feature code references and specifications. Rendered within
+        feature implementation states, code references, and specifications. Rendered within
         the feature-impl-view for managing the currently viewed feature.
 
 components:
@@ -16,16 +16,16 @@ components:
             4: Drawer displays the feature name and implementation context in its header
 
     CLEAR_STATES:
-        description: Component for clearing all feature implementation refs
+        description: Component for clearing all feature implementation states
         requirements:
-            1: Renders a Clear Refs button with descriptive label
-            2_1: Button is disabled when no feature_branch_refs exist for any tracked branch
-            2_2: Button is disabled when all refs are inherited from a parent implementation
+            1: Renders a Clear States button with descriptive label
+            2_1: Button is disabled when no feature_impl_states exist for this feature and implementation
+            2_2: Button is disabled when all states are inherited from a parent implementation
             3: Clicking the button opens a confirmation modal
-            4_1: Confirmation modal displays warning text explaining this will clear all refs
+            4_1: Confirmation modal displays warning text explaining this will clear all states
             4_2: Confirmation modal renders Cancel and Confirm buttons
-            5: On confirmation, all feature_branch_refs for this feature are deleted
-            6: UI updates immediately after deletion to show no refs or inherited refs
+            5: On confirmation, all feature_impl_states for this feature are deleted
+            6: UI updates immediately after deletion to show no states or inherited states
             7: Modal closes after successful operation
 
     CLEAR_REFS:
@@ -57,5 +57,5 @@ components:
             5: On confirmation, the target spec for the current tracked branch is deleted
             6_1: If a parent spec exists, UI updates to show parent requirements
             6_2: If no parent spec exists, user is redirected to /p/:product_name
-            7: UI gracefully handles partial application of refs by ACID
+            7: UI gracefully handles partial application of refs and states by ACID
             8: Modal closes after successful operation or redirect

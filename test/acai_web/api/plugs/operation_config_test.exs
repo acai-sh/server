@@ -29,7 +29,7 @@ defmodule AcaiWeb.Api.Plugs.OperationConfigTest do
   end
 
   test "loads operation config into conn private assigns", %{conn: conn} do
-    conn = %{conn | request_path: "/api/v1/push", method: "POST"}
+    conn = %{conn | request_path: "/api/v1/feature-states", method: "POST"}
 
     conn = OperationConfig.call(conn, [])
 

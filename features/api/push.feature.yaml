@@ -29,6 +29,9 @@ components:
             4-2: Each requires `requirements` object (see SPEC_REQS)
             4-3: Each requires `meta` object (see FEAT_META)
             5: Accepts optional `references` map (see REFS)
+            6:
+                requirement: Accepts optional `states` map (see STATES)
+                deprecated: true
             7: Accepts optional `target_impl_name` string
             7-note: When provided, all specs in the push must belong to the same product as the target implementation. Resolved within the request product, which comes from pushed specs when present or `product_name` when specs are absent.
             8: Accepts optional `parent_impl_name` string
@@ -82,6 +85,21 @@ components:
             6: When override is true, all existing refs for each touched feature + branch bucket are replaced entirely
             7: A refs-only push to an untracked branch is allowed without creating or linking an implementation unless the request also satisfies NEW_IMPLS.6 or LINK_IMPLS.1
 
+    STATES:
+        deprecated: true
+        description: The `states` top level property. States are stored per feature + implementation since they represent acceptance progress for an environment.
+        requirements:
+            1: Accepts optional `override` boolean, default false, which indicates if the states should override rather than merge
+            1-note:
+                Default false because we assume the state updates are partial.
+                In the db we store states in buckets, grouped by feature + implementation. `true` would reset any bucket that is touched.
+            2: Requires `data` object
+            2-1: |
+                `data` contains a map of ACIDs to state objects e.g. `{ "my-feature.MAIN.1-1": { status: "completed", comment: "High priority for QA" } }`
+            2-2: Each state object requires a nullable `status` string, supported strings are defined in data-model.FEATURE_IMPL_STATES.4-3
+            2-3: Each state object accepts an optional `comment` string
+            3: States can contain any ACID for any feature, including non-existent features, and they are always persisted as long as the format is valid
+
     RESPONSE:
         description: The response shape for successful and failed pushes
         requirements:
@@ -120,6 +138,18 @@ components:
             3: Refs are written to the branch even if the branch is not tracked by any implementation
             4: The top-level commit_hash is stored on each feature_branch_ref record as the commit field
 
+    WRITE_STATES:
+        deprecated: true
+        description: When states are written or inherited
+        requirements:
+            1: States can only be written when the branch is tracked by an implementation (states require an implementation to attach to)
+            1-note: If the branch is not tracked and states are provided alongside specs, states are written after the implementation is created. If no implementation exists or is created, states in the push are rejected with a helpful error.
+            2: On first push of states for a given feature_name + implementation, states are snapshotted from the parent implementation (if one exists) then merged with the incoming states
+            2-note: First push means the first time a feature_impl_states row is created for this (implementation_id, feature_name) combination. Incoming states take precedence over snapshotted parent states.
+            3: On subsequent pushes, incoming states are patched into the existing states (merge, incoming wins on key collision)
+            3-note: Under the hood the app is grouping ACIDs by feature_name and writing each group to a feature_impl_states row
+            4: The system silently allows dangling states (e.g. ACIDs that don't map to an actual spec)
+
     PERMANENCE:
         description: Semantics for what can be undone and what can not
         requirements:
@@ -138,6 +168,9 @@ components:
             1: Creates a new implementation when specs are pushed, and the branch is not yet tracked by any implementation
             1-1: Names the implementation after the `target_impl_name`, falling back to `branch_name`
             1-note: Exception for linking when the target_impl_name resolves to an existing implementation in the same product (see LINK_IMPLS)
+            2:
+                requirement: Rejects push with a helpful error if states are provided without specs and the branch is not tracked by any implementation
+                deprecated: true
             3: Creates a new `product` record for each spec that contains a never-before-seen `feature.product` value
             4: Rejects the push if specs span multiple products
             4-note: The CLI should split multi-product pushes into separate requests, one per product
@@ -193,6 +226,9 @@ components:
         requirements:
             1: Pushing the same spec content multiple times is a no-op after the first
             2: Pushing with inheritance, then pushing without inheritance, keeps the parent unchanged (parent is immutable via push after creation)
+            3:
+                requirement: Forgotten states can be added in subsequent pushes via the states map
+                deprecated: true
             4: Forgotten refs can be added in subsequent pushes via the references map
             5: If the branch is already tracked by an implementation and a different parent_impl_name is provided, reject with an error explaining that parent cannot be changed via push.
             5-1: If the parent name matches, do nothing (idempotent / duplicate request case).
@@ -206,6 +242,9 @@ constraints:
             2: Token scopes must include specs:write for spec pushes
             3: Token scopes must include refs:write for reference pushes
             4: Token scopes must include impls:write for creating or linking implementations
+            5:
+                requirement: Token scopes must include states:write for state pushes
+                deprecated: true
             6: The token's team_id determines ownership of all created resources
             7: All implementation, product, and branch lookups are scoped to the token's team_id
 

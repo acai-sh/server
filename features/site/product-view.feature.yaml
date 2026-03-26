@@ -2,23 +2,26 @@ feature:
     name: product-view
     key: PRODUCT_VIEW
     product: site
-    description: Matrix view showing feature availability across all implementations in a product.
+    description: Matrix view showing feature completion across all implementations in a product.
     prerequisites:
         - data-model.PRODUCTS
         - data-model.SPECS
         - data-model.IMPLS
+        - data-model.FEATURE_IMPL_STATES
+
 components:
     MATRIX:
-        name: Feature availability matrix
+        name: Feature completion matrix
         requirements:
             1: Columns are active implementations in the product.
             2: Rows are distinct feature_names from specs attached to this product.
-            3: Cells show whether the feature is available to the implementation.
-            4: Available cells link to the feature-impl page.
+            3: Cells display completion percentage (completed requirements / total requirements).
+            3-1: Progress inherits from parent implementations when local feature_impl_states do not exist.
+            4: Cell text color uses ease-in gradient where 0-50% is uncolored, 100% is saturated green.
             5: Clicking a row navigates to the feature view.
             6: Empty state shown if product has no features or implementations.
             7: Clicking a cell navigates to that feature-impl (feature-impl-view.ROUTING.1)
-            8: Unavailable cells render `n/a`
+            8: If a feature can't be found in the implementation's ancestor tree (e.g. has no parent), and the spec wasn't pushed, render 'n/a' in the cell
 
     PRODUCT_SELECTOR:
         name: Product dropdown
@@ -30,4 +33,4 @@ constraints:
     ROUTING:
         requirements:
             1: Route is /t/:team_name/p/:product_name.
-            2: Single batched query fetches all implementations and specs.
+            2: Single batched query fetches all implementations, specs, and state counts.

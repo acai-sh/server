@@ -4,7 +4,7 @@ feature:
     version: 1.0.0
     description: |
         The feature-context endpoint returns the canonical spec context for one feature in one implementation.
-        It is the primary read endpoint for AI agents before making code changes.
+        It is the primary read endpoint for AI agents before making code or status changes.
 
 components:
     ENDPOINT:
@@ -20,8 +20,11 @@ components:
             2: Requires `feature_name` string
             3: Requires `implementation_name` string
             4: Accepts optional `include_refs` boolean, default false
+            5: Accepts optional `include_dangling_states` boolean, default false
             6: Accepts optional `include_deprecated` boolean, default false
-            6-note: When false, deprecated ACIDs are excluded from the `acids` list
+            6-note: When false, deprecated ACIDs are excluded from the `acids` list and summary counts
+            7: Accepts optional `statuses` list of valid state values, including `null`
+            7-1: `statuses` is encoded as a repeated query parameter and the literal string `null` means the null status
 
     RESOLUTION:
         description: How feature data is resolved for the selected implementation
@@ -29,36 +32,46 @@ components:
             1: Resolves exactly one canonical spec for the selected feature and implementation
             2: When multiple tracked branches on the selected implementation contain that feature, the local spec with the most recent `updated_at` timestamp is the canonical spec
             3: If the implementation has no local spec for that feature, canonical spec resolution walks the parent chain within the same product and uses the nearest ancestor that does
-            4: Refs are aggregated across all tracked branches for the selected implementation; if none exist for that feature, ref resolution walks the parent chain and uses the nearest ancestor implementation that has refs
-            5: If multiple local specs have the same most recent `updated_at`, the canonical spec is the one with the lexicographically smallest branch name
+            4: States are read from `feature_impl_states` for the selected implementation and feature; if no local row exists, state resolution walks the parent chain and uses the nearest ancestor row
+            5: Refs are aggregated across all tracked branches for the selected implementation; if none exist for that feature, ref resolution walks the parent chain and uses the nearest ancestor implementation that has refs
+            6: A local `feature_impl_states` row, even if its `states` map is empty, stops state inheritance
+            7: When `statuses` is provided, only ACIDs whose resolved state matches one of those values are returned
+            8: If multiple local specs have the same most recent `updated_at`, the canonical spec is the one with the lexicographically smallest branch name
 
     RESPONSE:
         description: The response shape for canonical feature context
         requirements:
             1: "On success, returns HTTP 200 with a JSON body containing a `data` object"
             2: "The `data` object includes `product_name`, `feature_name`, `implementation_name`, and `implementation_id`"
-            3: "The `data` object includes `spec_source` and `refs_source` objects describing whether each section is local or inherited"
+            3: "The `data` object includes `spec_source`, `states_source`, and `refs_source` objects describing whether each section is local or inherited"
             3-1: Each source object includes `source_type` with value `local`, `inherited`, or `none`
             3-2: When `source_type` is not `none`, the source object includes `implementation_name`
             3-3: `spec_source` and `refs_source` also include `branch_names` listing the contributing tracked branches
-            4: "The `data` object includes an `acids` list sorted by ACID"
-            5: Each ACID entry includes `acid`, `requirement`, optional `note`, `deprecated`, and `replaced_by`
-            6: Each ACID entry includes `refs_count` integer and `test_refs_count` integer
-            7: When `include_refs` is true, each ACID entry includes a `refs` list and each ref includes `path`, `is_test`, `repo_uri`, and `branch_name`
-            8: "The `data` object includes a `warnings` list of human-readable strings"
-            9: "If the product, implementation, or feature cannot be resolved, returns HTTP 404 with an `errors` object containing a `detail` string"
-            10: "On validation error, returns HTTP 422 with an `errors` object containing a `detail` string"
-            11: "On auth error, returns HTTP 401 with an `errors` object containing a `detail` string"
-            12: "On scope or permission error, returns HTTP 403 with an `errors` object containing a `detail` string"
+            4: "The `data` object includes a `summary` object with `total_acids` and counts grouped by resolved status"
+            4-note: Summary counts reflect the returned `acids` list after filters are applied
+            5: "The `data` object includes an `acids` list sorted by ACID"
+            6: Each ACID entry includes `acid`, `requirement`, optional `note`, `deprecated`, and `replaced_by`
+            7: Each ACID entry includes a `state` object containing nullable `status`, optional `comment`, and optional `updated_at`
+            8: Each ACID entry includes `refs_count` integer and `test_refs_count` integer
+            9: When `include_refs` is true, each ACID entry includes a `refs` list and each ref includes `path`, `is_test`, `repo_uri`, and `branch_name`
+            10: When `include_dangling_states` is true, the `data` object includes `dangling_states` for stored state entries whose ACIDs are not present in the resolved spec
+            10-1: Each `dangling_states` entry includes `acid` and `state`
+            11: Missing state for a returned ACID is represented as `state.status = null`
+            12: "The `data` object includes a `warnings` list of human-readable strings for non-fatal issues such as dangling states"
+            13: "If the product, implementation, or feature cannot be resolved, returns HTTP 404 with an `errors` object containing a `detail` string"
+            14: "On validation error, returns HTTP 422 with an `errors` object containing a `detail` string"
+            15: "On auth error, returns HTTP 401 with an `errors` object containing a `detail` string"
+            16: "On scope or permission error, returns HTTP 403 with an `errors` object containing a `detail` string"
 
 constraints:
     AUTH:
         requirements:
             1: Requires a valid, non-expired, non-revoked API token
-            2: Token scopes must include `impls:read`, `specs:read`, and `refs:read`
+            2: Token scopes must include `impls:read`, `specs:read`, `states:read`, and `refs:read`
             3: All lookups are scoped to the token's team_id
 
     VALIDATION:
         requirements:
             1: "`product_name`, `feature_name`, and `implementation_name` are required"
-            2: The endpoint is read-only and never mutates specs, refs, or implementations
+            2: "`statuses` accepts only `null`, `assigned`, `blocked`, `incomplete`, `completed`, `rejected`, and `accepted`"
+            3: The endpoint is read-only and never mutates specs, refs, implementations, or states

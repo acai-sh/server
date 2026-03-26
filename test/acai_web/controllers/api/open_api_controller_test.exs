@@ -51,12 +51,9 @@ defmodule AcaiWeb.Api.OpenApiControllerTest do
                &(&1["name"] == "implementation_name" and &1["required"] == true)
              )
 
-      refute Enum.any?(feature_context_params, &(&1["name"] == "statuses"))
-
-      implementation_features_params =
-        spec["paths"]["/implementation-features"]["get"]["parameters"]
-
-      refute Enum.any?(implementation_features_params, &(&1["name"] == "statuses"))
+      # feature-states.ENDPOINT.1, feature-states.REQUEST.1-4
+      assert spec["paths"]["/feature-states"]["patch"]["operationId"] ==
+               "AcaiWeb.Api.FeatureStatesController.update"
 
       assert spec["paths"]["/push"]["post"]["operationId"] ==
                "AcaiWeb.Api.PushController.create"

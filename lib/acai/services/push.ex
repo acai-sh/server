@@ -7,7 +7,7 @@ defmodule Acai.Services.Push do
   - Product/implementation resolution
   - Spec writes
   - Ref writes
-  - Implementation and branch tracking
+  - State writes
 
   All operations are wrapped in a transaction for atomicity.
 
@@ -20,7 +20,7 @@ defmodule Acai.Services.Push do
   alias Acai.Teams.AccessToken
   alias Acai.Implementations.{Branch, Implementation, TrackedBranch}
   alias Acai.Products.Product
-  alias Acai.Specs.{Spec, FeatureBranchRef}
+  alias Acai.Specs.{Spec, FeatureImplState, FeatureBranchRef}
   alias AcaiWeb.Api.RejectionLog
   alias AcaiWeb.Api.Operations
 
@@ -32,6 +32,7 @@ defmodule Acai.Services.Push do
     "commit_hash" => :commit_hash,
     "specs" => :specs,
     "references" => :references,
+    "states" => :states,
     "product_name" => :product_name,
     "target_impl_name" => :target_impl_name,
     "parent_impl_name" => :parent_impl_name,
@@ -50,7 +51,9 @@ defmodule Acai.Services.Push do
     "override" => :override
   }
 
-  @write_scopes ["specs:write", "refs:write", "impls:write"]
+  @write_scopes ["specs:write", "refs:write", "states:write", "impls:write"]
+
+  @untracked_states_error "Cannot push states: branch is not tracked by any implementation. Push specs first or use target_impl_name to link to an existing implementation."
 
   @doc """
   Executes a push operation.
@@ -93,7 +96,7 @@ defmodule Acai.Services.Push do
   defp normalize_params(params), do: params
 
   # Convert string keys to atom keys for top-level params only.
-  # Nested maps (specs, references) are handled separately to preserve
+  # Nested maps (specs, references, states) are handled separately to preserve
   # user-defined string keys in data payloads (like ACIDs).
   defp normalize_map_keys(map) when is_map(map) do
     Enum.reduce(map, %{}, fn {key, value}, acc ->
@@ -106,11 +109,12 @@ defmodule Acai.Services.Push do
   defp normalize_param_key(key) when is_binary(key), do: Map.get(@normalized_param_keys, key, key)
   defp normalize_param_key(key), do: key
 
-  # Normalize nested structures in specs and references
+  # Normalize nested structures in specs, references, and states
   defp normalize_nested_params(params) do
     params
     |> Map.update(:specs, [], &normalize_specs/1)
     |> Map.update(:references, nil, &normalize_map_keys/1)
+    |> Map.update(:states, nil, &normalize_map_keys/1)
   end
 
   # Normalize each spec in the specs list
@@ -137,6 +141,7 @@ defmodule Acai.Services.Push do
 
     specs = params[:specs] || []
     refs = params[:references]
+    states = params[:states]
     has_specs = specs != []
 
     refs_only_impl_request? =
@@ -151,6 +156,9 @@ defmodule Acai.Services.Push do
 
       refs != nil and not scope_map["refs:write"] ->
         {:error, {:forbidden, "Token missing required scope: refs:write"}}
+
+      states != nil and not scope_map["states:write"] ->
+        {:error, {:forbidden, "Token missing required scope: states:write"}}
 
       # push.AUTH.4
       refs_only_impl_request? and not scope_map["impls:write"] ->
@@ -455,6 +463,7 @@ defmodule Acai.Services.Push do
     commit_hash = params[:commit_hash]
     specs = params[:specs] || []
     refs_data = params[:references]
+    states_data = params[:states]
     target_impl_name = params[:target_impl_name]
     parent_impl_name = params[:parent_impl_name]
 
@@ -500,7 +509,16 @@ defmodule Acai.Services.Push do
     # push.REFS.3, push.REFS.4, push.WRITE_REFS.1, push.WRITE_REFS.2, push.WRITE_REFS.3
     maybe_write_refs(branch, refs_data, commit_hash)
 
-    {:ok, build_response(branch, product, implementation, specs_created, specs_updated, warnings)}
+    # Step 5: Write states (only if we have an implementation)
+    # push.WRITE_STATES.1
+    case maybe_write_states(implementation, states_data, parent_impl_name) do
+      {:error, msg} ->
+        {:error, msg}
+
+      :ok ->
+        {:ok,
+         build_response(branch, product, implementation, specs_created, specs_updated, warnings)}
+    end
   end
 
   # push.REFS.3, push.REFS.4, push.WRITE_REFS.1, push.WRITE_REFS.2, push.WRITE_REFS.3
@@ -508,6 +526,18 @@ defmodule Acai.Services.Push do
 
   defp maybe_write_refs(branch, refs_data, commit_hash) do
     write_refs(branch, refs_data, commit_hash)
+  end
+
+  # push.NEW_IMPLS.2, push.WRITE_STATES.1
+  defp maybe_write_states(_implementation, nil, _parent_impl_name), do: :ok
+
+  defp maybe_write_states(implementation, states_data, parent_impl_name)
+       when not is_nil(implementation) do
+    write_states(implementation, states_data, parent_impl_name)
+  end
+
+  defp maybe_write_states(nil, _states_data, _parent_impl_name) do
+    {:error, @untracked_states_error}
   end
 
   # push.RESPONSE.1, push.RESPONSE.2, push.RESPONSE.3, push.RESPONSE.4
@@ -626,7 +656,8 @@ defmodule Acai.Services.Push do
           params[:product_name],
           target_impl_name,
           parent_impl_name,
-          params
+          params,
+          params[:states]
         )
     end
   end
@@ -639,13 +670,17 @@ defmodule Acai.Services.Push do
          product_name,
          target_impl_name,
          parent_impl_name,
-         params
+         params,
+         states_data
        ) do
     existing_trackings = implementation_trackings_for_branch(branch)
 
     cond do
       existing_trackings != [] ->
-        resolve_existing_implementation(team_id, branch, target_impl_name)
+        resolve_existing_implementation(team_id, branch, target_impl_name, states_data)
+
+      states_data != nil ->
+        throw({:error, @untracked_states_error})
 
       refs_data != nil ->
         handle_untracked_refs_only_push(
@@ -1111,10 +1146,14 @@ defmodule Acai.Services.Push do
 
   # Resolve existing implementation when no specs are pushed
   # push.NEW_IMPLS.2
-  defp resolve_existing_implementation(_team_id, branch, target_impl_name) do
+  defp resolve_existing_implementation(_team_id, branch, target_impl_name, states_data) do
     existing_trackings = implementation_trackings_for_branch(branch)
 
     cond do
+      # If states are being pushed but no implementation exists, reject
+      states_data && existing_trackings == [] ->
+        throw({:error, @untracked_states_error})
+
       existing_trackings == [] ->
         {nil, nil, []}
 
@@ -1443,6 +1482,116 @@ defmodule Acai.Services.Push do
   end
 
   defp group_acid_data_by_feature(_), do: %{}
+
+  # Write states to the database using batch operations
+  # push.STATES.1, push.STATES.3
+  # push.WRITE_STATES.1, push.WRITE_STATES.2, push.WRITE_STATES.3, push.WRITE_STATES.4
+  defp write_states(implementation, states_data, _parent_impl_name) do
+    now = DateTime.utc_now(:second)
+    # states_data is already normalized to use atom keys
+    data = states_data[:data] || %{}
+    # push.STATES.1 - Ensure override is a boolean (handles nil case)
+    override = normalize_boolean(states_data[:override])
+
+    # Step 1: Group states by feature_name with extracted feature_name (batch step 1)
+    states_by_feature = group_acid_data_by_feature(data)
+    feature_names = Map.keys(states_by_feature)
+
+    # Step 2: Batch fetch all existing child FeatureImplState rows (batch step 2)
+    existing_states_map =
+      if feature_names != [] do
+        Repo.all(
+          from fis in FeatureImplState,
+            where:
+              fis.implementation_id == ^implementation.id and
+                fis.feature_name in ^feature_names
+        )
+        |> Map.new(fn fis -> {fis.feature_name, fis} end)
+      else
+        %{}
+      end
+
+    # Step 3: If parent exists, batch fetch all parent states for touched features (batch step 3)
+    parent_states_map =
+      if not is_nil(implementation.parent_implementation_id) and feature_names != [] do
+        Repo.all(
+          from fis in FeatureImplState,
+            where:
+              fis.implementation_id == ^implementation.parent_implementation_id and
+                fis.feature_name in ^feature_names
+        )
+        |> Map.new(fn fis -> {fis.feature_name, fis.states || %{}} end)
+      else
+        %{}
+      end
+
+    # Step 4: Build final states payloads for each touched feature (batch step 4)
+    {to_insert_attrs, to_upsert_attrs} =
+      Enum.reduce(states_by_feature, {[], []}, fn {feature_name, acid_states},
+                                                  {inserts, upserts} ->
+        existing_state = Map.get(existing_states_map, feature_name)
+
+        states_map =
+          cond do
+            # push.WRITE_STATES.2 - First write: snapshot from parent then merge
+            is_nil(existing_state) and not is_nil(implementation.parent_implementation_id) ->
+              parent_states = Map.get(parent_states_map, feature_name, %{})
+              incoming = Map.new(acid_states)
+              Map.merge(parent_states, incoming)
+
+            # push.WRITE_STATES.3 - Subsequent writes: patch existing (merge mode)
+            existing_state != nil and not override ->
+              incoming = Map.new(acid_states)
+              Map.merge(existing_state.states || %{}, incoming)
+
+            # push.STATES.1 - Override mode: replace entirely
+            override ->
+              Map.new(acid_states)
+
+            # First write, no parent
+            true ->
+              Map.new(acid_states)
+          end
+
+        attrs = %{
+          implementation_id: implementation.id,
+          feature_name: feature_name,
+          states: states_map,
+          inserted_at: now,
+          updated_at: now
+        }
+
+        case existing_state do
+          nil ->
+            # New insert - generate UUIDv7 since insert_all bypasses autogenerate
+            insert_attrs = Map.put(attrs, :id, Acai.UUIDv7.autogenerate())
+            {[insert_attrs | inserts], upserts}
+
+          existing ->
+            # push.WRITE_STATES.3 - Existing row, will be upserted - include the id for the update
+            upsert_attrs = Map.put(attrs, :id, existing.id)
+            {inserts, [upsert_attrs | upserts]}
+        end
+      end)
+
+    # Step 5: Batch insert new states (batch step 5)
+    if to_insert_attrs != [] do
+      Repo.insert_all(FeatureImplState, to_insert_attrs,
+        on_conflict: :nothing,
+        conflict_target: [:implementation_id, :feature_name]
+      )
+    end
+
+    # Step 6: Batch upsert existing states (batch step 6)
+    if to_upsert_attrs != [] do
+      Repo.insert_all(FeatureImplState, to_upsert_attrs,
+        on_conflict: {:replace, [:states, :updated_at]},
+        conflict_target: [:id]
+      )
+    end
+
+    :ok
+  end
 
   # Normalize a value to a boolean, handling nil
   # Returns false for nil or falsy values, true for truthy values

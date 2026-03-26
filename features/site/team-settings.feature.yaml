@@ -28,7 +28,7 @@ components:
     DELETE:
         name: Delete Team modal
         requirements:
-            1: Educates the user that deleting the team is permanent and will cascade-delete all associated data, including products, implementations, specs, requirements, feature refs, members, and access tokens.
+            1: Educates the user that deleting the team is permanent and will cascade-delete all associated data, including products, implementations, specs, requirements, feature states, members, and access tokens.
             2: Renders a confirmation text input requiring the user to type the exact team name before deletion is permitted.
             3: Renders a 'Delete Team' confirm button, disabled until the confirmation input matches the team name exactly.
             4: Renders a Cancel button that dismisses the modal without taking action.

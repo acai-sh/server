@@ -1,8 +1,8 @@
 feature:
     name: data-model
     product: site
-        description: |
-            Core RDBMS schema for tracking AI-driven feature specifications and code references.
+    description: |
+        Core RDBMS schema for tracking AI-driven feature specifications and code implementation state.
         Fields are default required / non-null unless flagged as Optional.
         Foreign keys are default ON DELETE CASCADE unless flagged otherwise.
     prerequisites:
@@ -40,7 +40,7 @@ components:
             4-1: token_hash has a UNIQUE constraint, which serves as its index.
             5: token_prefix is a string storing the unhashed prefix.
             6: scopes is a non-null JSONB array of strings defining the permitted API actions.
-            6-1: Default new token scopes are assigned by application code on creation; the migration does not define a database default. Standard defaults are specs:read, specs:write, refs:read, refs:write, impls:read, impls:write, team:read.
+            6-1: Default new token scopes are assigned by application code on creation; the migration does not define a database default. Standard defaults are specs:read, specs:write, states:read, states:write, refs:read, refs:write, impls:read, impls:write, team:read.
             7: expires_at is a timestamp indicating when the token naturally invalidates. Optional.
             8: revoked_at is a timestamp for manual, soft-delete invalidation. Optional.
             9: last_used_at is a timestamp updated on successful authentication to track stale tokens. Optional.
@@ -59,7 +59,7 @@ components:
         name: implementations table
         description: |
             A product-wide environment defined by a set of tracked branches.
-            Implementations can inherit from a parent implementation.
+            Implementations encompass the state of all features within a product and can inherit from a parent implementation.
         requirements:
             1: id field is a UUIDv7 Primary Key.
             2: product_id is a Foreign Key to products table.
@@ -126,6 +126,27 @@ components:
             13: Index on (product_id) for listing specs by product.
             14: Index on (branch_id) for joining specs to branches.
 
+    FEATURE_IMPL_STATES:
+        name: feature_impl_states table
+        description: |
+            Stores requirement states for a specific feature/implementation pair, stored as JSONB.
+            Keyed by feature_name (not spec_id) to allow states to exist without a local spec file.
+            This enables pushing states from a backend repo for a feature whose spec lives in the frontend repo.
+            States are keyed by full requirement ID (e.g., my-feature.MY_COMPONENT.1-1).
+            Orphaned states (requirement IDs removed from a spec) are retained for potential reinstatement.
+        requirements:
+            1: id field is a UUIDv7 Primary Key.
+            2: implementation_id is a Foreign Key to implementations table.
+            3: feature_name is a string matching the feature.name from the spec file (the requirement ID prefix).
+            3-1: feature_name field only supports alphanumeric chars, hyphens, and underscores.
+            4: states is a JSONB column storing requirement statuses.
+            4-1: states format is an object keyed by full requirement ID string.
+            4-2: Each requirement ID entry contains status (string), comment (string, optional), metadata (object, optional), updated_at (timestamp).
+            4-3: Valid status values are `null`, `"assigned"`, `"blocked"`, `"incomplete"`, `"completed"`, `"rejected"`, or `"accepted"`.
+            5: Composite Unique Constraint enforces (implementation_id, feature_name).
+            6: GIN Index on (states) for querying by requirement ID key within the JSONB.
+            7: Index on (implementation_id) for listing all features for an implementation.
+
     FEATURE_BRANCH_REFS:
         name: feature_branch_refs table
         description: |
@@ -161,7 +182,7 @@ constraints:
         requirements:
             1: Spec id is stable across updates on the same (branch_id, feature_name) combination.
             2: Pushing an updated feature.yaml to an existing branch updates the existing spec row if feature_name matches.
-            3: Renaming a feature creates a new spec; the old spec remains under the old feature_name.
+            3: Renaming a feature creates a new spec; the old spec and its states remain under the old feature_name.
             4: Version changes on an existing spec update the spec row but do not create a new spec.
             5: Branch id is stable even if branch_name changes, allowing branch renames without breaking spec references.
 
@@ -181,6 +202,11 @@ constraints:
         name: Implementation inheritance semantics
         requirements:
             1: Inheritance forms a chain via parent_implementation_id for querying specs across implementations.
+            2: When querying states for an implementation, states are read from feature_impl_states for that implementation, walking up the parent chain if not found.
             3: If a spec exists on both parent and child implementation's tracked branches, child's spec takes precedence.
-            4: When querying code references for an implementation, the system aggregates feature_branch_refs across all tracked branches, walking up the parent chain's tracked branches if not found.
-            5: feature_name-based keys allow code references to exist for features whose spec lives in a different repo (monorepo support).
+            4: If a spec only exists on a parent implementation's tracked branch, states inherit from parent.
+            5: Inheritance recurses up the chain with worst case depth of 3 to 4 levels (e.g., prod to dev to feature to task).
+            6: States are snapshotted from parent on first push for a given (feature_name, implementation). After snapshot, parent changes do not affect the child.
+            7: Push operations create or update feature_impl_states keyed by feature_name, not spec_id.
+            8: When querying code references for an implementation, the system aggregates feature_branch_refs across all tracked branches, walking up the parent chain's tracked branches if not found.
+            9: feature_name-based keys allow code references and states to exist for features whose spec lives in a different repo (monorepo support).

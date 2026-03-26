@@ -41,9 +41,18 @@ defmodule AcaiWeb.Api.OperationsTest do
     assert Operations.rate_limit(:push) == %{window_seconds: 60, requests: 3}
   end
 
+  test "uses the feature-states default ACID cap from runtime config" do
+    caps = Operations.semantic_caps(:feature_states)
+
+    assert caps[:max_states] == 500
+    assert caps[:max_comment_length] == 2_000
+  end
+
   test "resolves endpoint keys from API paths" do
     push_conn = %Plug.Conn{request_path: "/api/v1/push"}
+    feature_states_conn = %Plug.Conn{request_path: "/api/v1/feature-states"}
 
     assert Operations.endpoint_key(push_conn) == :push
+    assert Operations.endpoint_key(feature_states_conn) == :feature_states
   end
 end

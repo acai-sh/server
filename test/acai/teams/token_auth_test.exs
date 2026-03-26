@@ -124,6 +124,7 @@ defmodule Acai.Teams.TokenAuthTest do
 
     test "returns false when token does not have the required scope", %{token: token} do
       refute Teams.token_has_scope?(token, "refs:read")
+      refute Teams.token_has_scope?(token, "states:write")
       refute Teams.token_has_scope?(token, "nonexistent:scope")
     end
   end

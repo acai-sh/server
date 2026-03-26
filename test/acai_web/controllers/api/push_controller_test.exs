@@ -484,6 +484,35 @@ defmodule AcaiWeb.Api.PushControllerTest do
       assert json_response(conn, 422)
     end
 
+    test "returns 422 when states are pushed to untracked branch", %{
+      conn: conn,
+      token: token
+    } do
+      # Try to push states without first pushing specs
+      states_params = %{
+        repo_uri: "github.com/test-org/new-repo",
+        branch_name: "feature-branch",
+        commit_hash: "abc123def456",
+        states: %{
+          data: %{
+            "some-feature.REQ.1" => %{
+              status: "completed"
+            }
+          }
+        }
+      }
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{token.raw_token}")
+        |> put_req_header("content-type", "application/json")
+        |> put_req_header("accept", "application/json")
+        |> post(~p"/api/v1/push", states_params)
+
+      assert json_response(conn, 422)
+      assert conn.resp_body =~ "Cannot push states"
+    end
+
     test "returns 422 and flattens changeset errors when spec validation fails", %{
       conn: conn,
       token: token

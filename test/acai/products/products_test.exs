@@ -189,6 +189,7 @@ defmodule Acai.ProductsTest do
       assert page_data.product.id == product.id
       assert page_data.active_implementations == []
       assert page_data.features_by_name == []
+      assert page_data.spec_impl_completion == %{}
       assert page_data.feature_availability == %{}
       assert page_data.empty? == true
       assert page_data.no_features? == true
@@ -247,10 +248,14 @@ defmodule Acai.ProductsTest do
       # Check availability - feature should be available since spec is on tracked branch
       assert page_data.feature_availability[{"test-feature", implementation.id}] == true
 
-      assert page_data.feature_availability[{"test-feature", implementation.id}] == true
+      # Check completion - should be 0/2 since no states exist
+      assert page_data.spec_impl_completion[{spec.id, implementation.id}] == %{
+               completed: 0,
+               total: 2
+             }
     end
 
-    test "returns availability without inherited refs", %{team: team} do
+    test "returns completion data with inherited states", %{team: team} do
       import Acai.DataModelFixtures
 
       product = product_fixture(team)
@@ -260,7 +265,7 @@ defmodule Acai.ProductsTest do
       parent_impl = implementation_fixture(product, %{is_active: true, name: "Parent"})
       _parent_tracked = tracked_branch_fixture(parent_impl, branch: branch)
 
-      # Create child implementation (no tracked branch)
+      # Create child implementation (no tracked branch, will inherit)
       child_impl =
         implementation_fixture(product, %{
           is_active: true,
@@ -276,9 +281,16 @@ defmodule Acai.ProductsTest do
           path: "features/test/feature.yaml"
         )
 
+      # Create feature_impl_state on parent implementation
+      _state =
+        spec_impl_state_fixture(spec, parent_impl,
+          states: %{"TEST.1" => %{"status" => "completed"}}
+        )
+
       page_data = Products.load_product_page(product)
 
-      assert page_data.feature_availability[{spec.feature_name, child_impl.id}] == true
+      # Child should inherit the completed state from parent
+      assert page_data.spec_impl_completion[{spec.id, child_impl.id}] == %{completed: 1, total: 1}
     end
 
     test "respects direction option for implementation ordering", %{team: team} do

@@ -1,0 +1,90 @@
+feature:
+    name: feature-states
+    product: api
+    version: 1.0.0
+    description: |
+        The feature-states endpoint updates requirement states for one feature in one implementation.
+        It is the explicit write endpoint used by the CLI after target resolution has already selected the implementation.
+
+components:
+    ENDPOINT:
+        description: HTTP interface
+        requirements:
+            1: "PATCH /api/v1/feature-states"
+            2: Content-Type application/json
+            3: Requires Authorization Bearer token header
+
+    REQUEST:
+        description: The request body for state updates
+        requirements:
+            1: Requires `product_name` string
+            2: Requires `feature_name` string
+            3: Requires `implementation_name` string
+            4: Requires `states` object
+            4-1: "`states` contains a map of full ACID strings to state objects"
+            4-2: Each state object requires nullable `status`
+            4-3: Each state object accepts optional `comment` string
+            4-4: `states` must contain at least one ACID entry
+            5: Every ACID in `states` must share the requested `feature_name` prefix
+            6: The request updates exactly one feature and one implementation
+
+    WRITE:
+        description: How state writes are applied
+        requirements:
+            1: State writes apply only to the selected implementation and feature
+            2: On first write for a given feature_name plus implementation, states are snapshotted from the parent implementation, if one exists, then merged with the incoming states
+            3: On subsequent writes, incoming states replace existing local values per ACID key and untouched local ACIDs are preserved
+            4: Nullable `status` stores an explicit local null state and does not delete the ACID entry
+            5: Writes are upsert-only and do not define per-ACID delete semantics
+            6: Writes never modify specs, refs, tracked branches, products, or implementations
+            7: States for ACIDs not present in the currently resolved spec are still persisted when the ACID prefix matches the requested feature
+            7-note: These are treated as dangling states so that orphaned status data is not lost when specs evolve
+
+    RESPONSE:
+        description: The response shape for feature state writes
+        requirements:
+            1: "On success, returns HTTP 200 with a JSON body containing a `data` object"
+            2: "The `data` object includes `product_name`, `feature_name`, `implementation_name`, and `implementation_id`"
+            3: "The `data` object includes `states_written` integer count"
+            4: "The `data` object includes a `warnings` list of human-readable strings for non-fatal issues such as dangling states"
+            5: "If the product, implementation, or feature cannot be resolved, returns HTTP 404 with an `errors` object containing a `detail` string"
+            6: "On validation error, returns HTTP 422 with an `errors` object containing a `detail` string"
+            6-1: "Requests that exceed configured semantic caps are validation errors and return HTTP 422"
+            7: "On auth error, returns HTTP 401 with an `errors` object containing a `detail` string"
+            8: "On scope or permission error, returns HTTP 403 with an `errors` object containing a `detail` string"
+            9: "On oversized request body, returns HTTP 413 with an `errors` object containing a `detail` string"
+            10: "When the state-write rate limit is exceeded, returns HTTP 429 with an `errors` object containing a `detail` string"
+
+constraints:
+    AUTH:
+        requirements:
+            1: Requires a valid, non-expired, non-revoked API token
+            2: Token scopes must include `impls:read`, `specs:read`, and `states:write`
+            3: All lookups and writes are scoped to the token's team_id
+
+    TX:
+        requirements:
+            1: All operations within a state write are atomic; any failure rolls back the entire write
+            2: Concurrent writes to the same feature and implementation use last-write-wins semantics
+
+    VALIDATION:
+        requirements:
+            1: "`product_name`, `feature_name`, `implementation_name`, and `states` are required"
+            2: All write ACIDs must be full ACID strings
+            3: Valid status values are `null`, `assigned`, `blocked`, `incomplete`, `completed`, `rejected`, and `accepted`
+
+    ABUSE:
+        requirements:
+            1: The feature-states endpoint rejects request bodies that exceed a configured maximum byte size
+            1-1: Oversized request bodies return HTTP 413 before any state data is written
+            2: The feature-states endpoint rejects requests that exceed configured semantic caps with a helpful HTTP 422 error
+            2-1: The default maximum number of ACIDs in one state-write request is 500
+            2-2: The default maximum length of one state comment string is 2000 characters
+            3: Request body and semantic caps are configurable by environment
+            4: The feature-states endpoint is rate-limited per access token
+            4-1: Requests that exceed the configured state-write rate limit return HTTP 429
+            4-2: The state-write rate limit is configurable by environment
+            5: Rejected abuse attempts are emitted as structured application logs
+            5-1: Abuse rejection logs include a safe summary of the request such as `request_id`, endpoint, rejection reason, request size, and state-entry counts when known
+            5-2: Abuse rejection logs include `team_id` and a non-secret token identifier when authentication has already succeeded
+            5-3: Abuse rejection logs never include the raw bearer token or full request payload

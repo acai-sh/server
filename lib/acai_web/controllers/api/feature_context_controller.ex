@@ -8,6 +8,8 @@ defmodule AcaiWeb.Api.FeatureContextController do
   alias Acai.Specs
   alias AcaiWeb.Api.Schemas.ReadSchemas
 
+  @valid_statuses [nil, "assigned", "blocked", "incomplete", "completed", "rejected", "accepted"]
+
   # feature-context.ENDPOINT.1, feature-context.ENDPOINT.2
   tags(["Actions"])
   security([%{"bearerAuth" => []}])
@@ -15,7 +17,7 @@ defmodule AcaiWeb.Api.FeatureContextController do
   operation(:show,
     summary: "Read canonical feature context",
     description:
-      "Return the canonical context for one feature in one implementation. This is the main read endpoint for spec-driven work: it resolves the requirement definitions the implementation should follow and optional code refs that point to matching files on tracked branches. Agents should call this before making code changes so they work from the same inherited source of truth that reviewers and dashboards use.",
+      "Return the canonical context for one feature in one implementation. This is the main read endpoint for spec-driven work: it resolves the requirement definitions the implementation should follow, the current implementation-specific states for those requirements, and optional code refs that point to matching files on tracked branches. Agents should call this before making code or status changes so they work from the same inherited source of truth that reviewers and dashboards use.",
     parameters: [
       # feature-context.REQUEST.1
       OpenApiSpex.Operation.parameter(:product_name, :query, :string, "Product name",
@@ -41,10 +43,24 @@ defmodule AcaiWeb.Api.FeatureContextController do
         required: false
       ),
       OpenApiSpex.Operation.parameter(
+        :include_dangling_states,
+        :query,
+        :boolean,
+        "Include dangling stored states",
+        required: false
+      ),
+      OpenApiSpex.Operation.parameter(
         :include_deprecated,
         :query,
         :boolean,
         "Include deprecated ACIDs",
+        required: false
+      ),
+      OpenApiSpex.Operation.parameter(
+        :statuses,
+        :query,
+        %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :string}},
+        "Repeated status filter values; the literal string `null` means a null status",
         required: false
       )
     ],
@@ -66,6 +82,7 @@ defmodule AcaiWeb.Api.FeatureContextController do
     # feature-context.AUTH.2, feature-context.RESPONSE.13, feature-context.RESPONSE.14, feature-context.RESPONSE.15, feature-context.RESPONSE.16
     with :ok <- ensure_scope(token, "impls:read"),
          :ok <- ensure_scope(token, "specs:read"),
+         :ok <- ensure_scope(token, "states:read"),
          :ok <- ensure_scope(token, "refs:read"),
          {:ok, parsed} <- parse_params(request_params),
          {:ok, payload} <-
@@ -75,7 +92,9 @@ defmodule AcaiWeb.Api.FeatureContextController do
              parsed.feature_name,
              parsed.implementation_name,
              include_refs: parsed.include_refs,
-             include_deprecated: parsed.include_deprecated
+             include_dangling_states: parsed.include_dangling_states,
+             include_deprecated: parsed.include_deprecated,
+             statuses: parsed.statuses
            ) do
       render_data(conn, payload)
     else
@@ -101,14 +120,18 @@ defmodule AcaiWeb.Api.FeatureContextController do
          {:ok, feature_name} <- required_string(params, "feature_name"),
          {:ok, implementation_name} <- required_string(params, "implementation_name"),
          {:ok, include_refs} <- optional_bool(params, "include_refs", false),
-         {:ok, include_deprecated} <- optional_bool(params, "include_deprecated", false) do
+         {:ok, include_dangling_states} <- optional_bool(params, "include_dangling_states", false),
+         {:ok, include_deprecated} <- optional_bool(params, "include_deprecated", false),
+         {:ok, statuses} <- optional_statuses(Map.get(params, "statuses")) do
       {:ok,
        %{
          product_name: product_name,
          feature_name: feature_name,
          implementation_name: implementation_name,
          include_refs: include_refs,
-         include_deprecated: include_deprecated
+         include_dangling_states: include_dangling_states,
+         include_deprecated: include_deprecated,
+         statuses: statuses
        }}
     end
   end
@@ -151,6 +174,28 @@ defmodule AcaiWeb.Api.FeatureContextController do
 
       _ ->
         {:error, "#{key} must be a boolean"}
+    end
+  end
+
+  defp optional_statuses(nil), do: {:ok, nil}
+  defp optional_statuses(status) when is_binary(status), do: normalize_status_list([status])
+  defp optional_statuses(statuses) when is_list(statuses), do: normalize_status_list(statuses)
+  defp optional_statuses(_), do: {:error, "statuses must be a list"}
+
+  defp normalize_status_list(statuses) do
+    normalized =
+      Enum.map(statuses, fn
+        nil -> nil
+        "null" -> nil
+        status when is_binary(status) -> String.trim(status)
+        status -> to_string(status)
+      end)
+
+    # feature-context.REQUEST.7, feature-context.REQUEST.7-1, feature-context.RESPONSE.13, feature-context.RESPONSE.14
+    if Enum.all?(normalized, &(&1 in @valid_statuses)) do
+      {:ok, normalized}
+    else
+      {:error, "statuses contains an invalid value"}
     end
   end
 end
