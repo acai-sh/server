@@ -16,7 +16,8 @@ defmodule AcaiWeb.Api.ImplementationsController do
   operation(:index,
     summary: "List implementations",
     description:
-      "Discover which implementations exist for a product and which of them are relevant to a repo branch or feature. This is the orientation endpoint: agents call it when they know their current repo and branch but do not yet know which implementation they should read from or write to. Filtering by feature returns only implementations that can resolve that feature through their tracked branches or parent inheritance.",
+      "Discover which Implementations exist for a Product. Filter by Repo + Branch name, and by Feature name.
+      This is the orientation endpoint: when you know the current repo and branch, and need to identify the relevant Implementations that track it.",
     parameters: [
       # implementations.REQUEST.1
       OpenApiSpex.Operation.parameter(:product_name, :query, :string, "Product name",

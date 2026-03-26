@@ -17,18 +17,15 @@ defmodule AcaiWeb.Api.PushController do
   operation(:create,
     summary: "Push from branch",
     description: """
-    Sync branch-derived truth for one product.
+    Sync data from your current git branch to the server.
+    - Upload specs (feature.yaml files) and the requirements and metadata defined in them.
+    - Upload code references (ACID tags) found in source code, and their file paths.
 
-    A push stores what this git branch currently says about the product:
-    - specs define canonical requirement text
-    - refs point to file locations that appear to implement those requirement IDs
+    This endpoint automatically creates new Product Implementations when pushing from a new branch.
+    It can not be used to configure existing Implementation settings or inheritance.
 
-    This endpoint can also create or link implementations when the request provides enough
-    explicit context, including refs-only child creation for multi-repo products where the
-    checked-out repo carries implementation code but not the canonical spec files.
-
-    Use this when branch contents change. Do not use it to record implementation progress
-    or review status.
+    Use this when contents (source code or specs) have change on a branch.
+    This endpoint is primarily intended to serve the `acai push` CLI command.
     """,
     # push.REQUEST.9, push.REQUEST.10, push.RESPONSE.8, push.RESPONSE.9
     request_body: {"Push request body", "application/json", PushSchemas.PushRequest},

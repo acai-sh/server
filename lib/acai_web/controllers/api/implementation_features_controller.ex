@@ -16,8 +16,11 @@ defmodule AcaiWeb.Api.ImplementationFeaturesController do
 
   operation(:index,
     summary: "List implementation features",
-    description:
-      "Return a lightweight worklist of features visible in one implementation. Each feature is resolved using the same canonical rules as the UI: local tracked branches are checked first, duplicate local specs prefer the most recently updated row, and parent inheritance fills gaps when needed. The response is intentionally summary-oriented so agents can quickly see what exists, what looks incomplete, what has refs, and what may need attention before loading full feature details.",
+    description: """
+    Return a summary list of Features that are visible to a given Implementation.
+    These features may be defined in specs that were pushed directly to that Implementation, or inherited from a parent Implementation.
+    The response is a summary list of features, containing some metadata and a summary of code references. This is useful to quickly identify features that may have changed or are missing references.
+    """,
     parameters: [
       # implementation-features.REQUEST.1
       OpenApiSpex.Operation.parameter(:product_name, :query, :string, "Product name",
@@ -42,7 +45,7 @@ defmodule AcaiWeb.Api.ImplementationFeaturesController do
         :changed_since_commit,
         :query,
         :string,
-        "Filter to features whose canonical spec changed since this commit",
+        "Filter by feature's last_seen_commit (simple equality)",
         required: false
       )
     ],

@@ -16,8 +16,13 @@ defmodule AcaiWeb.Api.FeatureContextController do
 
   operation(:show,
     summary: "Read canonical feature context",
-    description:
-      "Return the canonical context for one feature in one implementation. This is the main read endpoint for spec-driven work: it resolves the requirement definitions the implementation should follow, the current implementation-specific states for those requirements, and optional code refs that point to matching files on tracked branches. Agents should call this before making code or status changes so they work from the same inherited source of truth that reviewers and dashboards use.",
+    description: """
+    Return the complete context for one feature in one implementation.
+
+    This is the main read endpoint for spec-driven work. It returns the complete list of acceptance criteria, including the requirement definitions, lists of existing references in code, and additional metadata.
+
+    Agents should call this before making additional code changes so they work from the same inherited source of truth that reviewers and dashboards use.
+    """,
     parameters: [
       # feature-context.REQUEST.1
       OpenApiSpex.Operation.parameter(:product_name, :query, :string, "Product name",
