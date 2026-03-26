@@ -293,7 +293,7 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
         parent_impl_name: %OpenApiSpex.Schema{
           type: :string,
           description:
-            "Name of a parent implementation for inheritance. When creating a new implementation, it will inherit feature states and refs from the parent (e.g., create 'feature-branch-impl' with parent 'main' to start with main's baseline). Useful for short-lived branches that extend an existing implementation"
+            "Name of a parent implementation for inheritance. When creating a new implementation, it will inherit the parent's baseline and refs (e.g., create 'feature-branch-impl' with parent 'main' to start with main's baseline). Useful for short-lived branches that extend an existing implementation"
         }
       },
       additionalProperties: false,

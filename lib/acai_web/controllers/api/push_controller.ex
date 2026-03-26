@@ -21,10 +21,10 @@ defmodule AcaiWeb.Api.PushController do
     - Upload specs (feature.yaml files) and the requirements and metadata defined in them.
     - Upload code references (ACID tags) found in source code, and their file paths.
 
-    This endpoint automatically creates new Product Implementations when pushing from a new branch.
-    It can not be used to configure existing Implementation settings or inheritance.
+    This endpoint can create or link implementations while syncing specs and refs, but it does not
+    accept feature-state writes or configure implementation settings directly.
 
-    Use this when contents (source code or specs) have change on a branch.
+    Use this when source code or specs have changed on a branch.
     This endpoint is primarily intended to serve the `acai push` CLI command.
     """,
     # push.REQUEST.9, push.REQUEST.10, push.RESPONSE.8, push.RESPONSE.9
