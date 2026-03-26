@@ -137,27 +137,13 @@ defmodule Acai.Services.Push do
 
     specs = params[:specs] || []
     refs = params[:references]
-    has_specs = specs != []
 
-    refs_only_impl_request? =
-      refs != nil and has_specs == false and refs_only_impl_context_requested?(params)
-
-    tracked_branch_specs_only? = has_specs and branch_is_already_tracked?(token.team_id, params)
-
-    # If pushing specs, need specs:write
     cond do
-      has_specs and not scope_map["specs:write"] ->
+      specs != [] and not scope_map["specs:write"] ->
         {:error, {:forbidden, "Token missing required scope: specs:write"}}
 
       refs != nil and not scope_map["refs:write"] ->
         {:error, {:forbidden, "Token missing required scope: refs:write"}}
-
-      # push.AUTH.4
-      refs_only_impl_request? and not scope_map["impls:write"] ->
-        {:error, {:forbidden, "Token missing required scope: impls:write"}}
-
-      has_specs and not tracked_branch_specs_only? and not scope_map["impls:write"] ->
-        {:error, {:forbidden, "Token missing required scope: impls:write"}}
 
       true ->
         :ok
@@ -172,31 +158,25 @@ defmodule Acai.Services.Push do
     Map.new(@write_scopes, fn scope -> {scope, MapSet.member?(scopes, scope)} end)
   end
 
-  # push.AUTH.4
-  defp refs_only_impl_context_requested?(params) do
-    not is_nil(params[:product_name]) and
-      (not is_nil(params[:target_impl_name]) or not is_nil(params[:parent_impl_name]))
-  end
+  # push.AUTH.4, push.NEW_IMPLS.1, push.LINK_IMPLS.1
+  defp require_impls_write_scope!(token, branch, product_name, target_impl_name, parent_impl_name) do
+    scope_map = build_scope_map(token)
 
-  # push.AUTH.4
-  defp branch_is_already_tracked?(team_id, params) do
-    case {params[:repo_uri], params[:branch_name]} do
-      {repo_uri, branch_name} when is_binary(repo_uri) and is_binary(branch_name) ->
-        Repo.one(
-          from b in Branch,
-            join: tb in TrackedBranch,
-            on: tb.branch_id == b.id,
-            where:
-              b.team_id == ^team_id and
-                b.repo_uri == ^repo_uri and
-                b.branch_name == ^branch_name,
-            select: tb.branch_id,
-            limit: 1
-        ) != nil
+    if not scope_map["impls:write"] do
+      log_push_rejection(
+        token,
+        :auth,
+        "Token missing required scope: impls:write",
+        %{repo_uri: branch.repo_uri, branch_name: branch.branch_name},
+        product_name: product_name,
+        target_impl_name: target_impl_name,
+        parent_impl_name: parent_impl_name
+      )
 
-      _ ->
-        false
+      throw({:error, {:forbidden, "Token missing required scope: impls:write"}})
     end
+
+    :ok
   end
 
   # push.REQUEST.10, push.VALIDATION.6, push.ABUSE.2
@@ -469,6 +449,8 @@ defmodule Acai.Services.Push do
         last_seen_commit: commit_hash
       })
 
+    existing_trackings = implementation_trackings_for_branch(branch)
+
     # Step 2: Resolve implementation context and enforce request-matrix rules
     # push.NEW_IMPLS.3, push.NEW_IMPLS.4, push.NEW_IMPLS.6, push.LINK_IMPLS.1, push.LINK_IMPLS.4,
     # push.EXISTING_IMPLS.2, push.EXISTING_IMPLS.3, push.EXISTING_IMPLS.4, push.IDEMPOTENCY.5
@@ -477,6 +459,7 @@ defmodule Acai.Services.Push do
         token,
         team_id,
         branch,
+        existing_trackings,
         specs,
         refs_data,
         target_impl_name,
@@ -598,6 +581,7 @@ defmodule Acai.Services.Push do
          token,
          team_id,
          branch,
+         existing_trackings,
          specs,
          refs_data,
          target_impl_name,
@@ -610,6 +594,7 @@ defmodule Acai.Services.Push do
           token,
           team_id,
           branch,
+          existing_trackings,
           specs,
           params[:product_name],
           target_impl_name,
@@ -622,6 +607,7 @@ defmodule Acai.Services.Push do
           token,
           team_id,
           branch,
+          existing_trackings,
           refs_data,
           params[:product_name],
           target_impl_name,
@@ -635,14 +621,13 @@ defmodule Acai.Services.Push do
          token,
          team_id,
          branch,
+         existing_trackings,
          refs_data,
          product_name,
          target_impl_name,
          parent_impl_name,
          params
        ) do
-    existing_trackings = implementation_trackings_for_branch(branch)
-
     cond do
       existing_trackings != [] ->
         resolve_existing_implementation(team_id, branch, target_impl_name)
@@ -791,6 +776,7 @@ defmodule Acai.Services.Push do
          token,
          team_id,
          branch,
+         existing_trackings,
          specs,
          product_name,
          target_impl_name,
@@ -812,7 +798,6 @@ defmodule Acai.Services.Push do
     end
 
     product_name = product_name || List.first(product_names)
-    existing_trackings = implementation_trackings_for_branch(branch)
 
     cond do
       existing_trackings != [] ->
@@ -905,7 +890,7 @@ defmodule Acai.Services.Push do
   # Handle push when branch is not tracked and the request explicitly wants a new child implementation.
   # push.NEW_IMPLS.6, push.NEW_IMPLS.6-1, push.NEW_IMPLS.6-2
   defp handle_untracked_child_push(
-         _token,
+         token,
          team_id,
          branch,
          product_name,
@@ -913,6 +898,8 @@ defmodule Acai.Services.Push do
          parent_impl_name,
          _params
        ) do
+    require_impls_write_scope!(token, branch, product_name, target_impl_name, parent_impl_name)
+
     product = ensure_product!(team_id, product_name)
     parent_impl = fetch_parent_implementation!(team_id, product.id, parent_impl_name)
 
@@ -938,6 +925,8 @@ defmodule Acai.Services.Push do
          target_impl_name,
          params
        ) do
+    require_impls_write_scope!(token, branch, product_name, target_impl_name, nil)
+
     product = ensure_product!(team_id, product_name)
 
     {target_impl, _parent_impl} =
@@ -966,13 +955,15 @@ defmodule Acai.Services.Push do
   # Handle push when branch is not tracked and the request may link to an existing implementation.
   # push.NEW_IMPLS.1, push.NEW_IMPLS.3, push.NEW_IMPLS.5, push.LINK_IMPLS.1, push.LINK_IMPLS.3
   defp handle_untracked_branch_link_or_create_push(
-         _token,
+         token,
          team_id,
          branch,
          product_name,
          target_impl_name,
          _params
        ) do
+    require_impls_write_scope!(token, branch, product_name, target_impl_name, nil)
+
     product = ensure_product!(team_id, product_name)
 
     {target_impl, _parent_impl} =

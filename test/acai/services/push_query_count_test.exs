@@ -36,7 +36,7 @@ defmodule Acai.Services.PushQueryCountTest do
     end
 
     # push.TX.1, push.INSERT_SPEC.1, push.WRITE_REFS.1
-    test "cold complete push path stays in a reasonable constant query band", %{token: token} do
+    test "cold complete push path stays in a tight constant query band", %{token: token} do
       feature_names = ["cold-feature-1"]
 
       {result, stats} =
@@ -44,7 +44,7 @@ defmodule Acai.Services.PushQueryCountTest do
 
       assert {:ok, push_result} = result
       assert push_result.specs_created == 1
-      assert stats.total <= 18
+      assert stats.total <= 13
 
       print_stats("cold complete push", stats)
     end
@@ -67,7 +67,9 @@ defmodule Acai.Services.PushQueryCountTest do
           )
         )
 
-      assert_flat_growth(one_stats, many_stats, 2)
+      assert one_stats.total <= 11
+      assert many_stats.total <= 10
+      assert_flat_growth(one_stats, many_stats, 1)
 
       print_growth("specs", one_stats, many_stats)
     end
@@ -90,7 +92,9 @@ defmodule Acai.Services.PushQueryCountTest do
           )
         )
 
-      assert_flat_growth(one_stats, many_stats, 2)
+      assert one_stats.total <= 5
+      assert many_stats.total <= 5
+      assert_flat_growth(one_stats, many_stats, 0)
 
       print_growth("refs", one_stats, many_stats)
     end
@@ -118,6 +122,8 @@ defmodule Acai.Services.PushQueryCountTest do
 
       assert {:ok, push_result} = result
       assert push_result.specs_updated == 1
+      assert cold_stats.total <= 13
+      assert warm_stats.total <= 9
       assert warm_stats.total < cold_stats.total
 
       print_comparison("cold vs warm", cold_stats, warm_stats)
