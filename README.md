@@ -3,7 +3,7 @@
 This package, the Acai Server, is a self-hostable monolith intended to be deployed on a VPS like Hetzner, or ran locally as as devcontainer. It contains several containerized services, which are orchestrated with `docker-compose`.
 
 - `app` - The Frontend and the JSON REST API, built with Elixir & Phoenix. This is what you see when you visit [https://www.acai.sh](https://www.acai.sh)  
-- `db` - Postgres 18, managed via Ecto migrations
+- `db` - Postgres 17.6, managed via Ecto migrations
 - `backup` - Backup automation service, built with Restic, targeting an S3 bucket of your choice  
 - `caddy` - Reverse proxy, routing external traffic to the internal app container  
 
