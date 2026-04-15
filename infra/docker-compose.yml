@@ -136,7 +136,7 @@ services:
             DATABASE_URL: "ecto://${POSTGRES_USER:-}:${POSTGRES_PASSWORD:-}@${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-acai_prod}"
             MAILGUN_API_KEY: ${MAILGUN_API_KEY:-}
             MAILGUN_DOMAIN: ${MAILGUN_DOMAIN:-mg.acai.sh}
-            MAILGUN_BASE_URL: ${MAILGUN_BASE_URL:-https://api.mailgun.net/v3}
+            MAILGUN_BASE_URL: ${MAILGUN_BASE_URL:-https://api.eu.mailgun.net/v3}
             MAIL_FROM_NAME: ${MAIL_FROM_NAME:-acai.sh}
             MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-noreply@mg.acai.sh}
             MIX_ENV: prod
