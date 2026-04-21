@@ -30,12 +30,11 @@
         window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
       })();
     </script>
-    <%= if plausible_src = System.get_env("PLAUSIBLE_SRC") do %>
+    <%= if plausible_src = AcaiWeb.Plausible.src() do %>
       <script async src={plausible_src}>
       </script>
       <script>
-        window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
-        plausible.init()
+        <%= AcaiWeb.Plausible.inline_script() %>
       </script>
     <% end %>
   </head>

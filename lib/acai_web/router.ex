@@ -10,6 +10,7 @@ defmodule AcaiWeb.Router do
     plug :fetch_live_flash
     plug :put_root_layout, html: {AcaiWeb.Layouts, :root}
     plug :protect_from_forgery
+    plug :put_content_security_policy
     plug :put_secure_browser_headers
     plug :fetch_current_scope_for_user
   end
@@ -36,6 +37,32 @@ defmodule AcaiWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+  end
+
+  defp put_content_security_policy(conn, _opts) do
+    put_resp_header(conn, "content-security-policy", content_security_policy())
+  end
+
+  defp content_security_policy do
+    directives = [
+      "base-uri 'self'",
+      "frame-ancestors 'self'"
+    ]
+
+    case AcaiWeb.Plausible.origin() do
+      nil ->
+        Enum.join(directives, "; ")
+
+      origin ->
+        Enum.join(
+          directives ++
+            [
+              "script-src 'self' 'unsafe-inline' #{origin}",
+              "connect-src 'self' ws: wss: #{origin}"
+            ],
+          "; "
+        )
+    end
   end
 
   # API v1 scope - core.ENG.7
