@@ -61,15 +61,13 @@ defmodule AcaiWeb.TeamLiveTest do
   describe "admin dashboard entry point" do
     setup :register_and_log_in_user
 
-    test "dashboard.MAIN.1 shows the admin section for users in a global admin team", %{
-      conn: conn,
-      user: user
-    } do
-      team = team_fixture()
-      user_team_role_fixture(team, user, %{title: "readonly"})
-
-      global_admin_team = team_fixture(%{global_admin: true})
-      user_team_role_fixture(global_admin_team, user, %{title: "developer"})
+    test "dashboard.MAIN.1 shows the admin section on a whitelisted team page for whitelisted users",
+         %{
+           conn: conn,
+           user: user
+         } do
+      team = team_fixture(%{global_admin: true})
+      user_team_role_fixture(team, user, %{title: "developer"})
 
       {:ok, view, _html} = live(conn, ~p"/t/#{team.name}")
 
@@ -102,7 +100,7 @@ defmodule AcaiWeb.TeamLiveTest do
       refute has_element?(view, "#admin-dashboard-btn")
     end
 
-    test "dashboard.MAIN.1 shows the admin section on another team page when a different team grants global admin access",
+    test "dashboard.MAIN.2-1 hides the admin section on a non-whitelisted team page even when another team grants global admin access",
          %{conn: conn, user: user} do
       current_team = team_fixture()
       user_team_role_fixture(current_team, user, %{title: "readonly"})
@@ -112,8 +110,8 @@ defmodule AcaiWeb.TeamLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/t/#{current_team.name}")
 
-      assert has_element?(view, "#admin-section")
-      assert has_element?(view, "#admin-dashboard-btn")
+      refute has_element?(view, "#admin-section")
+      refute has_element?(view, "#admin-dashboard-btn")
     end
   end
 

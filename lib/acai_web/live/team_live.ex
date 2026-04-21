@@ -22,6 +22,7 @@ defmodule AcaiWeb.TeamLive do
 
     can_admin? = Permissions.has_permission?(current_role_title, "team:admin")
     global_admin_member? = Teams.member_of_global_admin_team?(socket.assigns.current_scope)
+    show_admin_section? = global_admin_member? and team.global_admin
 
     owner_count =
       Enum.count(members, fn r -> r.title == "owner" end)
@@ -37,7 +38,7 @@ defmodule AcaiWeb.TeamLive do
       |> assign(:can_admin?, can_admin?)
       # dashboard.MAIN.1
       # dashboard.MAIN.2
-      |> assign(:global_admin_member?, global_admin_member?)
+      |> assign(:show_admin_section?, show_admin_section?)
       |> assign(:owner_count, owner_count)
       # team-view.MEMBERS.1
       |> stream(:members, members, dom_id: fn r -> "member-#{r.user_id}" end)
@@ -399,7 +400,7 @@ defmodule AcaiWeb.TeamLive do
           </div>
         </.link>
 
-        <%= if @global_admin_member? do %>
+        <%= if @show_admin_section? do %>
           <div id="admin-section" class="space-y-4">
             <div>
               <h2 class="text-base font-semibold">Admin</h2>

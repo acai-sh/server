@@ -9,9 +9,10 @@ feature:
 components:
     MAIN:
         requirements:
-            1: In the `/t/:team_name` view, whitelisted users see an 'Admin' section with a 'Dashboard' button
+            1: In the `/t/:team_name` view, whitelisted users see an 'Admin' section with a 'Dashboard' button only when the current team is whitelisted
             1-1: Clicking the Dashboard button navigates to `/admin/dashboard/home`
             2: Users who are not members of any whitelisted team do not see this section or button
+            2-1: Whitelisted users do not see this section or button when viewing a non-whitelisted team
 
 constraints:
     AUTH:
