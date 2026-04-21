@@ -48,3 +48,9 @@ config :phoenix_live_view,
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+# Disable os_mon supervisors during tests to prevent shutdown warnings
+config :os_mon,
+  start_cpu_sup: false,
+  start_memsup: false,
+  start_disksup: false
