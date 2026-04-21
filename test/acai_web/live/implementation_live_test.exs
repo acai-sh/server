@@ -837,6 +837,36 @@ defmodule AcaiWeb.ImplementationLiveTest do
       assert has_element?(view, "#requirement-row-my-feature-COMP-1 > div:last-child", "3")
     end
 
+    # feature-impl-view.LIST.4-1: Rows with non-empty comments render a comment icon beside the Status control
+    test "rows with a non-empty comment show a comment indicator beside status", %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product)
+      spec = create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+
+      spec_impl_state_fixture(spec, impl, %{
+        states: %{
+          "my-feature.COMP.1" => %{"status" => "completed", "comment" => "Has context"},
+          "my-feature.COMP.2" => %{"status" => "assigned", "comment" => "   "}
+        }
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      assert has_element?(
+               view,
+               "#requirement-row-my-feature-COMP-1 #requirement-comment-indicator-my-feature-COMP-1"
+             )
+
+      assert has_element?(
+               view,
+               "#requirement-comment-indicator-my-feature-COMP-1[data-tip='Has context']"
+             )
+
+      refute has_element?(view, "#requirement-comment-indicator-my-feature-COMP-2")
+    end
+
     # implementation-view.TEST_COVERAGE: Tests are still tracked for coverage grid display
     test "test coverage grid shows count of test references", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
@@ -1374,6 +1404,132 @@ defmodule AcaiWeb.ImplementationLiveTest do
              )
 
       assert has_element?(view, "#requirement-details-drawer .translate-x-0")
+    end
+
+    # feature-impl-view.DRAWER.3-5
+    test "submitting the drawer comment form persists the comment and keeps the drawer open", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "TestImpl")
+      spec = create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+
+      spec_impl_state_fixture(spec, impl, %{
+        states: %{
+          "my-feature.COMP.1" => %{"status" => "completed", "comment" => "Old comment"}
+        }
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      view |> render_click("open_drawer", %{"acid" => "my-feature.COMP.1"})
+
+      view
+      |> element("#drawer-comment-form-my-feature-COMP-1")
+      |> render_submit(%{
+        "acid" => "my-feature.COMP.1",
+        "state_comment" => %{"comment" => "Updated from the drawer"}
+      })
+
+      assert has_element?(view, "#requirement-details-drawer .translate-x-0")
+
+      state = Acai.Specs.get_feature_impl_state("my-feature", impl)
+      assert state.states["my-feature.COMP.1"]["status"] == "completed"
+      assert state.states["my-feature.COMP.1"]["comment"] == "Updated from the drawer"
+    end
+
+    # feature-impl-view.DRAWER.3-6
+    test "submitting a blank drawer comment clears the local comment", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "TestImpl")
+      spec = create_spec_for_feature(team, product, "my-feature", for_implementation: impl)
+
+      spec_impl_state_fixture(spec, impl, %{
+        states: %{
+          "my-feature.COMP.1" => %{"status" => "completed", "comment" => "Clear me"}
+        }
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      view |> render_click("open_drawer", %{"acid" => "my-feature.COMP.1"})
+
+      view
+      |> element("#drawer-comment-form-my-feature-COMP-1")
+      |> render_submit(%{
+        "acid" => "my-feature.COMP.1",
+        "state_comment" => %{"comment" => "   "}
+      })
+
+      state = Acai.Specs.get_feature_impl_state("my-feature", impl)
+      refute Map.has_key?(state.states["my-feature.COMP.1"], "comment")
+      assert state.states["my-feature.COMP.1"]["status"] == "completed"
+    end
+
+    # feature-impl-view.DRAWER.3-7
+    test "saving a comment for an inherited state preserves the inherited status locally", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+
+      parent_impl = create_implementation_for_product(product, name: "ParentImpl")
+
+      parent_branch =
+        tracked_branch_fixture(parent_impl, repo_uri: "github.com/org/repo", branch_name: "main")
+
+      parent_branch = Acai.Repo.get!(Acai.Implementations.Branch, parent_branch.branch_id)
+
+      spec =
+        spec_fixture(product, %{
+          feature_name: "my-feature",
+          branch: parent_branch,
+          requirements: %{
+            "my-feature.COMP.1" => %{
+              "requirement" => "Test requirement",
+              "is_deprecated" => false,
+              "replaced_by" => []
+            }
+          }
+        })
+
+      spec_impl_state_fixture(spec, parent_impl, %{
+        states: %{
+          "my-feature.COMP.1" => %{"status" => "accepted", "comment" => "Parent comment"}
+        }
+      })
+
+      child_impl =
+        implementation_fixture(product, %{
+          name: "ChildImpl",
+          parent_implementation_id: parent_impl.id
+        })
+
+      slug = build_impl_slug(child_impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      view |> render_click("open_drawer", %{"acid" => "my-feature.COMP.1"})
+
+      view
+      |> element("#drawer-comment-form-my-feature-COMP-1")
+      |> render_submit(%{
+        "acid" => "my-feature.COMP.1",
+        "state_comment" => %{"comment" => "Child comment"}
+      })
+
+      state = Acai.Specs.get_feature_impl_state("my-feature", child_impl)
+      assert state.states["my-feature.COMP.1"]["status"] == "accepted"
+      assert state.states["my-feature.COMP.1"]["comment"] == "Child comment"
+      assert has_element?(view, "#requirement-details-drawer", "accepted")
     end
   end
 
@@ -4475,7 +4631,7 @@ defmodule AcaiWeb.ImplementationLiveTest do
       # Verify modal is shown with warning text
       assert has_element?(view, "#cancel-clear-states-btn", "Cancel")
       assert has_element?(view, "#confirm-clear-states-btn", "Confirm Clear")
-      assert has_element?(view, ".alert", "clear all requirement states")
+      assert has_element?(view, ".alert", "clear all requirement states and comments")
     end
 
     # feature-settings.CLEAR_STATES.5: On confirmation, all feature_impl_states for this feature are deleted

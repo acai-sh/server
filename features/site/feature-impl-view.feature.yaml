@@ -49,6 +49,7 @@ components:
             3-2: Selecting a state from the list will apply it
             3-3: Selecting the existing state (if it has one) or deselecting (clicking off the dropdown) will avoid applying a new state.
             4: Refs column shows total number of code references across all tracked branches for this implementation.
+            4-1: Rows with a non-empty state comment render a comment icon beside the Status control.
             5: Clicking a row opens the requirement details drawer for that ACID.
 
     DRAWER:
@@ -60,6 +61,10 @@ components:
             3-1: The status control renders the same dropdown as the table Status column.
             3-2: The dropdown has the same behavior as the table Status column, including apply and no-op behavior.
             3-3: Within the requirement details drawer, the status dropdown opens downward.
+            3-4: Renders a comment form for the selected ACID, prefilled from the resolved state comment when present.
+            3-5: Submitting the comment form writes the comment to feature_impl_states.states for this implementation and ACID, preserving sibling ACIDs and existing metadata.
+            3-6: Submitting a blank comment clears the local comment for this ACID.
+            3-7: When a comment is saved for an inherited state, the local ACID entry preserves the currently resolved status for that ACID.
             4: Lists all refs from feature_branch_refs.refs for this ACID, aggregated across all tracked branches for this implementation.
             4-note: Each ref is sourced from a specific branch. Consider showing which branch each ref comes from.
             5: Each ref renders as clickable link to source file at the specific line.

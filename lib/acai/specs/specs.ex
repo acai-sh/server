@@ -414,6 +414,64 @@ defmodule Acai.Specs do
   end
 
   @doc """
+  Applies a single ACID comment change for a feature_name and implementation.
+
+  This function deep-merges the new comment into the local feature_impl_states row,
+  preserving sibling ACIDs and existing nested fields (status, metadata).
+  When a comment is saved for an inherited state with no local ACID entry yet,
+  the resolved status for that ACID is copied locally so the comment write does not
+  clear the visible inherited status.
+
+  Returns {:ok, feature_impl_state} on success, {:error, changeset} on failure.
+
+  ACIDs:
+  - feature-impl-view.DRAWER.3-5
+  - feature-impl-view.DRAWER.3-6
+  - feature-impl-view.DRAWER.3-7
+  - data-model.FEATURE_IMPL_STATES.4-2: Preserve status, metadata; update comment and updated_at
+  """
+  def apply_feature_impl_comment_change(
+        feature_name,
+        %Acai.Implementations.Implementation{} = implementation,
+        acid,
+        new_comment,
+        resolved_state_data \\ %{}
+      ) do
+    local_state = get_feature_impl_state(feature_name, implementation)
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    existing_acid_data =
+      case local_state do
+        nil -> %{}
+        %FeatureImplState{states: states} -> Map.get(states, acid, %{})
+      end
+
+    preserved_status =
+      if map_size(existing_acid_data) == 0 do
+        Map.get(resolved_state_data || %{}, "status")
+      else
+        nil
+      end
+
+    updated_acid_data =
+      existing_acid_data
+      |> maybe_preserve_resolved_status(preserved_status)
+      |> maybe_put_comment(normalize_state_comment(new_comment))
+      |> Map.put("updated_at", now)
+
+    base_states = if local_state, do: local_state.states, else: %{}
+    updated_states = Map.put(base_states, acid, updated_acid_data)
+
+    case local_state do
+      nil ->
+        create_feature_impl_state(feature_name, implementation, %{states: updated_states})
+
+      %FeatureImplState{} = existing_state ->
+        update_feature_impl_state(existing_state, %{states: updated_states})
+    end
+  end
+
+  @doc """
   Upserts a feature_impl_state by (feature_name, implementation_id).
   On conflict, replaces the states JSONB field.
   """
@@ -464,6 +522,20 @@ defmodule Acai.Specs do
       ) do
     not is_nil(get_feature_impl_state(feature_name, implementation))
   end
+
+  defp normalize_state_comment(comment) when is_binary(comment) do
+    if String.trim(comment) == "", do: nil, else: comment
+  end
+
+  defp normalize_state_comment(_comment), do: nil
+
+  defp maybe_preserve_resolved_status(state_data, nil), do: state_data
+
+  defp maybe_preserve_resolved_status(state_data, status),
+    do: Map.put_new(state_data, "status", status)
+
+  defp maybe_put_comment(state_data, nil), do: Map.delete(state_data, "comment")
+  defp maybe_put_comment(state_data, comment), do: Map.put(state_data, "comment", comment)
 
   # --- FeatureImplState Batch Queries ---
 

@@ -684,6 +684,89 @@ defmodule Acai.SpecsTest do
     end
   end
 
+  describe "apply_feature_impl_comment_change/5" do
+    # feature-impl-view.DRAWER.3-5: Comment writes preserve sibling ACIDs and existing metadata
+    test "updates one ACID comment while preserving status, metadata, and sibling states" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      {:ok, _} =
+        Specs.create_feature_impl_state(spec.feature_name, impl, %{
+          states: %{
+            "test.COMP.1" => %{
+              "status" => "completed",
+              "comment" => "Old note",
+              "metadata" => %{"priority" => "high"}
+            },
+            "test.COMP.2" => %{"status" => "assigned", "comment" => "Sibling note"}
+          }
+        })
+
+      assert {:ok, %FeatureImplState{} = state} =
+               Specs.apply_feature_impl_comment_change(
+                 spec.feature_name,
+                 impl,
+                 "test.COMP.1",
+                 "Fresh note"
+               )
+
+      assert state.states["test.COMP.1"]["status"] == "completed"
+      assert state.states["test.COMP.1"]["comment"] == "Fresh note"
+      assert state.states["test.COMP.1"]["metadata"] == %{"priority" => "high"}
+      assert state.states["test.COMP.1"]["updated_at"] != nil
+      assert state.states["test.COMP.2"] == %{"status" => "assigned", "comment" => "Sibling note"}
+    end
+
+    # feature-impl-view.DRAWER.3-6: Blank submissions clear the local comment
+    test "blank comment clears the local comment and keeps the local status" do
+      %{spec: spec, impl: impl} = setup_spec_chain()
+
+      {:ok, _} =
+        Specs.create_feature_impl_state(spec.feature_name, impl, %{
+          states: %{
+            "test.COMP.1" => %{"status" => "completed", "comment" => "Clear me"}
+          }
+        })
+
+      assert {:ok, %FeatureImplState{} = state} =
+               Specs.apply_feature_impl_comment_change(
+                 spec.feature_name,
+                 impl,
+                 "test.COMP.1",
+                 "   "
+               )
+
+      assert state.states["test.COMP.1"]["status"] == "completed"
+      refute Map.has_key?(state.states["test.COMP.1"], "comment")
+      assert state.states["test.COMP.1"]["updated_at"] != nil
+    end
+
+    # feature-impl-view.DRAWER.3-7: Preserves inherited status when a comment creates a local override
+    test "preserves the resolved inherited status when saving a comment with no local ACID entry" do
+      team = team_fixture()
+      product = product_fixture(team)
+
+      parent_impl = implementation_fixture(product, %{name: "Parent"})
+
+      child_impl =
+        implementation_fixture(product, %{name: "Child", parent_implementation_id: parent_impl.id})
+
+      _spec = spec_fixture(product, %{feature_name: "inheritance-test"})
+
+      assert {:ok, %FeatureImplState{} = state} =
+               Specs.apply_feature_impl_comment_change(
+                 "inheritance-test",
+                 child_impl,
+                 "inheritance-test.COMP.1",
+                 "Child-specific note",
+                 %{"status" => "accepted", "comment" => "Parent note"}
+               )
+
+      assert state.states["inheritance-test.COMP.1"]["status"] == "accepted"
+      assert state.states["inheritance-test.COMP.1"]["comment"] == "Child-specific note"
+      assert state.states["inheritance-test.COMP.1"]["updated_at"] != nil
+    end
+  end
+
   # --- FeatureBranchRef tests (branch-scoped refs) ---
 
   describe "get_feature_branch_ref/2" do

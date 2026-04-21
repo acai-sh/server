@@ -418,7 +418,9 @@ defmodule AcaiWeb.Live.Components.FeatureSettingsLive do
         <div class="alert text-sm">
           <.icon name="hero-exclamation-triangle" class="size-5 shrink-0 text-alert" />
           <div>
-            <p class="font-semibold">This will clear all requirement states for {@feature_name}.</p>
+            <p class="font-semibold">
+              This will clear all requirement states and comments for {@feature_name}.
+            </p>
             <p class="mt-1 text-xs">
               Any inherited states from parent implementations will remain.
             </p>

@@ -415,7 +415,7 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
       html = render_drawer(assigns)
 
       # feature-impl-view.INHERITANCE.2: Should show the inherited status comment
-      assert html =~ "Status Comment"
+      assert html =~ "Comment"
       assert html =~ "This status was set on parent implementation"
     end
 
@@ -1050,6 +1050,39 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
       # Should show the full URI, not just "project"
       # Verify the clickable repository popover link is rendered
       assert html =~ "href=\"https://gitlab.com.internal/group/project\""
+    end
+  end
+
+  describe "feature-impl-view.DRAWER.3-4" do
+    setup :register_and_log_in_user
+
+    test "renders a prefilled comment form for the selected ACID", %{user: user} do
+      %{spec: spec, implementation: implementation} = setup_data_chain()
+      _role = user_team_role_fixture(team_fixture(), user, %{title: "owner"})
+
+      assigns = %{
+        id: "test-drawer",
+        acid: "test-feature.COMP.1",
+        spec: spec,
+        implementation: implementation,
+        visible: true,
+        states: %{
+          "test-feature.COMP.1" => %{
+            "status" => "completed",
+            "comment" => "Captured from the implementation"
+          }
+        },
+        states_inherited: false,
+        states_source_impl: nil,
+        feature_name: "test-feature"
+      }
+
+      html = render_drawer(assigns)
+
+      assert html =~ "drawer-comment-form-test-feature-COMP-1"
+      assert html =~ "state_comment[comment]"
+      assert html =~ "Captured from the implementation"
+      assert html =~ "Save comment"
     end
   end
 end

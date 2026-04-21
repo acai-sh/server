@@ -215,6 +215,8 @@ defmodule AcaiWeb.ImplementationLive do
           # feature-impl-view.LIST.3: Status column shows state of this implementation, or inherited
           status: state_data["status"],
           refs_count: refs_count,
+          has_comment: has_state_comment?(state_data),
+          comment: normalized_state_comment(state_data),
           tests_count: tests_count,
           note: req.note,
           is_deprecated: req.is_deprecated,
@@ -389,6 +391,8 @@ defmodule AcaiWeb.ImplementationLive do
           requirement: req.requirement,
           status: state_data["status"],
           refs_count: refs_count,
+          has_comment: has_state_comment?(state_data),
+          comment: normalized_state_comment(state_data),
           tests_count: tests_count,
           note: req.note,
           is_deprecated: req.is_deprecated,
@@ -777,6 +781,44 @@ defmodule AcaiWeb.ImplementationLive do
           # This ensures inherited states are never copied into local override rows
           apply_status_change(socket, acid, normalized_status)
         end
+      end
+    end
+  end
+
+  # feature-impl-view.DRAWER.3-5: Submitting the comment form writes the comment for this ACID
+  # feature-impl-view.DRAWER.3-6: Blank comment submissions clear the local comment
+  # feature-impl-view.DRAWER.3-7: Inherited status is preserved when a comment creates a local override
+  def handle_event(
+        "save_comment",
+        %{"acid" => acid, "state_comment" => %{"comment" => comment}},
+        socket
+      ) do
+    valid_acids = Enum.map(socket.assigns.requirements, & &1.acid)
+
+    unless acid in valid_acids do
+      {:noreply,
+       socket
+       |> put_flash(:error, "Invalid requirement")}
+    else
+      resolved_state_data = Map.get(socket.assigns.states, acid, %{})
+      normalized_comment = normalize_state_comment(comment)
+      current_comment = normalize_state_comment(Map.get(resolved_state_data, "comment"))
+      max_comment_length = state_comment_max_length()
+
+      cond do
+        comment_too_long?(comment, max_comment_length) ->
+          {:noreply,
+           socket
+           |> put_flash(
+             :error,
+             "Comment exceeds the maximum length of #{max_comment_length} characters"
+           )}
+
+        current_comment == normalized_comment ->
+          {:noreply, socket}
+
+        true ->
+          apply_comment_change(socket, acid, comment, resolved_state_data)
       end
     end
   end
@@ -1607,13 +1649,23 @@ defmodule AcaiWeb.ImplementationLive do
               </div>
               <%!-- feature-impl-view.LIST.3-1: Status column shows interactive dropdown --%>
               <div phx-click="status_cell_clicked" phx-value-acid={req.acid}>
-                <.feature_status_dropdown
-                  acid={req.acid}
-                  current_status={req.status}
-                  inherited={@inherited}
-                  open_upward={index >= max(length(@requirements) - 7, 0)}
-                  id_prefix="status"
-                />
+                <div class="flex items-center gap-2">
+                  <.feature_status_dropdown
+                    acid={req.acid}
+                    current_status={req.status}
+                    inherited={@inherited}
+                    open_upward={index >= max(length(@requirements) - 7, 0)}
+                    id_prefix="status"
+                  />
+                  <div
+                    :if={req.has_comment}
+                    id={"requirement-comment-indicator-#{String.replace(req.acid, ".", "-")}"}
+                    class="tooltip inline-flex text-base-content/50"
+                    data-tip={req.comment}
+                  >
+                    <.icon name="hero-chat-bubble-left-ellipsis" class="size-4" />
+                  </div>
+                </div>
               </div>
               <div class="truncate min-w-0 text-xs">{req.requirement}</div>
               <div class="text-center">{req.refs_count}</div>
@@ -1640,6 +1692,19 @@ defmodule AcaiWeb.ImplementationLive do
     ~H"""
     """
   end
+
+  defp has_state_comment?(%{"comment" => comment}) when is_binary(comment) do
+    String.trim(comment) != ""
+  end
+
+  defp has_state_comment?(_state_data), do: false
+
+  defp normalized_state_comment(%{"comment" => comment}) when is_binary(comment) do
+    trimmed_comment = String.trim(comment)
+    if trimmed_comment == "", do: nil, else: trimmed_comment
+  end
+
+  defp normalized_state_comment(_state_data), do: nil
 
   # data-model.FEATURE_IMPL_STATES.4-3: Status legend component using canonical metadata
   # Renders all non-nil statuses in display order with inherited opacity handling
@@ -1690,6 +1755,44 @@ defmodule AcaiWeb.ImplementationLive do
         {:noreply, put_flash(socket, :error, "Failed to update status")}
     end
   end
+
+  # Persist a comment change for a single ACID while preserving the resolved inherited status.
+  defp apply_comment_change(socket, acid, new_comment, resolved_state_data) do
+    feature_name = socket.assigns.feature_name
+    implementation = socket.assigns.implementation
+
+    case Specs.apply_feature_impl_comment_change(
+           feature_name,
+           implementation,
+           acid,
+           new_comment,
+           resolved_state_data
+         ) do
+      {:ok, _state} ->
+        refresh_implementation_data(socket)
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to update comment")}
+    end
+  end
+
+  defp state_comment_max_length do
+    AcaiWeb.Api.Operations.semantic_caps(:feature_states)
+    |> Map.get(:max_comment_length)
+  end
+
+  defp comment_too_long?(comment, max_comment_length)
+       when is_binary(comment) and is_integer(max_comment_length) do
+    String.length(comment) > max_comment_length
+  end
+
+  defp comment_too_long?(_comment, _max_comment_length), do: false
+
+  defp normalize_state_comment(comment) when is_binary(comment) do
+    if String.trim(comment) == "", do: nil, else: comment
+  end
+
+  defp normalize_state_comment(_comment), do: nil
 
   # Refresh implementation data after a state change
   # Uses the existing reload path to keep all UI components aligned

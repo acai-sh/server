@@ -59,6 +59,8 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
       # Build status struct-like map from JSONB data
       requirement_status = build_status_from_jsonb(state_data)
 
+      max_comment_length = state_comment_max_length()
+
       socket =
         socket
         |> assign(:id, id)
@@ -71,6 +73,11 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
         |> assign(:states_inherited, states_inherited)
         |> assign(:states_source_impl, states_source_impl)
         |> assign(:feature_name, feature_name)
+        |> assign(
+          :comment_form,
+          build_comment_form(requirement_status && requirement_status.note)
+        )
+        |> assign(:max_comment_length, max_comment_length)
 
       {:ok, socket}
     else
@@ -85,7 +92,9 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
        |> assign(:visible, Map.get(assigns, :visible) || Map.get(assigns, "visible") || false)
        |> assign(:states_inherited, states_inherited)
        |> assign(:states_source_impl, states_source_impl)
-       |> assign(:feature_name, feature_name)}
+       |> assign(:feature_name, feature_name)
+       |> assign(:comment_form, build_comment_form(nil))
+       |> assign(:max_comment_length, state_comment_max_length())}
     end
   end
 
@@ -119,6 +128,15 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
       note: data["comment"],
       updated_at: data["updated_at"]
     }
+  end
+
+  defp build_comment_form(comment) do
+    to_form(%{"comment" => comment || ""}, as: :state_comment)
+  end
+
+  defp state_comment_max_length do
+    AcaiWeb.Api.Operations.semantic_caps(:feature_states)
+    |> Map.get(:max_comment_length)
   end
 
   @impl true
@@ -271,17 +289,34 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
                 </div>
               </div>
 
-              <%!-- requirement-details.DRAWER.7: Comment section from status note --%>
-              <div
-                :if={@requirement_status && @requirement_status.note}
-                class="space-y-2 bg-base-200/50 p-4 rounded-lg border border-base-300"
-              >
+              <%!-- feature-impl-view.DRAWER.3-4, feature-impl-view.DRAWER.3-5, feature-impl-view.DRAWER.3-6: Comment editor for the selected ACID --%>
+              <div class="space-y-3 bg-base-200/50 p-4 rounded-lg border border-base-300">
                 <h3 class="text-sm font-medium text-base-content/70 uppercase tracking-wider text-xs">
-                  Status Comment
+                  Comment
                 </h3>
-                <p class="text-sm text-base-content/80 italic leading-relaxed">
-                  "{@requirement_status.note}"
-                </p>
+                <.form
+                  for={@comment_form}
+                  id={"drawer-comment-form-#{acid_dom_id(@acid)}"}
+                  phx-submit="save_comment"
+                  phx-value-acid={@acid}
+                >
+                  <.input
+                    field={@comment_form[:comment]}
+                    type="textarea"
+                    rows="4"
+                    maxlength={@max_comment_length}
+                  />
+
+                  <div class="mt-3 flex justify-end">
+                    <button
+                      type="submit"
+                      class="btn btn-primary btn-sm"
+                      id={"drawer-comment-save-#{acid_dom_id(@acid)}"}
+                    >
+                      Save comment
+                    </button>
+                  </div>
+                </.form>
               </div>
 
               <%!-- requirement-details.DRAWER.5: References section --%>
@@ -421,4 +456,6 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   # Format path for display (show file:line format)
   defp format_path(path) when is_binary(path), do: path
   defp format_path(_), do: ""
+
+  defp acid_dom_id(acid), do: String.replace(acid, ".", "-")
 end
