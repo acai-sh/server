@@ -36,7 +36,7 @@ ensure_repo "$RESTIC_REMOTE_REPO" "Remote"
 
 # --- Step 1: Backup to Local Disk ---
 
-FILENAME="${POSTGRES_DB}_$(date +%Y%m%d_%H%M%S).dump"
+FILENAME="${POSTGRES_DB}.dump"
 log "Step 1: Streaming Database to LOCAL Repository..."
 
 # Use RESTIC_SNAPSHOT_TAG env var, defaulting to "untagged"
