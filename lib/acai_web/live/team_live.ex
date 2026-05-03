@@ -438,7 +438,6 @@ defmodule AcaiWeb.TeamLive do
         <div
           id="invite-modal-backdrop"
           class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center"
-          phx-click="close_invite_modal"
         >
           <div
             id="invite-modal"
