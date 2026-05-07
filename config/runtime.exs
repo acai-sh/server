@@ -22,6 +22,13 @@ int_env = fn name, default ->
   end
 end
 
+bool_env = fn name, default ->
+  case System.get_env(name) do
+    nil -> default
+    value -> value in ~w(true 1)
+  end
+end
+
 non_prod? = config_env() != :prod
 
 api_default_request_size_cap = if non_prod?, do: 2_000_000, else: 1_000_000
@@ -168,11 +175,41 @@ if config_env() == :prod do
     # pool_count: 4,
     socket_options: maybe_ipv6
 
-  config :acai, Acai.Mailer,
-    adapter: Swoosh.Adapters.Mailgun,
-    api_key: System.get_env("MAILGUN_API_KEY"),
-    domain: System.get_env("MAILGUN_DOMAIN"),
-    base_url: System.get_env("MAILGUN_BASE_URL")
+  if smtp_host = System.get_env("SMTP_HOST") do
+    smtp_ssl = bool_env.("SMTP_SSL", false)
+
+    smtp_cacerts =
+      CAStore.file_path()
+      |> File.read!()
+      |> :public_key.pem_decode()
+      |> Enum.map(fn {_, der, _} -> der end)
+
+    smtp_tls_opts = [
+      versions: [:"tlsv1.2", :"tlsv1.3"],
+      verify: :verify_peer,
+      cacerts: smtp_cacerts,
+      depth: 99,
+      server_name_indication: String.to_charlist(smtp_host)
+    ]
+
+    config :acai, Acai.Mailer,
+      adapter: Swoosh.Adapters.SMTP,
+      relay: smtp_host,
+      port: int_env.("SMTP_PORT", 587),
+      username: System.get_env("SMTP_USERNAME"),
+      password: System.get_env("SMTP_PASSWORD"),
+      ssl: smtp_ssl,
+      tls: if(smtp_ssl, do: :never, else: :always),
+      auth: :always,
+      tls_options: smtp_tls_opts,
+      sockopts: smtp_tls_opts
+  else
+    config :acai, Acai.Mailer,
+      adapter: Swoosh.Adapters.Mailgun,
+      api_key: System.get_env("MAILGUN_API_KEY"),
+      domain: System.get_env("MAILGUN_DOMAIN"),
+      base_url: System.get_env("MAILGUN_BASE_URL")
+  end
 
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
   config :swoosh, :api_client, Swoosh.ApiClient.Req

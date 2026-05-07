@@ -42,10 +42,12 @@ defmodule Acai.MixProject do
     [
       {:argon2_elixir, "~> 4.0"},
       {:bandit, "~> 1.10.4"},
+      {:castore, ">= 0.0.0"},
       {:dns_cluster, "~> 0.2.0"},
       {:ecto_psql_extras, "~> 0.8"},
       {:ecto_sql, "~> 3.13"},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
+      {:gen_smtp, "~> 1.0"},
       {:gettext, "~> 1.0"},
       {:heroicons,
        github: "tailwindlabs/heroicons",
