@@ -66,6 +66,7 @@ defmodule Acai.MixProject do
       {:phoenix_live_view, "~> 1.1.0"},
       {:postgrex, ">= 0.0.0"},
       {:req, "~> 0.5"},
+      {:gen_smtp, "~> 1.0"},
       {:swoosh, "~> 1.16"},
       {:tailwind, "~> 0.4", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 1.0"},

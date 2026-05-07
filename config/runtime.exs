@@ -168,11 +168,26 @@ if config_env() == :prod do
     # pool_count: 4,
     socket_options: maybe_ipv6
 
-  config :acai, Acai.Mailer,
-    adapter: Swoosh.Adapters.Mailgun,
-    api_key: System.get_env("MAILGUN_API_KEY"),
-    domain: System.get_env("MAILGUN_DOMAIN"),
-    base_url: System.get_env("MAILGUN_BASE_URL")
+  if smtp_host = System.get_env("SMTP_HOST") do
+    smtp_ssl = System.get_env("SMTP_SSL") == "true"
+
+    config :acai, Acai.Mailer,
+      adapter: Swoosh.Adapters.SMTP,
+      relay: smtp_host,
+      port: String.to_integer(System.get_env("SMTP_PORT", "587")),
+      username: System.get_env("SMTP_USERNAME"),
+      password: System.get_env("SMTP_PASSWORD"),
+      ssl: smtp_ssl,
+      tls: if(smtp_ssl, do: :never, else: :always),
+      auth: :always,
+      tls_options: [versions: [:"tlsv1.2", :"tlsv1.3"], cacerts: :public_key.cacerts_get()]
+  else
+    config :acai, Acai.Mailer,
+      adapter: Swoosh.Adapters.Mailgun,
+      api_key: System.get_env("MAILGUN_API_KEY"),
+      domain: System.get_env("MAILGUN_DOMAIN"),
+      base_url: System.get_env("MAILGUN_BASE_URL")
+  end
 
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
   config :swoosh, :api_client, Swoosh.ApiClient.Req
