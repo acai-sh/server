@@ -263,7 +263,7 @@ defmodule AcaiWeb.Api.Schemas.PushSchemas do
           type: :string,
           maxLength: 2_048,
           description:
-            "`repo_uri` should be in the format `host/owner/repo` (e.g. `github.com/my-org/my-repo`). Supported hosts for deep linking are `github.com`, `gitlab.com`, and `bitbucket.org`. Self-hosted instances may work for tracking but deep links are not guaranteed yet."
+            "`repo_uri` should be in the format `host/owner/repo` (e.g. `github.com/my-org/my-repo`). Supported hosts for deep linking are `github.com`, `gitlab.com`, `bitbucket.org`, and `codeberg.org`. Self-hosted instances may work for tracking but deep links are not guaranteed yet."
         },
         branch_name: %OpenApiSpex.Schema{
           type: :string,

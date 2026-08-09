@@ -83,4 +83,96 @@ defmodule AcaiWeb.Helpers.RepoFormatterTest do
       assert RepoFormatter.format_repo_name("github.com/owner/repo/") == "github.com/owner/repo/"
     end
   end
+
+  describe "source_file_url/4" do
+    # feature-impl-view.DRAWER.5
+    test "feature-impl-view.DRAWER.5: builds a /blob/ link with a line anchor for GitHub repos" do
+      assert RepoFormatter.source_file_url(
+               "github.com/acai-sh/server",
+               "main",
+               "lib/foo.ex",
+               "42"
+             ) == "https://github.com/acai-sh/server/blob/main/lib/foo.ex#L42"
+    end
+
+    # feature-impl-view.DRAWER.5
+    test "feature-impl-view.DRAWER.5: omits the line anchor when the ref has no line number" do
+      assert RepoFormatter.source_file_url("github.com/acai-sh/server", "main", "lib/foo.ex") ==
+               "https://github.com/acai-sh/server/blob/main/lib/foo.ex"
+    end
+
+    # feature-impl-view.DRAWER.5
+    test "feature-impl-view.DRAWER.5: keeps the /blob/ shape for hosts other than Codeberg" do
+      assert RepoFormatter.source_file_url("gitlab.com/group/project", "main", "lib/foo.ex", "42") ==
+               "https://gitlab.com/group/project/blob/main/lib/foo.ex#L42"
+
+      assert RepoFormatter.source_file_url("bitbucket.org/team/repo", "main", "lib/foo.ex", "42") ==
+               "https://bitbucket.org/team/repo/blob/main/lib/foo.ex#L42"
+    end
+
+    # feature-impl-view.DRAWER.5-1
+    test "feature-impl-view.DRAWER.5-1: builds a /src/branch/ link for Codeberg repos" do
+      assert RepoFormatter.source_file_url(
+               "codeberg.org/tarcisio/conan-flake",
+               "main",
+               "nix/modules/configuration/outputs.nix",
+               "106"
+             ) ==
+               "https://codeberg.org/tarcisio/conan-flake/src/branch/main/nix/modules/configuration/outputs.nix#L106"
+    end
+
+    # feature-impl-view.DRAWER.5-1
+    test "feature-impl-view.DRAWER.5-1: does not double the scheme when the repo_uri has one" do
+      assert RepoFormatter.source_file_url(
+               "https://codeberg.org/tarcisio/conan-flake",
+               "main",
+               "nix/x.nix",
+               "106"
+             ) == "https://codeberg.org/tarcisio/conan-flake/src/branch/main/nix/x.nix#L106"
+    end
+
+    # feature-impl-view.DRAWER.5-1
+    test "feature-impl-view.DRAWER.5-1: omits the line anchor for Codeberg refs without a line" do
+      assert RepoFormatter.source_file_url("codeberg.org/owner/repo", "feat/a-b", "lib/foo.ex") ==
+               "https://codeberg.org/owner/repo/src/branch/feat/a-b/lib/foo.ex"
+    end
+
+    # feature-impl-view.DRAWER.5-1
+    test "feature-impl-view.DRAWER.5-1: matches the Codeberg host case-insensitively" do
+      assert RepoFormatter.source_file_url("CODEBERG.ORG/Owner/Repo", "main", "lib/foo.ex", "42") ==
+               "https://CODEBERG.ORG/Owner/Repo/src/branch/main/lib/foo.ex#L42"
+    end
+
+    # feature-impl-view.DRAWER.5-1
+    # Regression test: hosts that share a prefix with codeberg.org must NOT use /src/branch/
+    test "feature-impl-view.DRAWER.5-1: does not use /src/branch/ for Codeberg lookalike hosts" do
+      assert RepoFormatter.source_file_url(
+               "codeberg.org.au/owner/repo",
+               "main",
+               "lib/foo.ex",
+               "42"
+             ) ==
+               "https://codeberg.org.au/owner/repo/blob/main/lib/foo.ex#L42"
+
+      assert RepoFormatter.source_file_url(
+               "my-codeberg.org/owner/repo",
+               "main",
+               "lib/foo.ex",
+               "42"
+             ) ==
+               "https://my-codeberg.org/owner/repo/blob/main/lib/foo.ex#L42"
+
+      assert RepoFormatter.source_file_url(
+               "codeberg.organic/owner/repo",
+               "main",
+               "lib/foo.ex",
+               "42"
+             ) ==
+               "https://codeberg.organic/owner/repo/blob/main/lib/foo.ex#L42"
+    end
+
+    test "feature-impl-view.DRAWER.5: handles nil repo_uri" do
+      assert RepoFormatter.source_file_url(nil, "main", "lib/foo.ex", "42") == ""
+    end
+  end
 end
