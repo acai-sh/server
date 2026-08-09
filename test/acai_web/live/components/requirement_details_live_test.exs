@@ -60,6 +60,49 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
     render_component(RequirementDetailsLive, assigns)
   end
 
+  # Helper to render the drawer with a single ref on a branch with the given repo_uri
+  defp render_drawer_for_repo(user, repo_uri, branch_name, ref_path) do
+    team = team_fixture()
+    product = product_fixture(team)
+    _role = user_team_role_fixture(team, user, %{title: "owner"})
+
+    requirements = %{
+      "test-feature.COMP.1" => %{
+        "requirement" => "Test requirement",
+        "note" => nil,
+        "is_deprecated" => false,
+        "replaced_by" => []
+      }
+    }
+
+    branch = branch_fixture(team, %{repo_uri: repo_uri, branch_name: branch_name})
+
+    spec =
+      spec_fixture(product, %{
+        feature_name: "test-feature",
+        requirements: requirements,
+        branch: branch
+      })
+
+    implementation = implementation_fixture(product, %{name: "Production"})
+    tracked_branch_fixture(implementation, branch: branch, repo_uri: branch.repo_uri)
+
+    spec_impl_ref_fixture(spec, implementation, %{
+      refs: %{
+        "test-feature.COMP.1" => [%{"path" => ref_path, "is_test" => false}]
+      }
+    })
+
+    render_drawer(%{
+      id: "test-drawer",
+      acid: "test-feature.COMP.1",
+      spec: spec,
+      implementation: implementation,
+      refs_by_branch: get_refs_by_branch(spec, implementation),
+      visible: true
+    })
+  end
+
   describe "requirement-details.DRAWER.1: Renders requirement ACID as title" do
     setup :register_and_log_in_user
 
@@ -1050,6 +1093,49 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLiveTest do
       # Should show the full URI, not just "project"
       # Verify the clickable repository popover link is rendered
       assert html =~ "href=\"https://gitlab.com.internal/group/project\""
+    end
+  end
+
+  describe "Reference link URLs in the rendered drawer" do
+    setup :register_and_log_in_user
+
+    test "feature-impl-view.DRAWER.5-1: renders a /src/branch/ href for Codeberg refs", %{
+      user: user
+    } do
+      html =
+        render_drawer_for_repo(
+          user,
+          "codeberg.org/tarcisio/conan-flake",
+          "main",
+          "nix/modules/configuration/outputs.nix:106"
+        )
+
+      assert html =~
+               "href=\"https://codeberg.org/tarcisio/conan-flake/src/branch/main/nix/modules/configuration/outputs.nix#L106\""
+    end
+
+    test "feature-impl-view.DRAWER.5-1: renders a single scheme when the repo_uri has one", %{
+      user: user
+    } do
+      html =
+        render_drawer_for_repo(
+          user,
+          "https://codeberg.org/tarcisio/conan-flake",
+          "main",
+          "nix/x.nix:106"
+        )
+
+      assert html =~
+               "href=\"https://codeberg.org/tarcisio/conan-flake/src/branch/main/nix/x.nix#L106\""
+
+      refute html =~ "https://https://"
+    end
+
+    # Regression: non-Codeberg hosts keep the /blob/ shape
+    test "feature-impl-view.DRAWER.5: renders a /blob/ href for GitHub refs", %{user: user} do
+      html = render_drawer_for_repo(user, "github.com/acai-sh/server", "main", "lib/foo.ex:42")
+
+      assert html =~ "href=\"https://github.com/acai-sh/server/blob/main/lib/foo.ex#L42\""
     end
   end
 
