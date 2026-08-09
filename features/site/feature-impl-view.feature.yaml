@@ -68,6 +68,8 @@ components:
             4: Lists all refs from feature_branch_refs.refs for this ACID, aggregated across all tracked branches for this implementation.
             4-note: Each ref is sourced from a specific branch. Consider showing which branch each ref comes from.
             5: Each ref renders as clickable link to source file at the specific line.
+            5-1: For Codeberg refs https://codeberg.org/<owner>/<repo>, the link rendered follows the URL pattern https://codeberg.org/<owner>/<repo>/src/branch/<branch_name>/<path>#L<line>
+            5-1-note: This is reported as a bug (https://github.com/acai-sh/server/issues/10).
             6: Test refs visually distinguished from non-test refs.
             7: Drawer dismisses without navigation.
 
