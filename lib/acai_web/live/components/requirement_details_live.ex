@@ -426,21 +426,15 @@ defmodule AcaiWeb.Live.Components.RequirementDetailsLive do
   end
 
   # feature-impl-view.DRAWER.5: Build the clickable link to source file at specific line
-  # Format: https://<repo_uri>/blob/<branch_name>/<path>#L<line>
+  # Format: <repo_http_url>/blob/<branch_name>/<path>#L<line>
+  # feature-impl-view.DRAWER.5-1: Codeberg refs use <repo_http_url>/src/branch/<branch_name>/<path>#L<line>
   # Uses actual branch data from the database
   defp build_reference_url(branch, ref) do
     # feature-impl-view.DRAWER.5: Include line number when available
     {file_path, line} = parse_path_and_line(ref["path"])
 
     # Use the branch_name from the actual branch record
-    base_url = "https://#{branch.repo_uri}/blob/#{branch.branch_name}/#{file_path}"
-
-    # Append line number anchor if present
-    if line do
-      "#{base_url}#L#{line}"
-    else
-      base_url
-    end
+    source_file_url(branch.repo_uri, branch.branch_name, file_path, line)
   end
 
   # Parse path like "lib/my_app/foo.ex:42" into {"lib/my_app/foo.ex", "42"}

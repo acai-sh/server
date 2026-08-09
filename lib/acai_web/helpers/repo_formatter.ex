@@ -62,6 +62,60 @@ defmodule AcaiWeb.Helpers.RepoFormatter do
 
   def repo_http_url(_), do: ""
 
+  @doc """
+  Builds a link to a source file, on a given branch, at an optional line number.
+
+  The stored `repo_uri` is normalised with `repo_http_url/1`, so a URI that
+  already carries a scheme is not given a second one. The path shape depends on
+  the host: Codeberg serves source files under `/src/branch/`, every other host
+  keeps the `/blob/` shape.
+
+  ## Examples
+
+      iex> source_file_url("github.com/owner/repo", "main", "lib/foo.ex", "42")
+      "https://github.com/owner/repo/blob/main/lib/foo.ex#L42"
+
+      iex> source_file_url("codeberg.org/owner/repo", "main", "lib/foo.ex", "42")
+      "https://codeberg.org/owner/repo/src/branch/main/lib/foo.ex#L42"
+
+      iex> source_file_url("codeberg.org/owner/repo", "main", "lib/foo.ex", nil)
+      "https://codeberg.org/owner/repo/src/branch/main/lib/foo.ex"
+  """
+  # feature-impl-view.DRAWER.5: Link to the source file at the specific line
+  def source_file_url(repo_uri, branch_name, file_path, line \\ nil)
+
+  def source_file_url(repo_uri, branch_name, file_path, line) when is_binary(repo_uri) do
+    base_url =
+      "#{repo_http_url(repo_uri)}/#{source_path_segment(repo_uri)}/#{branch_name}/#{file_path}"
+
+    # feature-impl-view.DRAWER.5: Line anchor only when the ref carries a line number
+    if line do
+      "#{base_url}#L#{line}"
+    else
+      base_url
+    end
+  end
+
+  def source_file_url(_, _, _, _), do: ""
+
+  # feature-impl-view.DRAWER.5-1: Codeberg serves source files under /src/branch/<branch_name>
+  # Every other host keeps the /blob/<branch_name> shape.
+  defp source_path_segment(uri) do
+    if codeberg?(uri), do: "src/branch", else: "blob"
+  end
+
+  # feature-impl-view.DRAWER.5-1: Exact, case-insensitive codeberg.org host match, so
+  # lookalikes such as codeberg.org.au or my-codeberg.org are not treated as Codeberg.
+  defp codeberg?(uri) do
+    uri
+    |> strip_scheme()
+    |> matches_known_host?("codeberg.org")
+  end
+
+  defp strip_scheme("https://" <> rest), do: rest
+  defp strip_scheme("http://" <> rest), do: rest
+  defp strip_scheme(uri), do: uri
+
   # Checks if the URI matches a known host exactly (case-insensitive)
   # e.g., "github.com/owner/repo" matches "github.com"
   # but "github.com.au/owner/repo" does NOT match "github.com"
