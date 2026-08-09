@@ -32,6 +32,7 @@ components:
             2-4: For unknown URI patterns, displays the full repo_uri unchanged
             2-5: Indicates with a badge if the spec is inherited or is local
             2-5-note: inherited means; not pushed to a tracked branch, but found in an ancestor's. Local means; directly pushed to this implementation's tracked branch. There is only ever 1 canonical spec from this view.
+            2-6: The path renders as a link to that spec file on that branch, using the same host-appropriate source-file URL pattern as feature-impl-view.DRAWER.5-1.
             3: Renders a 'tracked-branches' card that lists every tracked branch name
             4: Renders the feature description from the target spec
 
