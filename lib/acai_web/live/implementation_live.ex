@@ -1347,8 +1347,9 @@ defmodule AcaiWeb.ImplementationLive do
               <.icon name="hero-document-text" class="size-3.5" />
               <span>Path</span>
             </div>
+            <%!-- feature-impl-view.CARDS.2-6: Host-appropriate source-file URL, no line anchor --%>
             <.link
-              href={"#{repo_http_url(@spec.branch.repo_uri)}/blob/#{@spec.branch.branch_name}/#{@spec.path}"}
+              href={source_file_url(@spec.branch.repo_uri, @spec.branch.branch_name, @spec.path)}
               target="_blank"
               rel="noopener noreferrer"
               class="text-sm hover:underline break-all text-base-content/80 hover:text-primary"

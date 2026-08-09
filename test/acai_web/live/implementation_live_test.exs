@@ -2731,6 +2731,76 @@ defmodule AcaiWeb.ImplementationLiveTest do
       assert has_element?(view, ".card", "bitbucket.org/team/project")
     end
 
+    # feature-impl-view.CARDS.2-6
+    test "feature-impl-view.CARDS.2-6: target spec path links to /src/branch/ for Codeberg specs",
+         %{conn: conn, user: user} do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      branch =
+        branch_fixture(team, %{repo_uri: "codeberg.org/owner/my-repo", branch_name: "main"})
+
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        path: "features/my-feature/spec.yaml",
+        branch: branch,
+        requirements: %{
+          "my-feature.COMP.1" => %{
+            "requirement" => "Test req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      assert has_element?(
+               view,
+               "a[href='https://codeberg.org/owner/my-repo/src/branch/main/features/my-feature/spec.yaml']"
+             )
+
+      refute has_element?(view, "a[href*='codeberg.org/owner/my-repo/blob/']")
+    end
+
+    # feature-impl-view.CARDS.2-6
+    test "feature-impl-view.CARDS.2-6: target spec path keeps /blob/ for GitHub specs", %{
+      conn: conn,
+      user: user
+    } do
+      {team, _role} = create_team_with_owner(user)
+      product = create_product(team, "TestProduct")
+      impl = create_implementation_for_product(product, name: "Production")
+
+      branch = branch_fixture(team, %{repo_uri: "github.com/owner/my-repo", branch_name: "main"})
+      tracked_branch_fixture(impl, branch: branch, repo_uri: branch.repo_uri)
+
+      spec_fixture(product, %{
+        feature_name: "my-feature",
+        path: "features/my-feature/spec.yaml",
+        branch: branch,
+        requirements: %{
+          "my-feature.COMP.1" => %{
+            "requirement" => "Test req",
+            "is_deprecated" => false,
+            "replaced_by" => []
+          }
+        }
+      })
+
+      slug = build_impl_slug(impl)
+      {:ok, view, _html} = live(conn, ~p"/t/#{team.name}/i/#{slug}/f/my-feature")
+
+      assert has_element?(
+               view,
+               "a[href='https://github.com/owner/my-repo/blob/main/features/my-feature/spec.yaml']"
+             )
+    end
+
     # feature-impl-view.CARDS.3-1
     test "tracked branches card uses repo name display for GitHub URIs", %{conn: conn, user: user} do
       {team, _role} = create_team_with_owner(user)
